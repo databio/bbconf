@@ -1,6 +1,7 @@
 # Project configuration, particularly for logging.
 
 import logmuse
+from .const import *
 from ._version import __version__
 
 __classes__ = []
