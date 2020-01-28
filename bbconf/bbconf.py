@@ -66,12 +66,13 @@ def get_bedbase_cfg(cfg):
 
     :param str cfg: path to the config file.
         Optional, the bedbase config env var will be used if not provided
-    :return bbconf.BedBaseConf: configuration object
+    :return str: configuration file path
     """
     selected_cfg = yacman.select_config(config_filepath=cfg, config_env_vars=CFG_ENV_VARS)
-    assert selected_cfg is not None, "You must provide a config file or set the {} environment variable".\
-        format("or ".join(CFG_ENV_VARS))
-    return yacman.YacAttMap(filepath=selected_cfg)
+    if not selected_cfg:
+        raise BedBaseConfError("You must provide a config file or set the {} "
+                               "environment variable".format("or ".join(CFG_ENV_VARS)))
+    return selected_cfg
 
 
 
