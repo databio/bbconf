@@ -60,6 +60,15 @@ class BedBaseConf(yacman.YacAttMap):
         _LOGGER.info("Established connection with Elasticsearch: {}".format(hst))
         _LOGGER.debug("Elasticsearch info:\n{}".format(self[ES_CLIENT_KEY].info()))
 
+    def assert_connection(self):
+        """
+        Check whether an Elasticsearch connection has been established
+
+        :raise BedBaseConnectionError: if there is no active connection
+        """
+        if not hasattr(self, ES_CLIENT_KEY):
+            raise BedBaseConnectionError("No active connection with Elasticsearch")
+
     def _search_index(self, index_name, query, just_data=True):
         """
         Search selected Elasticsearch index with selected query
@@ -69,8 +78,7 @@ class BedBaseConf(yacman.YacAttMap):
         :param bool just_data: whether just the hits should be returned
         :return dict | Iterable[dict]: search results
         """
-        if not hasattr(self, ES_CLIENT_KEY):
-            raise BedBaseConnectionError("No active connection with the database")
+        self.assert_connection()
         _LOGGER.debug("Searching index: {}\nQuery: {}".format(index_name, query))
         query = {"query": query} if "query" not in query else query
         search_results = self[ES_CLIENT_KEY].search(index=index_name, body=query)
@@ -97,8 +105,36 @@ class BedBaseConf(yacman.YacAttMap):
         """
         return self._search_index(index_name=BEDSET_INDEX, query=query, just_data=just_data)
 
+    def _insert_data(self, index, data, **kwargs):
+        """
+        Insert data to an index in a Elasticsearch DB
+        or create it and the insert in case it does not exist
 
-# config reading functions
+        :param str index: name of the index to insert the data into
+        :param dict data: data to insert
+        """
+        self.assert_connection()
+        self[ES_CLIENT_KEY].index(index=index, body=data, **kwargs)
+
+    def insert_bedfile_data(self, data, **kwargs):
+        """
+        Insert data to the bedfile index a Elasticsearch DB
+        or create it and the insert in case it does not exist
+
+        :param dict data: data to insert
+        """
+        self._insert_data(index=BED_INDEX, data=data, **kwargs)
+
+    def insert_bedset_data(self, data, **kwargs):
+        """
+        Insert data to the bedset index in a Elasticsearch DB
+        or create it and the insert in case it does not exist
+
+        :param dict data: data to insert
+        """
+        self._insert_data(index=BEDSET_INDEX, data=data, **kwargs)
+
+
 def get_bedbase_cfg(cfg=None):
     """
     Read and create the bedbase configuration object
