@@ -1,14 +1,11 @@
-import logmuse
-import os
 from elasticsearch import Elasticsearch
 from logging import getLogger
-
-from .const import *
-from .exceptions import *
 
 from attmap import PathExAttMap as PXAM
 import yacman
 
+from .const import *
+from .exceptions import *
 
 _LOGGER = getLogger(PKG_NAME)
 
