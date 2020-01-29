@@ -149,7 +149,7 @@ class BedBaseConf(yacman.YacAttMap):
         """
         Get mapping definitions for the bedfiles index
 
-        :return: bedfiles mapping definitions
+        :return dict: bedfiles mapping definitions
         """
         return self._get_mapping(index=BED_INDEX, just_data=just_data, **kwargs)
 
@@ -157,9 +157,35 @@ class BedBaseConf(yacman.YacAttMap):
         """
         Get mapping definitions for the bedsets index
 
-        :return: besets mapping definitions
+        :return dict: besets mapping definitions
         """
         return self._get_mapping(index=BEDSET_INDEX, just_data=just_data, **kwargs)
+
+    def _count_docs(self, index):
+        """
+        Get the total number of the documents in a selected index
+
+        :param str index: index to count the documents for
+        :return int: number of documents
+        """
+        self.assert_connection()
+        return int(self[ES_CLIENT_KEY].cat.count(index, params={"format": "json"})[0]['count'])
+
+    def count_bedfiles_docs(self):
+        """
+        Get the total number of the documents in the bedfiles index
+
+        :return int: number of documents
+        """
+        return self._count_docs(index=BED_INDEX)
+
+    def count_bedsets_docs(self):
+        """
+        Get the total number of the documents in the bedsets index
+
+        :return int: number of documents
+        """
+        return self._count_docs(index=BEDSET_INDEX)
 
 
 def get_bedbase_cfg(cfg=None):
