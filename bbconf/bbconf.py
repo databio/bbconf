@@ -20,9 +20,6 @@ class BedBaseConf(yacman.YacAttMap):
         :param str filepath: a path to the YAML file to read
         """
 
-        def _missing_key_msg(key, value):
-            _LOGGER.debug("Config lacks '{}' key. Setting to: {}".format(key, value))
-
         def _raise_missing_key(key):
             raise MissingConfigDataError("Config lacks '{}' key".format(key))
 
@@ -37,14 +34,14 @@ class BedBaseConf(yacman.YacAttMap):
         if CFG_BEDSTAT_OUTPUT_KEY not in self[CFG_PATH_KEY]:
             _raise_missing_key(CFG_BEDSTAT_OUTPUT_KEY)
 
-        if CFG_DATABASE_KEY not in self or CFG_HOST_KEY not in self[CFG_DATABASE_KEY]:
-            _missing_key_msg(CFG_HOST_KEY, DB_DEFAULT_HOST)
-            self[CFG_DATABASE_KEY][CFG_HOST_KEY] = DB_DEFAULT_HOST
-
-        for index_name, index_value in IDX_MAP.items():
-            if CFG_DATABASE_KEY not in self or index_name not in self[CFG_DATABASE_KEY]:
-                _missing_key_msg(index_name, index_value)
-                self[CFG_DATABASE_KEY][index_name] = index_value
+        for section, mapping in DEFAULT_SECTION_VALUES.items():
+            if section not in self:
+                self[section] = PXAM()
+            for key, default in mapping.items():
+                if key not in self[section]:
+                    _LOGGER.info("Config lacks '{}.{}' key."
+                                 " Setting to: {}".format(section, key, default))
+                    self[section][key] = default
 
     def establish_elasticsearch_connection(self, host=None):
         """
