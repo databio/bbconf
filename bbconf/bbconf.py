@@ -116,7 +116,7 @@ class BedBaseConf(yacman.YacAttMap):
         self.assert_connection()
         self[ES_CLIENT_KEY].index(index=index, body=data, **kwargs)
 
-    def insert_bedfile_data(self, data, **kwargs):
+    def insert_bedfiles_data(self, data, **kwargs):
         """
         Insert data to the bedfile index a Elasticsearch DB
         or create it and the insert in case it does not exist
@@ -125,7 +125,7 @@ class BedBaseConf(yacman.YacAttMap):
         """
         self._insert_data(index=BED_INDEX, data=data, **kwargs)
 
-    def insert_bedset_data(self, data, **kwargs):
+    def insert_bedsets_data(self, data, **kwargs):
         """
         Insert data to the bedset index in a Elasticsearch DB
         or create it and the insert in case it does not exist
@@ -133,6 +133,33 @@ class BedBaseConf(yacman.YacAttMap):
         :param dict data: data to insert
         """
         self._insert_data(index=BEDSET_INDEX, data=data, **kwargs)
+
+    def _get_mapping(self, index, just_data=True, **kwargs):
+        """
+        Get mapping definitions for the selected index
+
+        :param str index: index to return the mappging for
+        :return dict: mapping definitions
+        """
+        self.assert_connection()
+        mapping = self[ES_CLIENT_KEY].indices.get_mapping(index, **kwargs)
+        return mapping[index]["mappings"]["properties"] if just_data else mapping
+
+    def get_bedfiles_mapping(self, just_data=True, **kwargs):
+        """
+        Get mapping definitions for the bedfiles index
+
+        :return: bedfiles mapping definitions
+        """
+        return self._get_mapping(index=BED_INDEX, just_data=just_data, **kwargs)
+
+    def get_bedsets_mapping(self, just_data=True, **kwargs):
+        """
+        Get mapping definitions for the bedsets index
+
+        :return: besets mapping definitions
+        """
+        return self._get_mapping(index=BEDSET_INDEX, just_data=just_data, **kwargs)
 
 
 def get_bedbase_cfg(cfg=None):
