@@ -187,10 +187,13 @@ class BedBaseConf(yacman.YacAttMap):
 
 def get_bedbase_cfg(cfg=None):
     """
-    Read and create the bedbase configuration object
+    Determine path to the bedbase configuration file
+
+    The path can be either excplicitly provided
+    or read from a $BEDBASE environment variable
 
     :param str cfg: path to the config file.
-        Optional, the bedbase config env var will be used if not provided
+        Optional, the $BEDBASE config env var will be used if not provided
     :return str: configuration file path
     """
     selected_cfg = yacman.select_config(config_filepath=cfg, config_env_vars=CFG_ENV_VARS)
