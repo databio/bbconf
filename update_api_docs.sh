@@ -1,2 +1,2 @@
 #!/bin/bash
-lucidoc bbconf > docs/bbc_api.md -P rst
+lucidoc bbconf -P rst > docs/bbc_api.md
