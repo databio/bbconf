@@ -39,8 +39,8 @@ class BedBaseConf(yacman.YacAttMap):
                 self[section] = PXAM()
             for key, default in mapping.items():
                 if key not in self[section]:
-                    _LOGGER.info("Config lacks '{}.{}' key."
-                                 " Setting to: {}".format(section, key, default))
+                    _LOGGER.debug("Config lacks '{}.{}' key. Setting to: {}".
+                                  format(section, key, default))
                     self[section][key] = default
 
     def establish_elasticsearch_connection(self, host=None):
