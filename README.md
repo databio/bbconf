@@ -8,21 +8,10 @@
 
 ## Installation
 
-Currently, there's no released version since `bbconf` is under rapid development so the only way to install the package is:
-
-1. Clone this repository
-```bash
-git clone https://github.com/databio/bbconf.git
+Install from [GitHub releases](https://github.com/databio/bbconf/releases) or from PyPI using `pip`:
 ```
-2. Install the local package
-```bash
-pip install ./bbconf
+pip install --user bbconf
 ```
-
-<!--- Install from [GitHub releases](https://github.com/databio/bbconf/releases) or from PyPI using `pip`: --->
-<!---```--->
-<!---pip install --user bbconf--->
-<!---```--->
 
 ## Usage
 
