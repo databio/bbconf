@@ -66,23 +66,25 @@ class BedBaseConf(yacman.YacAttMap):
         if not hasattr(self, ES_CLIENT_KEY):
             raise BedBaseConnectionError("No active connection with Elasticsearch")
 
-    def _search_index(self, index_name, query, just_data=True):
+    def _search_index(self, index_name, query, just_data=True, size=None, **kwargs):
         """
         Search selected Elasticsearch index with selected query
 
         :param str index_name: name of the Elasticsearch index to search
         :param dict query: query to search the DB against
         :param bool just_data: whether just the hits should be returned
+        :param int size: number of hits to return, all are returned by default
         :return dict | Iterable[dict]: search results
         """
         self.assert_connection()
         _LOGGER.debug("Searching index: {}\nQuery: {}".format(index_name, query))
         query = {"query": query} if "query" not in query else query
-        search_results = self[ES_CLIENT_KEY].search(index=index_name, body=query)
+        size = size or self._count_docs(index=index_name)
+        search_results = self[ES_CLIENT_KEY].search(index=index_name, body=query, size=size, **kwargs)
         return [r["_source"] for r in search_results["hits"]["hits"]] \
             if just_data else search_results
 
-    def search_bedfiles(self, query, just_data=True):
+    def search_bedfiles(self, query, just_data=True, **kwargs):
         """
         Search selected Elasticsearch bedset index with selected query
 
@@ -90,9 +92,9 @@ class BedBaseConf(yacman.YacAttMap):
         :param bool just_data: whether just the hits should be returned
         :return dict | Iterable[dict]: search results
         """
-        return self._search_index(index_name=BED_INDEX, query=query, just_data=just_data)
+        return self._search_index(index_name=BED_INDEX, query=query, just_data=just_data, **kwargs)
 
-    def search_bedsets(self, query, just_data=True):
+    def search_bedsets(self, query, just_data=True, **kwargs):
         """
         Search selected Elasticsearch bedfiles index with selected query
 
@@ -100,7 +102,7 @@ class BedBaseConf(yacman.YacAttMap):
         :param bool just_data: whether just the hits should be returned
         :return dict | Iterable[dict]: search results
         """
-        return self._search_index(index_name=BEDSET_INDEX, query=query, just_data=just_data)
+        return self._search_index(index_name=BEDSET_INDEX, query=query, just_data=just_data, **kwargs)
 
     def _insert_data(self, index, data, **kwargs):
         """
