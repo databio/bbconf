@@ -76,18 +76,21 @@ JSON_NUMERIC_KEYS = ["JSON_GC_CONTENT_KEY", "JSON_REGIONS_NO_KEY", "JSON_MEAN_AB
 
 JSON_KEYS = ["JSON_GC_CONTENT_KEY", "JSON_ID_KEY", "JSON_PLOTS_KEY"] + JSON_NUMERIC_KEYS
 
-JSON_GC_CONTENT = {JSON_GC_CONTENT_KEY: "GC content"}
-JSON_ID = {JSON_ID_KEY: "BED file ID"}
-JSON_REGIONS_NO = {JSON_REGIONS_NO_KEY: "Number of regions"}
-JSON_MEAN_ABS_TSS_DIST = {JSON_MEAN_ABS_TSS_DIST_KEY: "Mean absolute distance from transcription start sites"}
-JSON_MD5SUM = {JSON_MD5SUM_KEY: "BED file md5 checksum"}
-
-JSON_DICTS_KEY_DESCS = ["JSON_GC_CONTENT", "JSON_ID", "JSON_REGIONS_NO",
-                        "JSON_MEAN_ABS_TSS_DIST", "JSON_MD5SUM"]
-
+_PERC_TXT = "Percentage of regions in "
+_FREQ_TXT = "Frequency of regions in "
 JSON_DICTS_KEY_DESCS = {JSON_GC_CONTENT_KEY: "GC content", JSON_ID_KEY: "BED file ID",
                         JSON_REGIONS_NO_KEY: "Number of regions", JSON_MD5SUM_KEY: "BED file md5 checksum",
-                        JSON_MEAN_ABS_TSS_DIST_KEY: "Mean absolute distance from transcription start sites"}
+                        JSON_MEAN_ABS_TSS_DIST_KEY: "Mean absolute distance from transcription start sites",
+                        JSON_PROMOTERPROX_PERCENTAGE_KEY: _PERC_TXT + "promoter proximity",
+                        JSON_PROMOTERCORE_PERCENTAGE_KEY: _PERC_TXT + "promoter core",
+                        JSON_EXON_PERCENTAGE_KEY: _PERC_TXT + "exons",
+                        JSON_INTRON_PERCENTAGE_KEY: _PERC_TXT + "introns",
+                        JSON_INTERGENIC_PERCENTAGE_KEY: _PERC_TXT + "intergenic",
+                        JSON_PROMOTERPROX_FREQUENCY_KEY: _FREQ_TXT + "promoter proximity",
+                        JSON_PROMOTERCORE_FREQUENCY_KEY: _FREQ_TXT + "promoter core",
+                        JSON_EXON_FREQUENCY_KEY: _FREQ_TXT + "exons",
+                        JSON_INTRON_FREQUENCY_KEY: _FREQ_TXT + "introns",
+                        JSON_INTERGENIC_FREQUENCY_KEY: _FREQ_TXT + "intergenic"}
 
 __all__ = ["BED_INDEX", "BEDSET_INDEX", "SEARCH_TERMS", "RAW_BEDFILE_KEY", "CFG_ENV_VARS",
            "ES_CLIENT_KEY", "DB_DEFAULT_HOST", "SERVER_DEFAULT_PORT", "SERVER_DEFAULT_HOST",
