@@ -165,9 +165,12 @@ class BedBaseConf(yacman.YacAttMap):
         Get the total number of the documents in a selected index
 
         :param str index: index to count the documents for
-        :return int: number of documents
+        :return int | None: number of documents
         """
         self.assert_connection()
+        if not self[ES_CLIENT_KEY].indices.exists(index=index):
+            _LOGGER.warning("'{}' index does not exist".format(index))
+            return None
         return int(self[ES_CLIENT_KEY].cat.count(index, params={"format": "json"})[0]['count'])
 
     def count_bedfiles_docs(self):
