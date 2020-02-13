@@ -54,7 +54,7 @@ IDX_MAP = {CFG_BED_INDEX_KEY: BED_INDEX, CFG_BEDSET_INDEX_KEY: BEDSET_INDEX}
 JSON_GC_CONTENT_KEY = "gc_content"
 JSON_ID_KEY = "id"
 JSON_REGIONS_NO_KEY = "regions_no"
-JSON_MEAN_ABS_TSS_DIST_KEY = "mean_abs_TSS_dist"
+JSON_MEAN_ABS_TSS_DIST_KEY = "mean_absolute_TSS_dist"
 JSON_MD5SUM_KEY = "md5sum"
 JSON_PLOTS_KEY = "plots"
 JSON_EXON_FREQUENCY_KEY = "exon_frequency"
@@ -67,6 +67,7 @@ JSON_INTRON_PERCENTAGE_KEY = "intron_percentage"
 JSON_INTERGENIC_PERCENTAGE_KEY = "intergenic_percentage"
 JSON_PROMOTERCORE_PERCENTAGE_KEY = "promoterCore_percentage"
 JSON_PROMOTERPROX_PERCENTAGE_KEY = "promoterProx_percentage"
+JSON_BEDSETS_AFFILIATION_KEY = "bedsets_affiliation"
 
 JSON_NUMERIC_KEY_NAMES = ["JSON_GC_CONTENT_KEY", "JSON_REGIONS_NO_KEY", "JSON_MEAN_ABS_TSS_DIST_KEY",
                      "JSON_EXON_FREQUENCY_KEY", "JSON_INTRON_FREQUENCY_KEY", "JSON_PROMOTERPROX_FREQUENCY_KEY",
@@ -91,7 +92,7 @@ JSON_BEDSET_KEY_VALUES = [JSON_BEDSET_MEANS_KEY, JSON_BEDSET_SD_KEY, JSON_BEDSET
 JSON_BEDSET_KEY_NAMES = ["JSON_BEDSET_MEANS_KEY", "JSON_BEDSET_SD_KEY", "JSON_BEDSET_TAR_PATH_KEY",
                     "JSON_BEDSET_BEDFILES_GD_STATS_KEY", "JSON_BEDSET_IGD_DB_KEY", "JSON_BEDSET_GD_STATS"]
 
-JSON_KEYS = ["JSON_GC_CONTENT_KEY", "JSON_ID_KEY", "JSON_PLOTS_KEY"] + \
+JSON_KEYS = ["JSON_GC_CONTENT_KEY", "JSON_ID_KEY", "JSON_PLOTS_KEY", "JSON_BEDSETS_AFFILIATION_KEY"] + \
             JSON_NUMERIC_KEY_NAMES + JSON_BEDSET_KEY_NAMES
 
 _PERC_TXT = "Percentage of regions in "
@@ -108,7 +109,15 @@ JSON_DICTS_KEY_DESCS = {JSON_GC_CONTENT_KEY: "GC content", JSON_ID_KEY: "BED fil
                         JSON_PROMOTERCORE_FREQUENCY_KEY: _FREQ_TXT + "promoter core",
                         JSON_EXON_FREQUENCY_KEY: _FREQ_TXT + "exons",
                         JSON_INTRON_FREQUENCY_KEY: _FREQ_TXT + "introns",
-                        JSON_INTERGENIC_FREQUENCY_KEY: _FREQ_TXT + "intergenic"}
+                        JSON_INTERGENIC_FREQUENCY_KEY: _FREQ_TXT + "intergenic",
+                        JSON_BEDSET_MEANS_KEY: "Average bedset statistics",
+                        JSON_BEDSET_SD_KEY: "Standard deviation of bedset statistics",
+                        JSON_BEDSET_TAR_PATH_KEY: "TAR archive",
+                        JSON_BEDSET_BEDFILES_GD_STATS_KEY: "Individual bedfiles statistics CSV",
+                        JSON_BEDSET_IGD_DB_KEY: "Bedset iGD database",
+                        JSON_BEDSET_GD_STATS: "Bedset statistics CSV",
+
+}
 
 __all__ = ["BED_INDEX", "BEDSET_INDEX", "SEARCH_TERMS", "RAW_BEDFILE_KEY", "CFG_ENV_VARS",
            "ES_CLIENT_KEY", "DB_DEFAULT_HOST", "SERVER_DEFAULT_PORT", "SERVER_DEFAULT_HOST",
