@@ -108,34 +108,37 @@ class BedBaseConf(yacman.YacAttMap):
         """
         return self._search_index(index_name=BEDSET_INDEX, query=query, just_data=just_data, **kwargs)
 
-    def _insert_data(self, index, data, **kwargs):
+    def _insert_data(self, index, data, doc_id, **kwargs):
         """
         Insert data to an index in a Elasticsearch DB
         or create it and the insert in case it does not exist
 
         :param str index: name of the index to insert the data into
+        :param str doc_id: unique identifier for the document
         :param dict data: data to insert
         """
         self.assert_connection()
-        self[ES_CLIENT_KEY].index(index=index, body=data, **kwargs)
+        self[ES_CLIENT_KEY].index(index=index, body=data, id=doc_id, **kwargs)
 
-    def insert_bedfiles_data(self, data, **kwargs):
+    def insert_bedfiles_data(self, data, doc_id=None, **kwargs):
         """
         Insert data to the bedfile index a Elasticsearch DB
         or create it and the insert in case it does not exist
 
         :param dict data: data to insert
+        :param str doc_id: unique identifier for the document, optional
         """
-        self._insert_data(index=BED_INDEX, data=data, **kwargs)
+        self._insert_data(index=BED_INDEX, data=data, doc_id=doc_id, **kwargs)
 
-    def insert_bedsets_data(self, data, **kwargs):
+    def insert_bedsets_data(self, data, doc_id=None, **kwargs):
         """
         Insert data to the bedset index in a Elasticsearch DB
         or create it and the insert in case it does not exist
 
         :param dict data: data to insert
+        :param str doc_id: unique identifier for the document, optional
         """
-        self._insert_data(index=BEDSET_INDEX, data=data, **kwargs)
+        self._insert_data(index=BEDSET_INDEX, data=data, doc_id=doc_id, **kwargs)
 
     def _get_mapping(self, index, just_data=True, **kwargs):
         """
@@ -193,12 +196,23 @@ class BedBaseConf(yacman.YacAttMap):
         """
         return self._count_docs(index=BEDSET_INDEX)
 
+    def _get_all(self, index_name, just_data=False):
+        """
+        Convenience method for index exploration
+
+        :param str index_name: name of the Elasticsearch index to search
+        :param bool just_data: whether just the hits should be returned
+        :return:
+        """
+        self.assert_connection()
+        return self._search_index(index_name=index_name, query=QUERY_ALL, just_data=just_data)
+
 
 def get_bedbase_cfg(cfg=None):
     """
     Determine path to the bedbase configuration file
 
-    The path can be either excplicitly provided
+    The path can be either explicitly provided
     or read from a $BEDBASE environment variable
 
     :param str cfg: path to the config file.
