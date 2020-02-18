@@ -140,7 +140,11 @@ Get mapping definitions for the bedsets index
 def insert_bedfiles_data(self, data, doc_id=None, **kwargs)
 ```
 
-Insert data to the bedfile index a Elasticsearch DB or create it and the insert in case it does not exist Document ID argument is optional. If not provided, a random ID will be assigned. If provided the document will be inserted only if no documents with this ID are present in the DB. However, the document overwriting can be forced if needed.
+Insert data to the bedfile index a Elasticsearch DB or create it and the insert in case it does not exist.
+
+Document ID argument is optional. If not provided, a random ID will be assigned.
+If provided the document will be inserted only if no documents with this ID are present in the DB.
+However, the document overwriting can be forced if needed.
 #### Parameters:
 
 - `data` (`dict`):  data to insert
@@ -153,7 +157,7 @@ Insert data to the bedfile index a Elasticsearch DB or create it and the insert 
 def insert_bedsets_data(self, data, doc_id=None, **kwargs)
 ```
 
-Insert data to the bedset index in a Elasticsearch DB or create it and the insert in case it does not exist
+Insert data to the bedset index in a Elasticsearch DB or create it and the insert in case it does not exist.
 
 Document ID argument is optional. If not provided, a random ID will be assigned.
 If provided the document will be inserted only if no documents with this ID are present in the DB.
