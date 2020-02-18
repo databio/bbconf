@@ -28,12 +28,12 @@ CFG_SERVER_KEY = "server"
 CFG_DATABASE_KEY = "database"
 CFG_HOST_KEY = "host"
 CFG_PORT_KEY = "port"
-CFG_BEDSTAT_OUTPUT_KEY = "bedstat_output"
+CFG_PIP_OUTPUT_KEY = "pipelines_output"
 CFG_BED_INDEX_KEY = "bed_index"
 CFG_BEDSET_INDEX_KEY = "bedset_index"
 
 CFG_KEYS = ["CFG_PATH_KEY", "CFG_SERVER_KEY", "CFG_DATABASE_KEY", "CFG_HOST_KEY",
-            "CFG_PORT_KEY", "CFG_BEDSTAT_OUTPUT_KEY", "CFG_BED_INDEX_KEY", "CFG_BEDSET_INDEX_KEY"]
+            "CFG_PORT_KEY", "CFG_PIP_OUTPUT_KEY", "CFG_BED_INDEX_KEY", "CFG_BEDSET_INDEX_KEY"]
 
 DEFAULT_SECTION_VALUES = {
     CFG_DATABASE_KEY: {
@@ -115,9 +115,7 @@ JSON_DICTS_KEY_DESCS = {JSON_GC_CONTENT_KEY: "GC content", JSON_ID_KEY: "BED fil
                         JSON_BEDSET_TAR_PATH_KEY: "TAR archive",
                         JSON_BEDSET_BEDFILES_GD_STATS_KEY: "Individual bedfiles statistics CSV",
                         JSON_BEDSET_IGD_DB_KEY: "Bedset iGD database",
-                        JSON_BEDSET_GD_STATS: "Bedset statistics CSV",
-
-}
+                        JSON_BEDSET_GD_STATS: "Bedset statistics CSV"}
 
 __all__ = ["BED_INDEX", "BEDSET_INDEX", "SEARCH_TERMS", "RAW_BEDFILE_KEY", "CFG_ENV_VARS",
            "ES_CLIENT_KEY", "DB_DEFAULT_HOST", "SERVER_DEFAULT_PORT", "SERVER_DEFAULT_HOST",

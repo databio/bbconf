@@ -31,8 +31,8 @@ class BedBaseConf(yacman.YacAttMap):
             # if there's nothing under path key (None)
             self[CFG_PATH_KEY] = PXAM()
 
-        if CFG_BEDSTAT_OUTPUT_KEY not in self[CFG_PATH_KEY]:
-            _raise_missing_key(CFG_BEDSTAT_OUTPUT_KEY)
+        if CFG_PIP_OUTPUT_KEY not in self[CFG_PATH_KEY]:
+            _raise_missing_key(CFG_PIP_OUTPUT_KEY)
 
         for section, mapping in DEFAULT_SECTION_VALUES.items():
             if section not in self:
@@ -74,9 +74,13 @@ class BedBaseConf(yacman.YacAttMap):
         :param dict query: query to search the DB against
         :param bool just_data: whether just the hits should be returned
         :param int size: number of hits to return, all are returned by default
-        :return dict | Iterable[dict]: search results
+        :return dict | Iterable[dict] | NoneType: search results
+            or None if requested index does not exist
         """
         self.assert_connection()
+        if not self[ES_CLIENT_KEY].indices.exists(index_name):
+            _LOGGER.warning("'{}' index does not exist".format(index_name))
+            return
         _LOGGER.debug("Searching index: {}\nQuery: {}".format(index_name, query))
         query = {"query": query} if "query" not in query else query
         size = size or self._count_docs(index=index_name)
