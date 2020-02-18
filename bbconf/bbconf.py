@@ -1,4 +1,5 @@
 from elasticsearch import Elasticsearch
+from elasticsearch.exceptions import ConflictError
 from logging import getLogger
 
 from attmap import PathExAttMap as PXAM
@@ -108,22 +109,47 @@ class BedBaseConf(yacman.YacAttMap):
         """
         return self._search_index(index_name=BEDSET_INDEX, query=query, just_data=just_data, **kwargs)
 
-    def _insert_data(self, index, data, doc_id, **kwargs):
+    def _insert_data(self, index, data, doc_id, force_update=False, **kwargs):
         """
-        Insert data to an index in a Elasticsearch DB
-        or create it and the insert in case it does not exist
+        Insert document to an index in a Elasticsearch DB
+        or create it and the insert in case it does not exist.
+
+        Document ID argument is optional. If not provided, a random ID will be assigned.
+        If provided the document will be inserted only if no documents with this ID are present in the DB.
+        However, the document overwriting can be forced if needed.
 
         :param str index: name of the index to insert the data into
         :param str doc_id: unique identifier for the document
+        :param bool force_update: whether the pre-existing document should be overwritten
         :param dict data: data to insert
         """
         self.assert_connection()
-        self[ES_CLIENT_KEY].index(index=index, body=data, id=doc_id, **kwargs)
+        if doc_id is None:
+            _LOGGER.info("Inserting document to index '{}' with an "
+                         "automatically-assigned ID".format(index))
+            self[ES_CLIENT_KEY].index(index=index, body=data, **kwargs)
+        else:
+            try:
+                self[ES_CLIENT_KEY].create(index=index, body=data, id=doc_id, **kwargs)
+            except ConflictError:
+                msg_base = "Document '{}' already exists in index '{}'"\
+                    .format(doc_id, index)
+                if force_update:
+                    _LOGGER.info(msg_base + ". Forcing update")
+                    self[ES_CLIENT_KEY].index(index=index, body=data, id=doc_id, **kwargs)
+                else:
+                    _LOGGER.error("Could not insert data. " + msg_base)
+                    raise
 
     def insert_bedfiles_data(self, data, doc_id=None, **kwargs):
         """
         Insert data to the bedfile index a Elasticsearch DB
         or create it and the insert in case it does not exist
+
+        Document ID argument is optional. If not provided, a random ID will be assigned.
+        If provided the document will be inserted only if no documents with this ID are present in the DB.
+        However, the document overwriting can be forced if needed.
+
 
         :param dict data: data to insert
         :param str doc_id: unique identifier for the document, optional
@@ -134,6 +160,11 @@ class BedBaseConf(yacman.YacAttMap):
         """
         Insert data to the bedset index in a Elasticsearch DB
         or create it and the insert in case it does not exist
+
+        Document ID argument is optional. If not provided, a random ID will be assigned.
+        If provided the document will be inserted only if no documents with this ID are present in the DB.
+        However, the document overwriting can be forced if needed.
+
 
         :param dict data: data to insert
         :param str doc_id: unique identifier for the document, optional
