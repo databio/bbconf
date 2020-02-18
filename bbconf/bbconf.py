@@ -113,7 +113,6 @@ class BedBaseConf(yacman.YacAttMap):
         """
         Insert document to an index in a Elasticsearch DB
         or create it and the insert in case it does not exist.
-
         Document ID argument is optional. If not provided, a random ID will be assigned.
         If provided the document will be inserted only if no documents with this ID are present in the DB.
         However, the document overwriting can be forced if needed.
@@ -145,7 +144,6 @@ class BedBaseConf(yacman.YacAttMap):
         """
         Insert data to the bedfile index a Elasticsearch DB
         or create it and the insert in case it does not exist
-
         Document ID argument is optional. If not provided, a random ID will be assigned.
         If provided the document will be inserted only if no documents with this ID are present in the DB.
         However, the document overwriting can be forced if needed.
