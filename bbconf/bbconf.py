@@ -150,7 +150,6 @@ class BedBaseConf(yacman.YacAttMap):
         If provided the document will be inserted only if no documents with this ID are present in the DB.
         However, the document overwriting can be forced if needed.
 
-
         :param dict data: data to insert
         :param str doc_id: unique identifier for the document, optional
         """
@@ -164,7 +163,6 @@ class BedBaseConf(yacman.YacAttMap):
         Document ID argument is optional. If not provided, a random ID will be assigned.
         If provided the document will be inserted only if no documents with this ID are present in the DB.
         However, the document overwriting can be forced if needed.
-
 
         :param dict data: data to insert
         :param str doc_id: unique identifier for the document, optional
@@ -197,6 +195,34 @@ class BedBaseConf(yacman.YacAttMap):
         :return dict: besets mapping definitions
         """
         return self._get_mapping(index=BEDSET_INDEX, just_data=just_data, **kwargs)
+
+    def _get_doc(self, index, doc_id):
+        """
+        Get a document from an index by its ID
+
+        :param str index: name of the index to search
+        :param str doc_id: document ID to return
+        :return Mapping: matched document
+        """
+        return self[ES_CLIENT_KEY].get(index=index, id=doc_id)
+
+    def get_bedfiles_doc(self, doc_id):
+        """
+        Get a document from bedfiles index by its ID
+
+        :param str doc_id: document ID to return
+        :return Mapping: matched document
+        """
+        return self._get_doc(index=BED_INDEX, doc_id=doc_id)
+
+    def get_bedsets_doc(self, doc_id):
+        """
+        Get a document from bedsets index by its ID
+
+        :param str doc_id: document ID to return
+        :return Mapping: matched document
+        """
+        return self._get_doc(index=BEDSET_INDEX, doc_id=doc_id)
 
     def _count_docs(self, index):
         """
