@@ -70,8 +70,8 @@ JSON_PROMOTERPROX_PERCENTAGE_KEY = "promoterProx_percentage"
 JSON_BEDSET_PEP_KEY = "bedset_pep"
 JSON_BEDSET_BED_IDS_KEY = "bedset_bed_ids"
 
-JSON_METADATA = ["genome", "exp_protocol", "cell_type", "antibody", "treatment",
-                 "data_source"] \
+JSON_METADATA = ["genome", "exp_protocol", "cell_type", "tissue", "antibody", "treatment",
+                 "data_source", "description"] \
                 + JSON_ID_KEY + JSON_MD5SUM_KEY + JSON_PLOTS_KEY + BEDFILE_PATH_KEY
 
 JSON_STATS_SECTION_KEY = "statistics"
