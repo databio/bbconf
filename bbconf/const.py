@@ -53,6 +53,14 @@ IDX_MAP = {CFG_BED_INDEX_KEY: BED_INDEX, CFG_BEDSET_INDEX_KEY: BEDSET_INDEX}
 # (the keys are actually established in bedstat/tools/regionstat.R)
 JSON_GC_CONTENT_KEY = "gc_content"
 JSON_ID_KEY = "id"
+JSON_GENOME_KEY = "genome"
+JSON_PROTOCOL_KEY = "exp_protocol"
+JSON_CELL_TYPE_KEY = "cell_type"
+JSON_TISSUE_KEY = "tissue"
+JSON_ANTIBODY_KEY = "antibody"
+JSON_TREATMENT_KEY = "treatment"
+JSON_DATA_SOURCE_KEY = "data_source"
+JSON_DESCRIPTION_KEY = "description"
 JSON_REGIONS_NO_KEY = "regions_no"
 JSON_MEAN_ABS_TSS_DIST_KEY = "mean_absolute_TSS_dist"
 JSON_MD5SUM_KEY = "md5sum"
@@ -70,9 +78,9 @@ JSON_PROMOTERPROX_PERCENTAGE_KEY = "promoterProx_percentage"
 JSON_BEDSET_PEP_KEY = "bedset_pep"
 JSON_BEDSET_BED_IDS_KEY = "bedset_bed_ids"
 
-JSON_METADATA = ["genome", "exp_protocol", "cell_type", "tissue", "antibody", "treatment",
-                 "data_source", "description"] \
-                + [JSON_ID_KEY, JSON_MD5SUM_KEY, JSON_PLOTS_KEY, BEDFILE_PATH_KEY]
+JSON_METADATA = [JSON_GENOME_KEY, JSON_PROTOCOL_KEY, JSON_CELL_TYPE_KEY, JSON_TISSUE_KEY, JSON_ANTIBODY_KEY, 
+                 JSON_TREATMENT_KEY, JSON_DATA_SOURCE_KEY, JSON_DESCRIPTION_KEY,
+                 JSON_ID_KEY, JSON_MD5SUM_KEY, JSON_PLOTS_KEY, BEDFILE_PATH_KEY]
 
 JSON_STATS_SECTION_KEY = "statistics"
 JSON_METADATA_SECTION_KEY = "metadata"
@@ -138,4 +146,4 @@ __all__ = ["BED_INDEX", "BEDSET_INDEX", "RAW_BEDFILE_KEY", "CFG_ENV_VARS",
            "ES_CLIENT_KEY", "DB_DEFAULT_HOST", "SERVER_DEFAULT_PORT", "SERVER_DEFAULT_HOST",
            "PKG_NAME", "IDX_MAP", "BEDFILE_PATH_KEY", "DEFAULT_SECTION_VALUES", "JSON_DICTS_KEY_DESCS",
            "JSON_KEYS", "JSON_NUMERIC_KEY_VALUES", "JSON_NUMERIC_KEY_NAMES", "JSON_BEDSET_KEY_VALUES",
-           "JSON_BEDSET_KEY_NAMES", "QUERY_ALL", "JSON_METADATA"] + CFG_KEYS + JSON_KEYS
+           "JSON_BEDSET_KEY_NAMES", "QUERY_ALL"] + CFG_KEYS + JSON_KEYS
