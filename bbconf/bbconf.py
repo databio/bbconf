@@ -32,9 +32,12 @@ class BedBaseConf(yacman.YacAttMap):
             # if there's nothing under path key (None)
             self[CFG_PATH_KEY] = PXAM()
 
-        if CFG_PIP_OUTPUT_KEY not in self[CFG_PATH_KEY]:
-            _raise_missing_key(CFG_PIP_OUTPUT_KEY)
-
+        if CFG_BEDSTAT_OUTPUT_KEY not in self[CFG_PATH_KEY]:
+            _raise_missing_key(CFG_BEDSTAT_OUTPUT_KEY)
+            
+        if CFG_BEDBUNCHER_OUTPUT_KEY not in self[CFG_PATH_KEY]:
+            _raise_missing_key(CFG_BEDBUNCHER_OUTPUT_KEY)          
+        
         for section, mapping in DEFAULT_SECTION_VALUES.items():
             if section not in self:
                 self[section] = PXAM()
