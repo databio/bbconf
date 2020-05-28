@@ -1,7 +1,7 @@
 # full config example. Refer to bbconf/const.py for key names and default values
 
 path:
-  bedstat_output: $HOME/results_pipeline
+  pipelines_output: $HOME/results_pipeline
 
 database:
   host: localhost

@@ -1,4 +1,5 @@
 # min config example. Refer to bbconf/const.py for key names and default values
 
 path:
-  bedstat_output: $HOME/results_pipeline
+  bedstat_output: $LABROOT/resources/regions/bedstat_output
+  bedbuncher_output: $LABROOT/resources/regions/bedbuncher_output
