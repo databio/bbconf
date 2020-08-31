@@ -4,8 +4,8 @@ Constant variables shared among packages that constitute bedbase project
 PKG_NAME = "bbconf"
 DOC_URL = "TBA"  # add documentation URL once it's established
 
-BED_INDEX = "bedfiles"
-BEDSET_INDEX = "bedsets"
+BED_TABLE = "bedfiles"
+BEDSET_TABLE = "bedsets"
 
 CFG_ENV_VARS = ["BEDBASE"]
 
@@ -13,35 +13,47 @@ RAW_BEDFILE_KEY = "raw_bedfile"
 BEDFILE_PATH_KEY = "bedfile_path"
 
 DB_DEFAULT_HOST = "localhost"
+DB_DEFAULT_USER = "postgres"
+DB_DEFAULT_PASSWORD = "bedbasepassword"
+DB_DEFAULT_NAME = "postgres"
+DB_DEFAULT_PORT = 5432
 
 SERVER_DEFAULT_PORT = 80
 SERVER_DEFAULT_HOST = '0.0.0.0'
 
-ES_CLIENT_KEY = "elasticsearch_client"
+PG_CLIENT_KEY = "__postgres_client"
 
-QUERY_ALL = {"match_all": {}}
+HIDDEN_ATTR_KEYS = (PG_CLIENT_KEY)
 
 # config file constants
 CFG_PATH_KEY = "path"
 CFG_SERVER_KEY = "server"
 CFG_DATABASE_KEY = "database"
+CFG_NAME_KEY = "name"
 CFG_HOST_KEY = "host"
 CFG_PORT_KEY = "port"
+CFG_PASSWORD_KEY = "password"
+CFG_USER_KEY = "user"
 CFG_BEDSTAT_OUTPUT_KEY = "bedstat_output"
 CFG_BEDBUNCHER_OUTPUT_KEY = "bedbuncher_output"
-CFG_BED_INDEX_KEY = "bed_index"
-CFG_BEDSET_INDEX_KEY = "bedset_index"
+CFG_BED_TABLE_KEY = "bed_table"
+CFG_BEDSET_TABLE_KEY = "bedset_table"
 
 CFG_KEYS = [
     "CFG_PATH_KEY", "CFG_SERVER_KEY", "CFG_DATABASE_KEY", "CFG_HOST_KEY",
     "CFG_PORT_KEY", "CFG_BEDSTAT_OUTPUT_KEY", "CFG_BEDBUNCHER_OUTPUT_KEY", 
-    "CFG_BED_INDEX_KEY", "CFG_BEDSET_INDEX_KEY"]
+    "CFG_BED_TABLE_KEY", "CFG_BEDSET_TABLE_KEY", "CFG_NAME_KEY",
+    "CFG_PASSWORD_KEY", "CFG_USER_KEY"]
 
 DEFAULT_SECTION_VALUES = {
     CFG_DATABASE_KEY: {
+        CFG_USER_KEY: DB_DEFAULT_USER,
+        CFG_PASSWORD_KEY: DB_DEFAULT_PASSWORD,
+        CFG_NAME_KEY: DB_DEFAULT_NAME,
+        CFG_PORT_KEY: DB_DEFAULT_PORT,
         CFG_HOST_KEY: DB_DEFAULT_HOST,
-        CFG_BED_INDEX_KEY: BED_INDEX,
-        CFG_BEDSET_INDEX_KEY: BEDSET_INDEX
+        CFG_BED_TABLE_KEY: BED_TABLE,
+        CFG_BEDSET_TABLE_KEY: BEDSET_TABLE
     },
     CFG_SERVER_KEY: {
         CFG_HOST_KEY: SERVER_DEFAULT_HOST,
@@ -49,7 +61,7 @@ DEFAULT_SECTION_VALUES = {
     }
 }
 
-IDX_MAP = {CFG_BED_INDEX_KEY: BED_INDEX, CFG_BEDSET_INDEX_KEY: BEDSET_INDEX}
+IDX_MAP = {CFG_BED_TABLE_KEY: BED_TABLE, CFG_BEDSET_TABLE_KEY: BEDSET_TABLE}
 
 # JSON bed metadata constants and descriptions
 # (the keys are actually established in bedstat/tools/regionstat.R)
@@ -145,8 +157,9 @@ JSON_DICTS_KEY_DESCS = {
     JSON_BEDSET_BED_IDS_KEY: "BED files in this set"
 }
 
-__all__ = ["BED_INDEX", "BEDSET_INDEX", "RAW_BEDFILE_KEY", "CFG_ENV_VARS",
-           "ES_CLIENT_KEY", "DB_DEFAULT_HOST", "SERVER_DEFAULT_PORT", "SERVER_DEFAULT_HOST",
+__all__ = ["BED_TABLE", "BEDSET_TABLE", "RAW_BEDFILE_KEY", "CFG_ENV_VARS",
+           "PG_CLIENT_KEY", "DB_DEFAULT_HOST", "SERVER_DEFAULT_PORT", "SERVER_DEFAULT_HOST",
            "PKG_NAME", "IDX_MAP", "BEDFILE_PATH_KEY", "DEFAULT_SECTION_VALUES", "JSON_DICTS_KEY_DESCS",
            "JSON_KEYS", "JSON_NUMERIC_KEY_VALUES", "JSON_NUMERIC_KEY_NAMES", "JSON_BEDSET_KEY_VALUES",
-           "JSON_BEDSET_KEY_NAMES", "QUERY_ALL", "JSON_METADATA_NAMES", "JSON_METADATA_VALUES"] + CFG_KEYS + JSON_KEYS
+           "JSON_BEDSET_KEY_NAMES", "JSON_METADATA_NAMES", "JSON_METADATA_VALUES",
+           "HIDDEN_ATTR_KEYS"] + CFG_KEYS + JSON_KEYS

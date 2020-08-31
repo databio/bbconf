@@ -1,5 +1,4 @@
-from elasticsearch import Elasticsearch
-from elasticsearch.exceptions import ConflictError
+import psycopg2
 from logging import getLogger
 
 from attmap import PathExAttMap as PXAM
@@ -47,23 +46,42 @@ class BedBaseConf(yacman.YacAttMap):
                                   format(section, key, default))
                     self[section][key] = default
 
-    def establish_elasticsearch_connection(self, host=None):
-        """
-        Establish Elasticsearch connection using the config data
+    def _excl_from_repr(self, k, cls):
+        return k in \
+               [attr for attr in self.to_dict().keys() if attr.startswith("_")]
 
-        :return elasticsearch.Elasticsearch: connected client
+    def establish_postgres_connection(self, host=None, suppress=False):
         """
-        if hasattr(self, ES_CLIENT_KEY):
+        Establish PostgreSQL connection using the config data
+
+        :param str host: database host
+        :param bool suppress: whether to suppress any connection errors
+        :return bool: whether the connection has been established succesfully
+        """
+        if hasattr(self, PG_CLIENT_KEY):
             raise BedBaseConnectionError(
                 "The connection is already established: {}".
-                    format(str(self[ES_CLIENT_KEY]))
+                    format(str(self[PG_CLIENT_KEY].info.host))
             )
+        db = self[CFG_DATABASE_KEY]
         hst = host or self[CFG_DATABASE_KEY][CFG_HOST_KEY]
-        self[ES_CLIENT_KEY] = Elasticsearch([{"host": hst}])
-        _LOGGER.info("Established connection with Elasticsearch: {}".
-                     format(hst))
-        _LOGGER.debug("Elasticsearch info:\n{}".
-                      format(self[ES_CLIENT_KEY].info()))
+        try:
+            self[PG_CLIENT_KEY] = psycopg2.connect(
+                dbname=db[CFG_NAME_KEY],
+                user=db[CFG_USER_KEY],
+                password=db[CFG_PASSWORD_KEY],
+                host=hst,
+                port=db[CFG_PORT_KEY]
+            )
+        except psycopg2.Error as e:
+            _LOGGER.error("Could not connect to: {}".format(hst))
+            _LOGGER.info("Caught error: {}".format(e))
+            if suppress:
+                return False
+            raise
+        else:
+            _LOGGER.info("Established connection with PostgreSQL: {}".format(hst))
+            return True
 
     def assert_connection(self):
         """
@@ -71,9 +89,9 @@ class BedBaseConf(yacman.YacAttMap):
 
         :raise BedBaseConnectionError: if there is no active connection
         """
-        if not hasattr(self, ES_CLIENT_KEY):
+        if not hasattr(self, PG_CLIENT_KEY):
             raise BedBaseConnectionError(
-                "No active connection with Elasticsearch"
+                "No active connection with PostgreSQL"
             )
 
     def _search_index(self, index_name, query, just_data=True, size=None,
@@ -324,8 +342,10 @@ def get_bedbase_cfg(cfg=None):
         Optional, the $BEDBASE config env var will be used if not provided
     :return str: configuration file path
     """
-    selected_cfg = yacman.select_config(config_filepath=cfg,
-                                        config_env_vars=CFG_ENV_VARS)
+    selected_cfg = yacman.select_config(
+        config_filepath=cfg,
+        config_env_vars=CFG_ENV_VARS
+    )
     if not selected_cfg:
         raise BedBaseConnectionError(
             "You must provide a config file or set the {} environment variable"

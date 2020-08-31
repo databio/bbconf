@@ -4,9 +4,12 @@ path:
   pipelines_output: $HOME/results_pipeline
 
 database:
+  name: postgres
+  user: postgres
+  password: postgres
   host: localhost
-  bed_index: bed_index
-  bedset_index: bedset_index
+  bed_table: bedfiles
+  bedset_table: bedsets
 
 server:
   host: 0.0.0.0
