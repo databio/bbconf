@@ -55,13 +55,23 @@ class BedBaseConf(yacman.YacAttMap):
         return k in \
                [attr for attr in self.to_dict().keys() if attr.startswith("_")]
 
+    def assert_connection(self):
+        """
+        Check whether an Elasticsearch connection has been established
+
+        :raise BedBaseConnectionError: if there is no active connection
+        """
+        if not hasattr(self, PG_CLIENT_KEY):
+            raise BedBaseConnectionError(
+                "No active connection with PostgreSQL"
+            )
+
     def establish_postgres_connection(self, suppress=False):
         """
         Establish PostgreSQL connection using the config data
 
-        :param str host: database host
         :param bool suppress: whether to suppress any connection errors
-        :return bool: whether the connection has been established succesfully
+        :return bool: whether the connection has been established successfully
         """
         if hasattr(self, PG_CLIENT_KEY):
             raise BedBaseConnectionError(
@@ -85,7 +95,7 @@ class BedBaseConf(yacman.YacAttMap):
                 return False
             raise
         else:
-            _LOGGER.info("Established connection with PostgreSQL: {}".
+            _LOGGER.debug("Established connection with PostgreSQL: {}".
                          format(self[CFG_DATABASE_KEY][CFG_HOST_KEY]))
             return True
 
@@ -96,19 +106,27 @@ class BedBaseConf(yacman.YacAttMap):
         self.assert_connection()
         self[PG_CLIENT_KEY].close()
         del self[PG_CLIENT_KEY]
-        _LOGGER.info("Closed connection with PostgreSQL: {}".
+        _LOGGER.debug("Closed connection with PostgreSQL: {}".
                      format(self[CFG_DATABASE_KEY][CFG_HOST_KEY]))
 
-    def assert_connection(self):
+    @property
+    @contextmanager
+    def db_cursor(self):
         """
-        Check whether an Elasticsearch connection has been established
+        Establish connection and Get a PostgreSQL database cursor,
+        commit and close the connection afterwards
 
-        :raise BedBaseConnectionError: if there is no active connection
+        :return DictCursor: Database cursor object
         """
-        if not hasattr(self, PG_CLIENT_KEY):
-            raise BedBaseConnectionError(
-                "No active connection with PostgreSQL"
-            )
+        try:
+            self.establish_postgres_connection()
+            connection = self[PG_CLIENT_KEY]
+            with connection as conn, conn.cursor(cursor_factory=DictCursor) as cur:
+                yield cur
+        except:
+            raise
+        finally:
+            self.close_postgres_connection()
 
     def _select_all(self, table_name):
         """
@@ -123,13 +141,14 @@ class BedBaseConf(yacman.YacAttMap):
             result = cur.fetchall()
         return result
 
-    def select(self, table_name, columns=None, condition=None):
+    def select(self, table_name, columns=None, condition=None, json=None):
         """
         Get all the contents from the selected table
 
         :param str table_name: name of the table to list contents for
         :param str | list[str] columns: columns to select
         :param str condition: to restrict the results with
+        :param str json: columns name to make the condition a json query for
         :return list[psycopg2.extras.DictRow]: all table contents
         """
         if condition and not isinstance(condition, str):
@@ -138,7 +157,10 @@ class BedBaseConf(yacman.YacAttMap):
         columns = ",".join(columns) if columns else "*"
         statement = f"SELECT {columns} FROM {table_name}"
         if condition:
-            statement += f" WHERE {condition}"
+            statement += f" WHERE "
+            if json:
+                statement += f"{json}->>"
+            statement += f"{condition}"
         statement += ";"
         with self.db_cursor as cur:
             _LOGGER.info(f"Selecting from DB:\n - statement: {statement}")
@@ -178,25 +200,6 @@ class BedBaseConf(yacman.YacAttMap):
             respective values to bne inserted to the database
         """
         self._insert(table_name=BEDSET_TABLE, values=values)
-
-    @property
-    @contextmanager
-    def db_cursor(self):
-        """
-        Establish connection and Get a PostgreSQL database cursor,
-        commit and close the connection afterwards
-
-        :return DictCursor: Database cursor object
-        """
-        try:
-            self.establish_postgres_connection()
-            connection = self[PG_CLIENT_KEY]
-            with connection as conn, conn.cursor(cursor_factory=DictCursor) as cur:
-                yield cur
-        except:
-            raise
-        finally:
-            self.close_postgres_connection()
 
     def _count_rows(self, table_name):
         """
