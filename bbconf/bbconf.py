@@ -1,9 +1,12 @@
 import psycopg2
 import psycopg2.extras
+
 from logging import getLogger
+from contextlib import contextmanager
+
+import yacman
 
 from attmap import PathExAttMap as PXAM
-import yacman
 
 from .const import *
 from .exceptions import *
@@ -65,24 +68,35 @@ class BedBaseConf(yacman.YacAttMap):
                     format(str(self[PG_CLIENT_KEY].info.host))
             )
         db = self[CFG_DATABASE_KEY]
-        hst = host or self[CFG_DATABASE_KEY][CFG_HOST_KEY]
         try:
             self[PG_CLIENT_KEY] = psycopg2.connect(
                 dbname=db[CFG_NAME_KEY],
                 user=db[CFG_USER_KEY],
                 password=db[CFG_PASSWORD_KEY],
-                host=hst,
+                host=self[CFG_DATABASE_KEY][CFG_HOST_KEY],
                 port=db[CFG_PORT_KEY]
             )
         except psycopg2.Error as e:
-            _LOGGER.error("Could not connect to: {}".format(hst))
+            _LOGGER.error("Could not connect to: {}".
+                          format(self[CFG_DATABASE_KEY][CFG_HOST_KEY]))
             _LOGGER.info("Caught error: {}".format(e))
             if suppress:
                 return False
             raise
         else:
-            _LOGGER.info("Established connection with PostgreSQL: {}".format(hst))
+            _LOGGER.info("Established connection with PostgreSQL: {}".
+                         format(self[CFG_DATABASE_KEY][CFG_HOST_KEY]))
             return True
+
+    def close_postgres_connection(self):
+        """
+        Close connection and remove client bound
+        """
+        self.assert_connection()
+        self[PG_CLIENT_KEY].close()
+        del self[PG_CLIENT_KEY]
+        _LOGGER.info("Closed connection with PostgreSQL: {}".
+                     format(self[CFG_DATABASE_KEY][CFG_HOST_KEY]))
 
     def assert_connection(self):
         """
@@ -103,7 +117,10 @@ class BedBaseConf(yacman.YacAttMap):
         :param str table_name: name of the table to list contents for
         :return list[psycopg2.extras.DictRow]: all table contents
         """
-        return self._exec(exec_args=[f"SELECT * FROM {table_name}"], fetchall=True)
+        with self.db_cursor as cur:
+            cur.execute(f"SELECT * FROM {table_name}")
+            result = cur.fetchall()
+        return result
 
     def select(self, table_name, columns=None, condition=None):
         """
@@ -111,7 +128,7 @@ class BedBaseConf(yacman.YacAttMap):
 
         :param str table_name: name of the table to list contents for
         :param str | list[str] columns: columns to select
-        :param str: condition to restrictc the results with
+        :param str condition: to restrict the results with
         :return list[psycopg2.extras.DictRow]: all table contents
         """
         if condition and not isinstance(condition, str):
@@ -122,8 +139,11 @@ class BedBaseConf(yacman.YacAttMap):
         if condition:
             statement += f" WHERE {condition}"
         statement += ";"
-        _LOGGER.info(f"Selecting from DB:\n - statement: {statement}")
-        return self._exec(exec_args=[statement], fetchall=True)
+        with self.db_cursor as cur:
+            _LOGGER.info(f"Selecting from DB:\n - statement: {statement}")
+            cur.execute(statement)
+            result = cur.fetchall()
+        return result
 
     def _insert(self, table_name, values):
         """
@@ -136,26 +156,29 @@ class BedBaseConf(yacman.YacAttMap):
         statement = f"INSERT INTO {table_name} ({','.join(values.keys())})" \
                     f" VALUES ({','.join(['%s'] * len(values))});"
         values = tuple(values.values())
-        _LOGGER.info(f"Inserting into DB:\n - statement: {statement}"
-                     f"\n - values: {values}")
-        self._exec([statement, values])
+        with self.db_cursor as cur:
+            _LOGGER.info(f"Inserting into DB:\n - statement: {statement}"
+                         f"\n - values: {values}")
+            cur.execute(statement, values)
 
-    def _exec(self, exec_args, fetchall=False):
+    @property
+    @contextmanager
+    def db_cursor(self):
         """
+        Establish connection and Get a PostgreSQL database cursor,
+        commit and close the connection afterwards
 
-        :param str | list[str] exec_args: a list of arguments to pass to
-            execute function, will be unpacked before execution
-        :return:
+        :return DictCursor: Database cursor object
         """
-        exec_args = _mk_list_of_str(exec_args)
-        self.assert_connection()
-        connection = self[PG_CLIENT_KEY]
-        with connection as conn:
-            with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-                cur.execute(*exec_args)
-                if fetchall:
-                    return cur.fetchall()
-                return True
+        try:
+            self.establish_postgres_connection()
+            connection = self[PG_CLIENT_KEY]
+            with connection as conn, conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+                yield cur
+        except:
+            raise
+        finally:
+            self.close_postgres_connection()
 
     # def _search_index(self, index_name, query, just_data=True, size=None,
     #                   **kwargs):
