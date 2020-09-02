@@ -206,7 +206,7 @@ class BedBaseConf(yacman.YacAttMap):
         Count rows in a selected table
 
         :param str table_name: table to count rows for
-        :return int: numner of rows in the selected table
+        :return int: number of rows in the selected table
         """
         with self.db_cursor as cur:
             cur.execute(f"SELECT COUNT(*) FROM {table_name}")
@@ -216,7 +216,7 @@ class BedBaseConf(yacman.YacAttMap):
         """
         Count rows in the bedfiles table
 
-        :return int: numner of rows in the bedfiles table
+        :return int: number of rows in the bedfiles table
         """
         return self._count_rows(table_name=BED_TABLE)
 
@@ -228,27 +228,79 @@ class BedBaseConf(yacman.YacAttMap):
         """
         return self._count_rows(table_name=BEDSET_TABLE)
 
+    def _drop_table(self, table_name):
+        """
+        Remove selected table from the database
 
-    # def _delete_index(self, index):
-    #     """
-    #     Delete selected index from Elasticsearch
-    #
-    #     :param str index: name of the index to delete
-    #     """
-    #     self.assert_connection()
-    #     self[ES_CLIENT_KEY].indices.delete(index=index)
-    #
-    # def delete_bedfiles_index(self):
-    #     """
-    #     Delete bedfiles index from Elasticsearch
-    #     """
-    #     self._delete_index(index=BED_INDEX)
-    #
-    # def delete_bedsets_index(self):
-    #     """
-    #     Delete bedsets index from Elasticsearch
-    #     """
-    #     self._delete_index(index=BEDSET_INDEX)
+        :param str table_name: name of the table to remove
+        """
+        with self.db_cursor as cur:
+            cur.execute(f"DROP table IF EXISTS {table_name};")
+
+    def drop_bedfiles_table(self):
+        """
+        Remove bedfiles table from the database
+        """
+        self._drop_table(table_name=BED_TABLE)
+
+    def drop_bedsets_table(self):
+        """
+        Remove bedsets table from the database
+        """
+        self._drop_table(table_name=BEDSET_TABLE)
+
+    def _create_table(self, table_name, columns):
+        """
+        Create a table, id column is defined by default
+
+        :param str table_name: name of the table to create
+        :param str | list[str] columns: columns definition list,
+            for instance: ['name VARCHAR(50) NOT NULL']
+        """
+        columns = _mk_list_of_str(columns)
+        with self.db_cursor as cur:
+            cur.execute(f"CREATE TABLE {table_name} "
+                        f"(id BIGSERIAL PRIMARY KEY NOT NULL, "
+                        f"{', '.join(columns)});")
+
+    def create_bedfiles_table(self, columns):
+        """
+        Create a bedfiles table, id column is defined by default
+
+        :param str | list[str] columns: columns definition list,
+            for instance: ['name VARCHAR(50) NOT NULL']
+        """
+        self._create_table(table_name=BED_TABLE, columns=columns)
+
+    def create_bedsets_table(self, columns):
+        """
+        Create a bedsets table, id column is defined by default
+
+        :param str | list[str] columns: columns definition list,
+            for instance: ['name VARCHAR(50) NOT NULL']
+        """
+        self._create_table(table_name=BEDSET_TABLE, columns=columns)
+
+    def select_bedfiles_for_bedset(self, query, bedfile_col=None):
+        """
+        Select bedfiles that are part of a bedset that matches the query
+
+        :param str query: bedsets table query to restrict the results with,
+            for instace "name='bedset1'"
+        :param list[str] | str bedfile_col: bedfile columns to include in the
+            result, if none specified all columns will be included
+        :return list[psycopg2.extras.DictRow]: matched bedfiles table contents
+        """
+        col_str = ", ".join(["f." + c for c in _mk_list_of_str(bedfile_col)]) \
+            if bedfile_col else "*"
+        with self.db_cursor as cur:
+            cur.execute(
+                f"SELECT {col_str} FROM {BED_TABLE} f "
+                f"INNER JOIN {REL_TABLE} r ON r.bedfile_id = f.id "
+                f"INNER JOIN {BEDSET_TABLE} s ON r.bedset_id = s.id "
+                f"WHERE s.{query};"
+            )
+            return cur.fetchall()
 
 
 def _mk_list_of_str(x):
