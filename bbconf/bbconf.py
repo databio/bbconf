@@ -18,9 +18,15 @@ __all__ = ["BedBaseConf", "get_bedbase_cfg"]
 
 
 class BedBaseConf(yacman.YacAttMap):
+    """
+    This class provides is an in-memory representation of the configuration
+    file for the *BEDBASE* project. Additionally it implements multiple
+    convenience methods for interacting with the database backend,
+    i.e. [PostgreSQL](https://www.postgresql.org/)
+    """
     def __init__(self, filepath):
         """
-        Create the config instance by with a filepath
+        Create the config instance with a filepath
 
         :param str filepath: a path to the YAML file to read
         """

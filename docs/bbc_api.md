@@ -31,20 +31,14 @@ h4 .content {
 # Package `bbconf` Documentation
 
 ## <a name="BedBaseConf"></a> Class `BedBaseConf`
-A class that extends AttMap to provide yaml reading and race-free writing in multi-user contexts.
-
-The YacAttMap class is a YAML Configuration Attribute Map. Think of it as a python representation of your YAML
-configuration file, that can do a lot of cool stuff. You can access the hierarchical YAML attributes with dot
-notation or dict notation. You can read and write YAML config files with easy functions. It also retains memory
-of the its source filepath. If both a filepath and an entries dict are provided, it will first load the file
-and then updated it with values from the dict.
+This class provides is an in-memory representation of the configuration file for the *BEDBASE* project. Additionally it implements multiple convenience methods for interacting with the database backend, i.e. [PostgreSQL](https://www.postgresql.org/)
 
 
 ```python
 def __init__(self, filepath)
 ```
 
-Create the config instance by with a filepath
+Create the config instance with a filepath
 #### Parameters:
 
 - `filepath` (`str`):  a path to the YAML file to read
@@ -65,59 +59,126 @@ Check whether an Elasticsearch connection has been established
 
 
 ```python
-def count_bedfiles_docs(self)
+def check_bedfiles_table_exists(self)
 ```
 
-Get the total number of the documents in the bedfiles index
+Check if the bedfiles table exists
 #### Returns:
 
-- `int`:  number of documents
+- `bool`:  whether the bedfiles table exists
 
 
 
 
 ```python
-def count_bedsets_docs(self)
+def check_bedsets_table_exists(self)
 ```
 
-Get the total number of the documents in the bedsets index
+Check if the bedsets table exists
 #### Returns:
 
-- `int`:  number of documents
+- `bool`:  whether the bedsets table exists
 
 
 
 
 ```python
-def delete_bedfiles_index(self)
+def close_postgres_connection(self)
 ```
 
-Delete bedfiles index from Elasticsearch
+Close connection and remove client bound
 
 
 
 ```python
-def delete_bedsets_index(self)
+def count_bedfiles(self)
 ```
 
-Delete bedsets index from Elasticsearch
+Count rows in the bedfiles table
+#### Returns:
+
+- `int`:  number of rows in the bedfiles table
+
 
 
 
 ```python
-def establish_postgres_connection(self, host=None, suppress=False)
+def count_bedsets(self)
+```
+
+Count rows in the bedsets table
+#### Returns:
+
+- `int`:  numner of rows in the bedsets table
+
+
+
+
+```python
+def create_bedfiles_table(self, columns)
+```
+
+Create a bedfiles table, id column is defined by default
+#### Parameters:
+
+- `columns` (`str | list[str]`):  columns definition list,for instance: ['name VARCHAR(50) NOT NULL']
+
+
+
+
+```python
+def create_bedsets_table(self, columns)
+```
+
+Create a bedsets table, id column is defined by default
+#### Parameters:
+
+- `columns` (`str | list[str]`):  columns definition list,for instance: ['name VARCHAR(50) NOT NULL']
+
+
+
+
+```python
+def db_cursor(self)
+```
+
+Establish connection and Get a PostgreSQL database cursor, commit and close the connection afterwards
+#### Returns:
+
+- `DictCursor`:  Database cursor object
+
+
+
+
+```python
+def drop_bedfiles_table(self)
+```
+
+Remove bedfiles table from the database
+
+
+
+```python
+def drop_bedsets_table(self)
+```
+
+Remove bedsets table from the database
+
+
+
+```python
+def establish_postgres_connection(self, suppress=False)
 ```
 
 Establish PostgreSQL connection using the config data
 #### Parameters:
 
-- `host` (`str`):  database host
 - `suppress` (`bool`):  whether to suppress any connection errors
 
 
 #### Returns:
 
-- `bool`:  whether the connection has been established succesfully
+- `bool`:  whether the connection has been established successfully
 
 
 
@@ -135,132 +196,63 @@ Return the path to the config file or None if not set
 
 
 ```python
-def get_bedfiles_doc(self, doc_id)
+def insert_bedfile_data(self, values)
 ```
 
-Get a document from bedfiles index by its ID
+
 #### Parameters:
 
-- `doc_id` (`str`):  document ID to return
+- `values` (`dict`):  a mapping of pairs of table column names andrespective values to bne inserted to the database
+
+
+
+
+```python
+def insert_bedset_data(self, values)
+```
+
+
+#### Parameters:
+
+- `values` (`dict`):  a mapping of pairs of table column names andrespective values to bne inserted to the database
+
+
+
+
+```python
+def select(self, table_name, columns=None, condition=None, json=None)
+```
+
+Get all the contents from the selected table
+#### Parameters:
+
+- `table_name` (`str`):  name of the table to list contents for
+- `columns` (`str | list[str]`):  columns to select
+- `condition` (`str`):  to restrict the results with
+- `json` (`str`):  columns name to make the condition a json query for
 
 
 #### Returns:
 
-- `Mapping`:  matched document
+- `list[psycopg2.extras.DictRow]`:  all table contents
 
 
 
 
 ```python
-def get_bedfiles_mapping(self, just_data=True, **kwargs)
+def select_bedfiles_for_bedset(self, query, bedfile_col=None)
 ```
 
-Get mapping definitions for the bedfiles index
-#### Returns:
-
-- `dict`:  bedfiles mapping definitions
-
-
-
-
-```python
-def get_bedsets_doc(self, doc_id)
-```
-
-Get a document from bedsets index by its ID
+Select bedfiles that are part of a bedset that matches the query
 #### Parameters:
 
-- `doc_id` (`str`):  document ID to return
+- `query` (`str`):  bedsets table query to restrict the results with,for instace "name='bedset1'"
+- `bedfile_col` (`list[str] | str`):  bedfile columns to include in theresult, if none specified all columns will be included
 
 
 #### Returns:
 
-- `Mapping`:  matched document
-
-
-
-
-```python
-def get_bedsets_mapping(self, just_data=True, **kwargs)
-```
-
-Get mapping definitions for the bedsets index
-#### Returns:
-
-- `dict`:  besets mapping definitions
-
-
-
-
-```python
-def insert_bedfiles_data(self, data, doc_id=None, **kwargs)
-```
-
-Insert data to the bedfile index a Elasticsearch DB or create it and the insert in case it does not exist.
-
-Document ID argument is optional. If not provided, a random ID will
-be assigned. If provided the document will be inserted only if no
-documents with this ID are present in the DB. However, the document
-overwriting can be forced if needed.
-#### Parameters:
-
-- `data` (`dict`):  data to insert
-- `doc_id` (`str`):  unique identifier for the document, optional
-
-
-
-
-```python
-def insert_bedsets_data(self, data, doc_id=None, **kwargs)
-```
-
-Insert data to the bedset index in a Elasticsearch DB or create it and the insert in case it does not exist.
-
-Document ID argument is optional. If not provided, a random ID will
-be assigned.
-If provided the document will be inserted only if no documents with
-this ID are present in the DB.
-However, the document overwriting can be forced if needed.
-#### Parameters:
-
-- `data` (`dict`):  data to insert
-- `doc_id` (`str`):  unique identifier for the document, optional
-
-
-
-
-```python
-def search_bedfiles(self, query, just_data=True, **kwargs)
-```
-
-Search selected Elasticsearch bedset index with selected query
-#### Parameters:
-
-- `query` (`dict`):  query to search the DB against
-- `just_data` (`bool`):  whether just the hits should be returned
-
-
-#### Returns:
-
-- `dict | Iterable[dict]`:  search results
-
-
-
-
-```python
-def search_bedsets(self, query, just_data=True, **kwargs)
-```
-
-Search selected Elasticsearch bedfiles index with selected query
-#### Parameters:
-
-- `query` (`dict`):  query to search the DB against
-- `just_data` (`bool`):  whether just the hits should be returned
-
-
-#### Returns:
-
-- `dict | Iterable[dict]`:  search results
+- `list[psycopg2.extras.DictRow]`:  matched bedfiles table contents
 
 
 
