@@ -6,7 +6,7 @@ path:
 database:
   name: postgres
   user: postgres
-  password: postgres
+  password: bedbasepassword
   host: localhost
   bed_table: bedfiles
   bedset_table: bedsets
