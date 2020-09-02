@@ -302,6 +302,39 @@ class BedBaseConf(yacman.YacAttMap):
             )
             return cur.fetchall()
 
+    def _check_table_exists(self, table_name):
+        """
+        Check if the specified table exists
+
+        :param str table_name: table name to be checked
+        :return bool: whether the specified table exists
+        """
+        with self.db_cursor as cur:
+            cur.execute(
+                "SELECT EXISTS("
+                "SELECT * FROM information_schema.tables "
+                "WHERE table_name=%s)", (table_name,)
+            )
+            return cur.fetchone()[0]
+
+    def check_bedfiles_table_exists(self):
+        """
+        Check if the bedfiles table exists
+
+        :return bool: whether the bedfiles table exists
+        """
+        return self._check_table_exists(table_name=BED_TABLE)
+
+    def check_bedsets_table_exists(self):
+        """
+        Check if the bedsets table exists
+
+        :return bool: whether the bedsets table exists
+        """
+        return self._check_table_exists(table_name=BEDSET_TABLE)
+
+
+
 
 def _mk_list_of_str(x):
     """
