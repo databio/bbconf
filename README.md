@@ -1,5 +1,8 @@
 # bbconf
 
+![Run pytests](https://github.com/databio/bbconf/workflows/Run%20pytests/badge.svg)
+[![codecov](https://codecov.io/gh/databio/bbconf/branch/master/graph/badge.svg)](https://codecov.io/gh/databio/bbconf)
+
 *BEDBASE* project configuration package
 
 ## What is this?
