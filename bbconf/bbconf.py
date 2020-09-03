@@ -1,5 +1,6 @@
 import psycopg2
 from psycopg2.extras import DictCursor, Json
+from psycopg2.extensions import connection
 
 from logging import getLogger
 from contextlib import contextmanager
@@ -61,16 +62,16 @@ class BedBaseConf(yacman.YacAttMap):
         return k in \
                [attr for attr in self.to_dict().keys() if attr.startswith("_")]
 
-    def assert_connection(self):
+    def check_connection(self):
         """
         Check whether an Elasticsearch connection has been established
 
-        :raise BedBaseConnectionError: if there is no active connection
+        :return bool: whether the connection has beed established
         """
-        if not hasattr(self, PG_CLIENT_KEY):
-            raise BedBaseConnectionError(
-                "No active connection with PostgreSQL"
-            )
+        if hasattr(self, PG_CLIENT_KEY) and \
+                isinstance(getattr(self, PG_CLIENT_KEY), connection):
+            return True
+        return False
 
     def establish_postgres_connection(self, suppress=False):
         """
@@ -79,7 +80,7 @@ class BedBaseConf(yacman.YacAttMap):
         :param bool suppress: whether to suppress any connection errors
         :return bool: whether the connection has been established successfully
         """
-        if hasattr(self, PG_CLIENT_KEY):
+        if self.check_connection():
             raise BedBaseConnectionError(
                 "The connection is already established: {}".
                     format(str(self[PG_CLIENT_KEY].info.host))
@@ -109,7 +110,11 @@ class BedBaseConf(yacman.YacAttMap):
         """
         Close connection and remove client bound
         """
-        self.assert_connection()
+        if not self.check_connection():
+            raise BedBaseConnectionError(
+                "The has not been established: {}".
+                    format(str(self[PG_CLIENT_KEY].info.host))
+            )
         self[PG_CLIENT_KEY].close()
         del self[PG_CLIENT_KEY]
         _LOGGER.debug("Closed connection with PostgreSQL: {}".
@@ -119,15 +124,16 @@ class BedBaseConf(yacman.YacAttMap):
     @contextmanager
     def db_cursor(self):
         """
-        Establish connection and Get a PostgreSQL database cursor,
+        Establish connection and get a PostgreSQL database cursor,
         commit and close the connection afterwards
 
         :return DictCursor: Database cursor object
         """
         try:
-            self.establish_postgres_connection()
-            connection = self[PG_CLIENT_KEY]
-            with connection as conn, conn.cursor(cursor_factory=DictCursor) as cur:
+            if not self.check_connection():
+                self.establish_postgres_connection()
+            conn = self[PG_CLIENT_KEY]
+            with conn as c, c.cursor(cursor_factory=DictCursor) as cur:
                 yield cur
         except:
             raise
@@ -230,7 +236,7 @@ class BedBaseConf(yacman.YacAttMap):
         """
         Count rows in the bedsets table
 
-        :return int: numner of rows in the bedsets table
+        :return int: number of rows in the bedsets table
         """
         return self._count_rows(table_name=BEDSET_TABLE)
 
@@ -268,6 +274,7 @@ class BedBaseConf(yacman.YacAttMap):
             cur.execute(f"CREATE TABLE {table_name} "
                         f"(id BIGSERIAL PRIMARY KEY NOT NULL, "
                         f"{', '.join(columns)});")
+        _LOGGER.info(f"Created '{table_name}' with {len(columns) + 1} columns")
 
     def create_bedfiles_table(self, columns):
         """
@@ -338,8 +345,6 @@ class BedBaseConf(yacman.YacAttMap):
         :return bool: whether the bedsets table exists
         """
         return self._check_table_exists(table_name=BEDSET_TABLE)
-
-
 
 
 def _mk_list_of_str(x):
