@@ -180,15 +180,17 @@ class BedBaseConf(yacman.YacAttMap):
             result = cur.fetchall()
         return result
 
-    def _insert(self, table_name, values):
+    def _insert(self, table_name, values, skip_id_return=False):
         """
 
         :param str table_name: name of the table to insert the values to
         :param dict values: a mapping of pairs of table column names and
             respective values to bne inserted to the database
+        :return int: id of the row just inserted
         """
         statement = f"INSERT INTO {table_name} ({','.join(values.keys())})" \
-                    f" VALUES ({','.join(['%s'] * len(values))});"
+                    f" VALUES ({','.join(['%s'] * len(values))})"
+        statement += "RETURNING id;" if not skip_id_return else ";"
         # convert mappings to JSON for postgres
         values = tuple([Json(v) if isinstance(v, Mapping) else v
                         for v in list(values.values())])
@@ -196,22 +198,34 @@ class BedBaseConf(yacman.YacAttMap):
             _LOGGER.info(f"Inserting into DB:\n - statement: {statement}"
                          f"\n - values: {values}")
             cur.execute(statement, values)
+            if not skip_id_return:
+                return cur.fetchone()[0]
 
     def insert_bedfile_data(self, values):
         """
 
         :param dict values: a mapping of pairs of table column names and
             respective values to bne inserted to the database
+        :return int: id of the row just inserted
         """
-        self._insert(table_name=BED_TABLE, values=values)
+        return self._insert(table_name=BED_TABLE, values=values)
 
     def insert_bedset_data(self, values):
         """
 
         :param dict values: a mapping of pairs of table column names and
             respective values to bne inserted to the database
+        :return int: id of the row just inserted
         """
-        self._insert(table_name=BEDSET_TABLE, values=values)
+        return self._insert(table_name=BEDSET_TABLE, values=values)
+
+    def insert_bedset_bedfiles_data(self, values):
+        """
+
+        :param dict values: a mapping of pairs of table column names and
+            respective values to bne inserted to the database
+        """
+        return self._insert(table_name=REL_TABLE, values=values, skip_id_return=True)
 
     def _count_rows(self, table_name):
         """
@@ -263,7 +277,7 @@ class BedBaseConf(yacman.YacAttMap):
 
     def _create_table(self, table_name, columns):
         """
-        Create a table, id column is defined by default
+        Create a table
 
         :param str table_name: name of the table to create
         :param str | list[str] columns: columns definition list,
@@ -272,13 +286,13 @@ class BedBaseConf(yacman.YacAttMap):
         columns = _mk_list_of_str(columns)
         with self.db_cursor as cur:
             cur.execute(f"CREATE TABLE {table_name} "
-                        f"(id BIGSERIAL PRIMARY KEY NOT NULL, "
-                        f"{', '.join(columns)});")
-        _LOGGER.info(f"Created '{table_name}' with {len(columns) + 1} columns")
+                        f"({', '.join(columns)});")
+        _LOGGER.info(f"Created table '{table_name}' with "
+                     f"{len(columns) + 1} columns")
 
     def create_bedfiles_table(self, columns):
         """
-        Create a bedfiles table, id column is defined by default
+        Create a bedfiles table
 
         :param str | list[str] columns: columns definition list,
             for instance: ['name VARCHAR(50) NOT NULL']
@@ -287,19 +301,30 @@ class BedBaseConf(yacman.YacAttMap):
 
     def create_bedsets_table(self, columns):
         """
-        Create a bedsets table, id column is defined by default
+        Create a bedsets table
 
         :param str | list[str] columns: columns definition list,
             for instance: ['name VARCHAR(50) NOT NULL']
         """
         self._create_table(table_name=BEDSET_TABLE, columns=columns)
 
+    def create_bedset_bedfiles_table(self):
+        """
+        Create a bedsets table, id column is defined by default
+        """
+        columns = [f"PRIMARY KEY ({REL_BEDSET_ID_KEY}, {REL_BED_ID_KEY})",
+                   f"{REL_BEDSET_ID_KEY} INT NOT NULL",
+                   f"{REL_BED_ID_KEY} INT NOT NULL",
+                   f"FOREIGN KEY ({REL_BEDSET_ID_KEY}) REFERENCES {BEDSET_TABLE} (id)",
+                   f"FOREIGN KEY ({REL_BED_ID_KEY}) REFERENCES {BED_TABLE} (id)"]
+        self._create_table(table_name=REL_TABLE, columns=columns)
+
     def select_bedfiles_for_bedset(self, query, bedfile_col=None):
         """
         Select bedfiles that are part of a bedset that matches the query
 
         :param str query: bedsets table query to restrict the results with,
-            for instace "name='bedset1'"
+            for instance "name='bedset1'"
         :param list[str] | str bedfile_col: bedfile columns to include in the
             result, if none specified all columns will be included
         :return list[psycopg2.extras.DictRow]: matched bedfiles table contents
@@ -345,6 +370,14 @@ class BedBaseConf(yacman.YacAttMap):
         :return bool: whether the bedsets table exists
         """
         return self._check_table_exists(table_name=BEDSET_TABLE)
+
+    def check_bedset_bedfiles_table_exists(self):
+        """
+        Check if the bedset_bedfiles table exists
+
+        :return bool: whether the bedset_bedfiles table exists
+        """
+        return self._check_table_exists(table_name=REL_TABLE)
 
 
 def _mk_list_of_str(x):
