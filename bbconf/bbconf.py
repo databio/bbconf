@@ -153,14 +153,13 @@ class BedBaseConf(yacman.YacAttMap):
             result = cur.fetchall()
         return result
 
-    def select(self, table_name, columns=None, condition=None, json=None):
+    def select(self, table_name, columns=None, condition=None):
         """
         Get all the contents from the selected table
 
         :param str table_name: name of the table to list contents for
         :param str | list[str] columns: columns to select
-        :param str condition: to restrict the results with
-        :param str json: columns name to make the condition a json query for
+        :param str condition: condition to restrict the results with
         :return list[psycopg2.extras.DictRow]: all table contents
         """
         if condition and not isinstance(condition, str):
@@ -169,10 +168,7 @@ class BedBaseConf(yacman.YacAttMap):
         columns = ",".join(columns) if columns else "*"
         statement = f"SELECT {columns} FROM {table_name}"
         if condition:
-            statement += f" WHERE "
-            if json:
-                statement += f"{json}->>"
-            statement += f"{condition}"
+            statement += f" WHERE {condition}"
         statement += ";"
         with self.db_cursor as cur:
             _LOGGER.info(f"Selecting from DB:\n - statement: {statement}")
