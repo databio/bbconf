@@ -186,7 +186,7 @@ class BedBaseConf(yacman.YacAttMap):
         """
         statement = f"INSERT INTO {table_name} ({','.join(values.keys())})" \
                     f" VALUES ({','.join(['%s'] * len(values))})"
-        statement += "RETURNING id;" if not skip_id_return else ";"
+        statement += " RETURNING id;" if not skip_id_return else ";"
         # convert mappings to JSON for postgres
         values = tuple([Json(v) if isinstance(v, Mapping) else v
                         for v in list(values.values())])
@@ -385,7 +385,6 @@ class BedBaseConf(yacman.YacAttMap):
 def _mk_list_of_str(x):
     """
     Make sure the input is a list of strings
-
     :param str | list[str] | falsy x: input to covert
     :return list[str]: converted input
     :raise TypeError: if the argument cannot be converted
