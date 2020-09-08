@@ -4,7 +4,7 @@ from psycopg2.extensions import connection
 
 from logging import getLogger
 from contextlib import contextmanager
-from collections import Mapping
+from collections.abc import Mapping
 
 import yacman
 
