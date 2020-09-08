@@ -64,9 +64,9 @@ class BedBaseConf(yacman.YacAttMap):
 
     def check_connection(self):
         """
-        Check whether an Elasticsearch connection has been established
+        Check whether a PostgreSQL connection has been established
 
-        :return bool: whether the connection has beed established
+        :return bool: whether the connection has been established
         """
         if hasattr(self, PG_CLIENT_KEY) and \
                 isinstance(getattr(self, PG_CLIENT_KEY), connection):
@@ -113,7 +113,7 @@ class BedBaseConf(yacman.YacAttMap):
         if not self.check_connection():
             raise BedBaseConnectionError(
                 "The has not been established: {}".
-                    format(str(self[PG_CLIENT_KEY].info.host))
+                    format(str(self[CFG_DATABASE_KEY][CFG_HOST_KEY]))
             )
         self[PG_CLIENT_KEY].close()
         del self[PG_CLIENT_KEY]

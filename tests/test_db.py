@@ -1,16 +1,51 @@
 """ Tests for BedBaseConf database features """
 
+import pytest
+from psycopg2 import Error as psycopg2Error
 from bbconf import BedBaseConf
 from .conftest import min_cfg_pth, cfg_pth
 from bbconf import get_bedbase_cfg
-from bbconf.const import PG_CLIENT_KEY
+from bbconf.const import *
+from bbconf.exceptions import BedBaseConnectionError
 
 from psycopg2.extensions import connection
 
 
 class TestDB:
+    def test_connection_checker(self, min_cfg_pth):
+        bbc = BedBaseConf(get_bedbase_cfg(cfg=min_cfg_pth))
+        assert not bbc.check_connection()
+        bbc.establish_postgres_connection()
+        assert bbc.check_connection()
+
     def test_db_basic(self, min_cfg_pth):
         bbc = BedBaseConf(get_bedbase_cfg(cfg=min_cfg_pth))
-        assert isinstance(bbc, BedBaseConf)
         assert bbc.establish_postgres_connection()
         assert isinstance(bbc[PG_CLIENT_KEY], connection)
+
+    def test_connection_overwrite_error(self, min_cfg_pth):
+        bbc = BedBaseConf(get_bedbase_cfg(cfg=min_cfg_pth))
+        bbc.establish_postgres_connection()
+        with pytest.raises(BedBaseConnectionError):
+            bbc.establish_postgres_connection()
+
+    @pytest.mark.parametrize("suppress", [True, False])
+    def test_connection_error(self, min_cfg_pth, suppress):
+        bbc = BedBaseConf(get_bedbase_cfg(cfg=min_cfg_pth))
+        bbc[CFG_DATABASE_KEY][CFG_HOST_KEY] = "bogus_host"
+        if suppress:
+            assert not bbc.establish_postgres_connection(suppress=suppress)
+        else:
+            with pytest.raises(psycopg2Error):
+                bbc.establish_postgres_connection(suppress=suppress)
+
+    def test_connection_closing(self, min_cfg_pth):
+        bbc = BedBaseConf(get_bedbase_cfg(cfg=min_cfg_pth))
+        bbc.establish_postgres_connection()
+        bbc.close_postgres_connection()
+        assert not bbc.check_connection()
+
+    def test_connection_closing_closed(self, min_cfg_pth):
+        bbc = BedBaseConf(get_bedbase_cfg(cfg=min_cfg_pth))
+        with pytest.raises(BedBaseConnectionError):
+            bbc.close_postgres_connection()

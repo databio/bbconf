@@ -16,3 +16,8 @@ def min_cfg_pth(data_path):
 @pytest.fixture
 def cfg_pth(data_path):
     return os.path.join(data_path, "config.yaml")
+
+
+@pytest.fixture
+def invalid_cfg_pth(data_path):
+    return os.path.join(data_path, "config_invalid.yaml")
