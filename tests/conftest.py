@@ -4,6 +4,21 @@ import os
 
 
 @pytest.fixture
+def test_columns():
+    return [
+        "id BIGSERIAL PRIMARY KEY NOT NULL",
+        "test VARCHAR(300)",
+        "test_json JSONB"
+    ]
+
+
+@pytest.fixture
+def test_data():
+    return {"test": "test_string",
+            "test_json": {"test_key1": {"test_key2": "test_val"}}}
+
+
+@pytest.fixture
 def data_path():
     return os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 

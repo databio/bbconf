@@ -275,6 +275,12 @@ class BedBaseConf(yacman.YacAttMap):
         """
         self._drop_table(table_name=BEDSET_TABLE)
 
+    def drop_bedset_bedfiles_table(self):
+        """
+        Remove bedsets table from the database
+        """
+        self._drop_table(table_name=REL_TABLE)
+
     def _create_table(self, table_name, columns):
         """
         Create a table

@@ -11,7 +11,7 @@ from bbconf.exceptions import BedBaseConnectionError
 from psycopg2.extensions import connection
 
 
-class TestDB:
+class TestDBConnection:
     def test_connection_checker(self, min_cfg_pth):
         bbc = BedBaseConf(get_bedbase_cfg(cfg=min_cfg_pth))
         assert not bbc.check_connection()
@@ -49,3 +49,30 @@ class TestDB:
         bbc = BedBaseConf(get_bedbase_cfg(cfg=min_cfg_pth))
         with pytest.raises(BedBaseConnectionError):
             bbc.close_postgres_connection()
+
+
+class TestDBTables:
+    def test_tables_creation_and_dropping(self, min_cfg_pth, test_columns):
+        bbc = BedBaseConf(get_bedbase_cfg(cfg=min_cfg_pth))
+        # remove any existing tables
+        bbc.drop_bedset_bedfiles_table()
+        bbc.drop_bedfiles_table()
+        bbc.drop_bedsets_table()
+        # create and test
+        bbc.create_bedfiles_table(columns=test_columns)
+        assert bbc.check_bedfiles_table_exists()
+        bbc.create_bedsets_table(columns=test_columns)
+        assert bbc.check_bedsets_table_exists()
+        bbc.create_bedset_bedfiles_table()
+        assert bbc.check_bedset_bedfiles_table_exists()
+
+    def test_data_insert(self, min_cfg_pth, test_data):
+        bbc = BedBaseConf(get_bedbase_cfg(cfg=min_cfg_pth))
+        # bedfiles table
+        ori_cnt = bbc.count_bedfiles()
+        bbc.insert_bedfile_data(values=test_data)
+        assert ori_cnt + 1 == bbc.count_bedfiles()
+        # bedsets table
+        ori_cnt = bbc.count_bedsets()
+        bbc.insert_bedset_data(values=test_data)
+        assert ori_cnt + 1 == bbc.count_bedsets()
