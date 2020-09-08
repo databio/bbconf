@@ -76,3 +76,25 @@ class TestDBTables:
         ori_cnt = bbc.count_bedsets()
         bbc.insert_bedset_data(values=test_data)
         assert ori_cnt + 1 == bbc.count_bedsets()
+
+    @pytest.mark.parametrize(["columns", "condition", "match"], [
+        ("id", "test='test_string'", True),
+        ("test", "test='test_string'", True),
+        ("id", "test_json->'test_key1'->>'test_key2'='test_val'", True),
+        ("id", "test='test_string_xxx'", False),
+        ("id", "test_json->'test_key1_xxx'->>'test_key2'='test_val'", False),
+        ("id", "test_json->'test_key1'->>'test_key2'='test_val_xxx'", False)
+
+    ])
+    def test_data_select(self, min_cfg_pth, columns, condition, match):
+        bbc = BedBaseConf(get_bedbase_cfg(cfg=min_cfg_pth))
+        hits = bbc.select(
+            table_name=BED_TABLE,
+            condition=condition,
+            columns=columns
+        )
+        if match:
+            assert len(hits) > 0
+        else:
+            assert len(hits) == 0
+
