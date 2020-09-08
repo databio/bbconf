@@ -47,18 +47,6 @@ Create the config instance with a filepath
 
 
 ```python
-def assert_connection(self)
-```
-
-Check whether an Elasticsearch connection has been established
-#### Raises:
-
-- `BedBaseConnectionError`:  if there is no active connection
-
-
-
-
-```python
 def check_bedfiles_table_exists(self)
 ```
 
@@ -71,6 +59,18 @@ Check if the bedfiles table exists
 
 
 ```python
+def check_bedset_bedfiles_table_exists(self)
+```
+
+Check if the bedset_bedfiles table exists
+#### Returns:
+
+- `bool`:  whether the bedset_bedfiles table exists
+
+
+
+
+```python
 def check_bedsets_table_exists(self)
 ```
 
@@ -78,6 +78,18 @@ Check if the bedsets table exists
 #### Returns:
 
 - `bool`:  whether the bedsets table exists
+
+
+
+
+```python
+def check_connection(self)
+```
+
+Check whether a PostgreSQL connection has been established
+#### Returns:
+
+- `bool`:  whether the connection has been established
 
 
 
@@ -109,7 +121,7 @@ def count_bedsets(self)
 Count rows in the bedsets table
 #### Returns:
 
-- `int`:  numner of rows in the bedsets table
+- `int`:  number of rows in the bedsets table
 
 
 
@@ -118,7 +130,7 @@ Count rows in the bedsets table
 def create_bedfiles_table(self, columns)
 ```
 
-Create a bedfiles table, id column is defined by default
+Create a bedfiles table
 #### Parameters:
 
 - `columns` (`str | list[str]`):  columns definition list,for instance: ['name VARCHAR(50) NOT NULL']
@@ -127,10 +139,18 @@ Create a bedfiles table, id column is defined by default
 
 
 ```python
-def create_bedsets_table(self, columns)
+def create_bedset_bedfiles_table(self)
 ```
 
 Create a bedsets table, id column is defined by default
+
+
+
+```python
+def create_bedsets_table(self, columns)
+```
+
+Create a bedsets table
 #### Parameters:
 
 - `columns` (`str | list[str]`):  columns definition list,for instance: ['name VARCHAR(50) NOT NULL']
@@ -142,7 +162,7 @@ Create a bedsets table, id column is defined by default
 def db_cursor(self)
 ```
 
-Establish connection and Get a PostgreSQL database cursor, commit and close the connection afterwards
+Establish connection and get a PostgreSQL database cursor, commit and close the connection afterwards
 #### Returns:
 
 - `DictCursor`:  Database cursor object
@@ -205,6 +225,23 @@ def insert_bedfile_data(self, values)
 - `values` (`dict`):  a mapping of pairs of table column names andrespective values to bne inserted to the database
 
 
+#### Returns:
+
+- `int`:  id of the row just inserted
+
+
+
+
+```python
+def insert_bedset_bedfiles_data(self, values)
+```
+
+
+#### Parameters:
+
+- `values` (`dict`):  a mapping of pairs of table column names andrespective values to bne inserted to the database
+
+
 
 
 ```python
@@ -215,6 +252,11 @@ def insert_bedset_data(self, values)
 #### Parameters:
 
 - `values` (`dict`):  a mapping of pairs of table column names andrespective values to bne inserted to the database
+
+
+#### Returns:
+
+- `int`:  id of the row just inserted
 
 
 
@@ -246,7 +288,7 @@ def select_bedfiles_for_bedset(self, query, bedfile_col=None)
 Select bedfiles that are part of a bedset that matches the query
 #### Parameters:
 
-- `query` (`str`):  bedsets table query to restrict the results with,for instace "name='bedset1'"
+- `query` (`str`):  bedsets table query to restrict the results with,for instance "name='bedset1'"
 - `bedfile_col` (`list[str] | str`):  bedfile columns to include in theresult, if none specified all columns will be included
 
 
