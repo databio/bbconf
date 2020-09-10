@@ -179,6 +179,14 @@ Remove bedfiles table from the database
 
 
 ```python
+def drop_bedset_bedfiles_table(self)
+```
+
+Remove bedsets table from the database
+
+
+
+```python
 def drop_bedsets_table(self)
 ```
 
@@ -262,7 +270,7 @@ def insert_bedset_data(self, values)
 
 
 ```python
-def select(self, table_name, columns=None, condition=None, json=None)
+def select(self, table_name, columns=None, condition=None)
 ```
 
 Get all the contents from the selected table
@@ -270,8 +278,7 @@ Get all the contents from the selected table
 
 - `table_name` (`str`):  name of the table to list contents for
 - `columns` (`str | list[str]`):  columns to select
-- `condition` (`str`):  to restrict the results with
-- `json` (`str`):  columns name to make the condition a json query for
+- `condition` (`str`):  condition to restrict the results with
 
 
 #### Returns:
