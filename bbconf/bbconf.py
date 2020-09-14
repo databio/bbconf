@@ -292,6 +292,43 @@ class BedBaseConf(yacman.YacAttMap):
         _LOGGER.info(f"Created table '{table_name}' with "
                      f"{len(columns) + 1} columns")
 
+    def _get_columns_types(self, table_name):
+        """
+        Get types of the columns in the specified table
+
+        :param str table_name: name of the table to query
+        :return list[psycopg2.extras.DictRow]: column types
+        """
+        with self.db_cursor as cur:
+            cur.execute(f"SELECT column_name, data_type "
+                        f"FROM information_schema.columns "
+                        f"WHERE table_name = '{table_name}';")
+            return cur.fetchall()
+
+    def get_bedfiles_table_columns_types(self):
+        """
+        Get types of the columns in the bedfiles table
+
+        :return list[psycopg2.extras.DictRow]: column types
+        """
+        return self._get_columns_types(table_name=BED_TABLE)
+
+    def get_bedsets_table_columns_types(self):
+        """
+        Get types of the columns in the bedsets table
+
+        :return list[psycopg2.extras.DictRow]: column types
+        """
+        return self._get_columns_types(table_name=BEDSET_TABLE)
+
+    def get_bedset_bedfiles_table_columns_types(self):
+        """
+        Get types of the columns in the bedset_bedfiles table
+
+        :return list[psycopg2.extras.DictRow]: column types
+        """
+        return self._get_columns_types(table_name=REL_TABLE)
+
     def create_bedfiles_table(self, columns):
         """
         Create a bedfiles table
