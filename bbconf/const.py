@@ -1,6 +1,30 @@
 """
 Constant variables shared among packages that constitute bedbase project
 """
+
+
+def _make_columns_list(template, nonnull_list, unique_list, col_list):
+    """
+    Create a list of column initialization strings with constraints
+
+    :param str template: column template, containing type
+    :param list[str] nonnull_list: list of column names that are not nullable
+    :param list[str] unique_list: list of column names that must be unique
+    :param list[str] col_list: list of columns names to process
+    :return list[str]: processed list of column names, enrichecd with
+        types and constraints
+    """
+    result = []
+    for c in col_list:
+        res = template.format(c)
+        if c in nonnull_list:
+            res += " NOT NULL"
+        if c in unique_list:
+            res += " UNIQUE"
+        result.append(res)
+    return result
+
+
 PKG_NAME = "bbconf"
 DOC_URL = "TBA"  # add documentation URL once it's established
 
@@ -196,35 +220,47 @@ COL_FLOAT = '{} FLOAT'
 COL_INT = '{} INT'
 COL_JSONB = '{} JSONB'
 COL_CHAR = "{} VARCHAR(300)"
-ID_COL = "id BIGSERIAL PRIMARY KEY NOT NULL"
+ID_COL = "id BIGSERIAL PRIMARY KEY"
 
 BED_FLOAT_COLS = JSON_FLOAT_KEY_VALUES
 BED_INT_COLS = JSON_INT_KEY_VALUES
-BED_NONNULL_COLS = [JSON_NAME_KEY, JSON_MD5SUM_KEY, BEDFILE_PATH_KEY]
 BED_CHAR_COLS = [JSON_MD5SUM_KEY, BEDFILE_PATH_KEY, JSON_NAME_KEY]
 BED_JSONB_COLS = [JSON_PLOTS_KEY, JSON_OTHER_KEY]
 
-chars = [COL_CHAR.format(c) if c not in BED_NONNULL_COLS else
-         COL_CHAR.format(c) + " NOT NULL" for c in BED_CHAR_COLS]
-floats = [COL_FLOAT.format(c) if c not in BED_NONNULL_COLS else
-          COL_FLOAT.format(c) + " NOT NULL" for c in BED_FLOAT_COLS]
-ints = [COL_INT.format(c) if c in BED_NONNULL_COLS else
-        COL_INT.format(c) + " NOT NULL" for c in BED_INT_COLS]
-jsonbs = [COL_JSONB.format(c) if c not in BED_NONNULL_COLS else
-        COL_JSONB.format(c) + " NOT NULL" for c in BED_JSONB_COLS]
+BED_NONNULL_COLS = [JSON_NAME_KEY, JSON_MD5SUM_KEY, BEDFILE_PATH_KEY]
+BED_UNIQUE_COLS = [JSON_MD5SUM_KEY]
+
+chars = _make_columns_list(COL_CHAR, BED_NONNULL_COLS, BED_UNIQUE_COLS, BED_CHAR_COLS)
+floats = _make_columns_list(COL_FLOAT, BED_NONNULL_COLS, BED_UNIQUE_COLS, BED_FLOAT_COLS)
+ints = _make_columns_list(COL_INT, BED_NONNULL_COLS, BED_UNIQUE_COLS, BED_INT_COLS)
+jsonbs = _make_columns_list(COL_JSONB, BED_NONNULL_COLS, BED_UNIQUE_COLS, BED_JSONB_COLS)
+
+# chars = [COL_CHAR.format(c) if c not in BED_NONNULL_COLS else
+#          COL_CHAR.format(c) + " NOT NULL" for c in BED_CHAR_COLS]
+# floats = [COL_FLOAT.format(c) if c not in BED_NONNULL_COLS else
+#           COL_FLOAT.format(c) + " NOT NULL" for c in BED_FLOAT_COLS]
+# ints = [COL_INT.format(c) if c in BED_NONNULL_COLS else
+#         COL_INT.format(c) + " NOT NULL" for c in BED_INT_COLS]
+# jsonbs = [COL_JSONB.format(c) if c not in BED_NONNULL_COLS else COL_JSONB.format(c) + " NOT NULL" for c in BED_JSONB_COLS]
 
 BED_COLUMNS = [ID_COL] + chars + floats + ints + jsonbs
 
 # bedsets table columns definition
 
-BEDSET_NONNULL_COLS = [JSON_NAME_KEY, JSON_MD5SUM_KEY]
 BEDSET_CHAR_COLS = [JSON_MD5SUM_KEY, JSON_NAME_KEY, JSON_BEDSET_TAR_PATH_KEY, JSON_BEDSET_BEDFILES_GD_STATS_KEY, JSON_BEDSET_GD_STATS_KEY, JSON_BEDSET_IGD_DB_KEY, JSON_BEDSET_PEP_KEY]
 BEDSET_JSONB_COLS = [JSON_PLOTS_KEY, JSON_BEDSET_MEANS_KEY, JSON_BEDSET_SD_KEY, JSON_BEDSET_BED_IDS_KEY]
 
-chars = [COL_CHAR.format(c) if c not in BEDSET_NONNULL_COLS else
-         COL_CHAR.format(c) + " NOT NULL" for c in BEDSET_CHAR_COLS]
-jsonbs = [COL_JSONB.format(c) if c not in BEDSET_NONNULL_COLS else
-        COL_JSONB.format(c) + " NOT NULL" for c in BEDSET_JSONB_COLS]
+BEDSET_NONNULL_COLS = [JSON_NAME_KEY, JSON_MD5SUM_KEY]
+BEDSET_UNIQUE_COLS = [JSON_MD5SUM_KEY]
+
+chars = _make_columns_list(COL_CHAR, BEDSET_NONNULL_COLS, BEDSET_UNIQUE_COLS, BEDSET_CHAR_COLS)
+jsonbs = _make_columns_list(COL_JSONB, BEDSET_NONNULL_COLS, BEDSET_UNIQUE_COLS, BEDSET_JSONB_COLS)
+
+
+# chars = [COL_CHAR.format(c) if c not in BEDSET_NONNULL_COLS else
+#          COL_CHAR.format(c) + " NOT NULL" for c in BEDSET_CHAR_COLS]
+# jsonbs = [COL_JSONB.format(c) if c not in BEDSET_NONNULL_COLS else
+#         COL_JSONB.format(c) + " NOT NULL" for c in BEDSET_JSONB_COLS]
 
 BEDSET_COLUMNS = [ID_COL] + chars + jsonbs
 
