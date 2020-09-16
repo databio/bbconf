@@ -235,14 +235,6 @@ floats = _make_columns_list(COL_FLOAT, BED_NONNULL_COLS, BED_UNIQUE_COLS, BED_FL
 ints = _make_columns_list(COL_INT, BED_NONNULL_COLS, BED_UNIQUE_COLS, BED_INT_COLS)
 jsonbs = _make_columns_list(COL_JSONB, BED_NONNULL_COLS, BED_UNIQUE_COLS, BED_JSONB_COLS)
 
-# chars = [COL_CHAR.format(c) if c not in BED_NONNULL_COLS else
-#          COL_CHAR.format(c) + " NOT NULL" for c in BED_CHAR_COLS]
-# floats = [COL_FLOAT.format(c) if c not in BED_NONNULL_COLS else
-#           COL_FLOAT.format(c) + " NOT NULL" for c in BED_FLOAT_COLS]
-# ints = [COL_INT.format(c) if c in BED_NONNULL_COLS else
-#         COL_INT.format(c) + " NOT NULL" for c in BED_INT_COLS]
-# jsonbs = [COL_JSONB.format(c) if c not in BED_NONNULL_COLS else COL_JSONB.format(c) + " NOT NULL" for c in BED_JSONB_COLS]
-
 BED_COLUMNS = [ID_COL] + chars + floats + ints + jsonbs
 
 # bedsets table columns definition
@@ -255,12 +247,6 @@ BEDSET_UNIQUE_COLS = [JSON_MD5SUM_KEY]
 
 chars = _make_columns_list(COL_CHAR, BEDSET_NONNULL_COLS, BEDSET_UNIQUE_COLS, BEDSET_CHAR_COLS)
 jsonbs = _make_columns_list(COL_JSONB, BEDSET_NONNULL_COLS, BEDSET_UNIQUE_COLS, BEDSET_JSONB_COLS)
-
-
-# chars = [COL_CHAR.format(c) if c not in BEDSET_NONNULL_COLS else
-#          COL_CHAR.format(c) + " NOT NULL" for c in BEDSET_CHAR_COLS]
-# jsonbs = [COL_JSONB.format(c) if c not in BEDSET_NONNULL_COLS else
-#         COL_JSONB.format(c) + " NOT NULL" for c in BEDSET_JSONB_COLS]
 
 BEDSET_COLUMNS = [ID_COL] + chars + jsonbs
 

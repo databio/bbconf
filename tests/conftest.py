@@ -8,7 +8,8 @@ def test_columns():
     return [
         "id BIGSERIAL PRIMARY KEY NOT NULL",
         "test VARCHAR(300)",
-        "test_json JSONB"
+        "test_json JSONB",
+        "test_unique INT UNIQUE"
     ]
 
 
@@ -16,6 +17,13 @@ def test_columns():
 def test_data():
     return {"test": "test_string",
             "test_json": {"test_key1": {"test_key2": "test_val"}}}
+
+
+@pytest.fixture
+def test_data_unique():
+    return {"test": "test_string",
+            "test_json": {"test_key1": {"test_key2": "test_val"}},
+            "test_unique": 1}
 
 
 @pytest.fixture

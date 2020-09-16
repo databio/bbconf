@@ -2,6 +2,7 @@
 
 import pytest
 from psycopg2 import Error as psycopg2Error
+from psycopg2.errors import UniqueViolation
 from bbconf import BedBaseConf
 from .conftest import min_cfg_pth, cfg_pth
 from bbconf import get_bedbase_cfg
@@ -76,6 +77,12 @@ class TestDBTables:
         ori_cnt = bbc.count_bedsets()
         bbc.insert_bedset_data(values=test_data)
         assert ori_cnt + 1 == bbc.count_bedsets()
+
+    def test_nonunique_digest_insert_error(self, min_cfg_pth, test_data_unique):
+        bbc = BedBaseConf(get_bedbase_cfg(cfg=min_cfg_pth))
+        bbc.insert_bedfile_data(values=test_data_unique)
+        with pytest.raises(UniqueViolation):
+            bbc.insert_bedfile_data(values=test_data_unique)
 
     @pytest.mark.parametrize(["columns", "condition", "match"], [
         ("id", "test='test_string'", True),
