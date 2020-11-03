@@ -7,6 +7,7 @@ from contextlib import contextmanager
 from collections.abc import Mapping
 
 import yacman
+import os
 
 from attmap import PathExAttMap as PXAM
 
@@ -43,11 +44,14 @@ class BedBaseConf(yacman.YacAttMap):
             # if there's nothing under path key (None)
             self[CFG_PATH_KEY] = PXAM()
 
-        if CFG_BEDSTAT_OUTPUT_KEY not in self[CFG_PATH_KEY]:
-            _raise_missing_key(CFG_BEDSTAT_OUTPUT_KEY)
+        if CFG_PIPELINE_OUT_PTH_KEY not in self[CFG_PATH_KEY]:
+            _raise_missing_key(CFG_PIPELINE_OUT_PTH_KEY)
+
+        if CFG_BEDSTAT_DIR_KEY not in self[CFG_PATH_KEY]:
+            _raise_missing_key(CFG_BEDSTAT_DIR_KEY)
             
-        if CFG_BEDBUNCHER_OUTPUT_KEY not in self[CFG_PATH_KEY]:
-            _raise_missing_key(CFG_BEDBUNCHER_OUTPUT_KEY)          
+        if CFG_BEDBUNCHER_DIR_KEY not in self[CFG_PATH_KEY]:
+            _raise_missing_key(CFG_BEDBUNCHER_DIR_KEY)
         
         for section, mapping in DEFAULT_SECTION_VALUES.items():
             if section not in self:
@@ -61,6 +65,42 @@ class BedBaseConf(yacman.YacAttMap):
     def _excl_from_repr(self, k, cls):
         return k in \
                [attr for attr in self.to_dict().keys() if attr.startswith("_")]
+
+    def _get_output_path(self, table_name, remote=False):
+        """
+        Get path to the output of the selected pipeline
+
+        :param bool remote: whether to use remote url base
+        :param str table_name: name of the table that is populated by the
+            pipeline to return the output path for
+        :return str: path to the selected pipeline output
+        """
+        dir_key = CFG_BEDBUNCHER_DIR_KEY if table_name == BEDSET_TABLE \
+            else CFG_BEDSTAT_DIR_KEY
+        base = self[CFG_PATH_KEY][CFG_REMOTE_URL_BASE_KEY] if remote \
+            else self[CFG_PATH_KEY][CFG_PIPELINE_OUT_PTH_KEY]
+        if remote and not base:
+            raise MissingConfigDataError(
+                f"{CFG_REMOTE_URL_BASE_KEY} key value is invalid: {base}")
+        return os.path.join(base, self[CFG_PATH_KEY][dir_key])
+
+    def get_bedbuncher_output_path(self, remote=False):
+        """
+        Get path to the output of the bedbuncher pipeline
+
+        :param bool remote: whether to use remote url base
+        :return str: path to the bedbuncher pipeline output
+        """
+        return self._get_output_path(table_name=BEDSET_TABLE, remote=remote)
+
+    def get_bedstat_output_path(self, remote=False):
+        """
+        Get path to the output of the bedstat pipeline
+
+        :param bool remote: whether to use remote url base
+        :return str: path to the bedstat pipeline output
+        """
+        return self._get_output_path(table_name=BED_TABLE, remote=remote)
 
     def check_connection(self):
         """
