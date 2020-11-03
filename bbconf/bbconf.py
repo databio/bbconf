@@ -368,7 +368,7 @@ class BedBaseConf(yacman.YacAttMap):
             result, if none specified all columns will be included
         :return list[psycopg2.extras.DictRow]: matched bedfiles table contents
         """
-        col_str = ", ".join(["f." + c for c in _mk_list_of_str(bedfile_col)]) \
+        col_str = ",".join(["f." + c for c in _mk_list_of_str(bedfile_col)]) \
             if bedfile_col else "*"
         with self.db_cursor as cur:
             cur.execute(
