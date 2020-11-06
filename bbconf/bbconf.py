@@ -122,9 +122,8 @@ class BedBaseConf(yacman.YacAttMap):
         """
         if self.check_connection():
             raise BedBaseConnectionError(
-                "The connection is already established: {}".
-                    format(str(self[PG_CLIENT_KEY].info.host))
-            )
+                f"The connection is already established: "
+                f"{self[PG_CLIENT_KEY].info.host}")
         db = self[CFG_DATABASE_KEY]
         try:
             self[PG_CLIENT_KEY] = psycopg2.connect(
@@ -135,15 +134,15 @@ class BedBaseConf(yacman.YacAttMap):
                 port=db[CFG_PORT_KEY]
             )
         except psycopg2.Error as e:
-            _LOGGER.error("Could not connect to: {}".
-                          format(self[CFG_DATABASE_KEY][CFG_HOST_KEY]))
-            _LOGGER.info("Caught error: {}".format(e))
+            _LOGGER.error(f"Could not connect to: "
+                          f"{self[CFG_DATABASE_KEY][CFG_HOST_KEY]}")
+            _LOGGER.info(f"Caught error: {e}")
             if suppress:
                 return False
             raise
         else:
-            _LOGGER.debug("Established connection with PostgreSQL: {}".
-                         format(self[CFG_DATABASE_KEY][CFG_HOST_KEY]))
+            _LOGGER.debug(f"Established connection with PostgreSQL: "
+                          f"{self[CFG_DATABASE_KEY][CFG_HOST_KEY]}")
             return True
 
     def close_postgres_connection(self):
@@ -152,13 +151,12 @@ class BedBaseConf(yacman.YacAttMap):
         """
         if not self.check_connection():
             raise BedBaseConnectionError(
-                "The has not been established: {}".
-                    format(str(self[CFG_DATABASE_KEY][CFG_HOST_KEY]))
-            )
+                f"The connection has not been established: "
+                f"{self[CFG_DATABASE_KEY][CFG_HOST_KEY]}")
         self[PG_CLIENT_KEY].close()
         del self[PG_CLIENT_KEY]
-        _LOGGER.debug("Closed connection with PostgreSQL: {}".
-                     format(self[CFG_DATABASE_KEY][CFG_HOST_KEY]))
+        _LOGGER.debug(f"Closed connection with PostgreSQL: "
+                      f"{self[CFG_DATABASE_KEY][CFG_HOST_KEY]}")
 
     @property
     @contextmanager
@@ -408,8 +406,7 @@ class BedBaseConf(yacman.YacAttMap):
             result, if none specified all columns will be included
         :return list[psycopg2.extras.DictRow]: matched bedfiles table contents
         """
-        col_str = ",".join(["f." + c for c in _mk_list_of_str(bedfile_col)]) \
-            if bedfile_col else "*"
+        col_str = ",".join(["f." + c for c in _mk_list_of_str(bedfile_col or BED_COL_NAMES)])
         with self.db_cursor as cur:
             cur.execute(
                 f"SELECT {col_str} FROM {BED_TABLE} f "
@@ -491,9 +488,8 @@ def get_bedbase_cfg(cfg=None):
     )
     if not selected_cfg:
         raise BedBaseConnectionError(
-            "You must provide a config file or set the {} environment variable"
-                .format("or ".join(CFG_ENV_VARS))
-        )
+            f"You must provide a config file or set the "
+            f"{'or '.join(CFG_ENV_VARS)} environment variable")
     return selected_cfg
 
 
