@@ -224,6 +224,76 @@ Return the path to the config file or None if not set
 
 
 ```python
+def get_bedbuncher_output_path(self, remote=False)
+```
+
+Get path to the output of the bedbuncher pipeline
+#### Parameters:
+
+- `remote` (`bool`):  whether to use remote url base
+
+
+#### Returns:
+
+- `str`:  path to the bedbuncher pipeline output
+
+
+
+
+```python
+def get_bedfiles_table_columns_types(self)
+```
+
+Get types of the columns in the bedfiles table
+#### Returns:
+
+- `list[psycopg2.extras.DictRow]`:  column types
+
+
+
+
+```python
+def get_bedset_bedfiles_table_columns_types(self)
+```
+
+Get types of the columns in the bedset_bedfiles table
+#### Returns:
+
+- `list[psycopg2.extras.DictRow]`:  column types
+
+
+
+
+```python
+def get_bedsets_table_columns_types(self)
+```
+
+Get types of the columns in the bedsets table
+#### Returns:
+
+- `list[psycopg2.extras.DictRow]`:  column types
+
+
+
+
+```python
+def get_bedstat_output_path(self, remote=False)
+```
+
+Get path to the output of the bedstat pipeline
+#### Parameters:
+
+- `remote` (`bool`):  whether to use remote url base
+
+
+#### Returns:
+
+- `str`:  path to the bedstat pipeline output
+
+
+
+
+```python
 def insert_bedfile_data(self, values)
 ```
 
@@ -270,15 +340,16 @@ def insert_bedset_data(self, values)
 
 
 ```python
-def select(self, table_name, columns=None, condition=None)
+def select(self, table_name, columns=None, condition=None, condition_val=None)
 ```
 
-Get all the contents from the selected table
+Get all the contents from the selected table, possibly restricted by the provided condition.
 #### Parameters:
 
 - `table_name` (`str`):  name of the table to list contents for
 - `columns` (`str | list[str]`):  columns to select
-- `condition` (`str`):  condition to restrict the results with
+- `condition` (`str`):  condition to restrict the resultswith, will be appended to the end of the SELECT statement and safely populated with 'condition_val', for example: `"id=%s"`
+- `condition_val` (`str`):  value to fill the placeholderin 'condition' with
 
 
 #### Returns:
@@ -289,13 +360,13 @@ Get all the contents from the selected table
 
 
 ```python
-def select_bedfiles_for_bedset(self, query, bedfile_col=None)
+def select_bedfiles_for_bedset(self, condition=None, condition_val=None, bedfile_col=None)
 ```
 
 Select bedfiles that are part of a bedset that matches the query
 #### Parameters:
 
-- `query` (`str`):  bedsets table query to restrict the results with,for instance "name='bedset1'"
+- `condition` (`str`):  bedsets table query to restrict the results with,for instance `"id=%s"`
 - `bedfile_col` (`list[str] | str`):  bedfile columns to include in theresult, if none specified all columns will be included
 
 

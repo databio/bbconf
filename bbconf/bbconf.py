@@ -1,10 +1,12 @@
 import psycopg2
+from psycopg2 import sql
 from psycopg2.extras import DictCursor, Json
 from psycopg2.extensions import connection
 
 from logging import getLogger
 from contextlib import contextmanager
 from collections.abc import Mapping
+from re import findall
 
 import yacman
 import os
@@ -17,6 +19,29 @@ from .exceptions import *
 _LOGGER = getLogger(PKG_NAME)
 
 __all__ = ["BedBaseConf", "get_bedbase_cfg"]
+
+
+class LoggingCursor(psycopg2.extras.DictCursor):
+    """
+    Logging db cursor
+    """
+    def execute(self, query, vars=None):
+        """
+        Execute a database operation (query or command) and issue a debug
+        and info level log messages
+
+        :param query:
+        :param vars:
+        :return:
+        """
+        _LOGGER.info(f"Executing query: {self.mogrify(query, vars)}")
+        try:
+            super(LoggingCursor, self).execute(query=query, vars=vars)
+        except Exception as e:
+            _LOGGER.error(f"{e.__class__.__name__}: {e}")
+            raise
+        else:
+            _LOGGER.info(f"Executed query: {self.query}")
 
 
 class BedBaseConf(yacman.YacAttMap):
@@ -171,7 +196,7 @@ class BedBaseConf(yacman.YacAttMap):
             if not self.check_connection():
                 self.establish_postgres_connection()
             conn = self[PG_CLIENT_KEY]
-            with conn as c, c.cursor(cursor_factory=DictCursor) as cur:
+            with conn as c, c.cursor(cursor_factory=LoggingCursor) as cur:
                 yield cur
         except:
             raise
@@ -187,30 +212,40 @@ class BedBaseConf(yacman.YacAttMap):
         :return list[psycopg2.extras.DictRow]: all table contents
         """
         with self.db_cursor as cur:
-            cur.execute(f"SELECT * FROM {table_name}")
+            cur.execute(
+                sql.SQL("SELECT * FROM {}").format(sql.Identifier(table_name)))
             result = cur.fetchall()
         return result
 
-    def select(self, table_name, columns=None, condition=None):
+    def select(self, table_name, columns=None, condition=None, condition_val=None):
         """
-        Get all the contents from the selected table
+        Get all the contents from the selected table, possibly restricted by
+        the provided condition.
 
         :param str table_name: name of the table to list contents for
         :param str | list[str] columns: columns to select
-        :param str condition: condition to restrict the results with
+        :param str condition: condition to restrict the results
+            with, will be appended to the end of the SELECT statement and
+            safely populated with 'condition_val',
+            for example: `"id=%s"`
+        :param str condition_val: value to fill the placeholder
+            in 'condition' with
         :return list[psycopg2.extras.DictRow]: all table contents
         """
-        if condition and not isinstance(condition, str):
-            raise TypeError("Condition has to be a string, e.g. 'id=1'")
-        columns = _mk_list_of_str(columns)
-        columns = ",".join(columns) if columns else "*"
-        statement = f"SELECT {columns} FROM {table_name}"
+        condition, condition_val = \
+            _preprocess_condition_pair(condition, condition_val)
+        if not columns:
+            columns = sql.SQL("*")
+        else:
+            columns = sql.SQL(',').join(
+                [sql.Identifier(x) for x in _mk_list_of_str(columns)])
+        statement = sql.SQL("SELECT {} FROM {}").format(
+            columns, sql.Identifier(table_name))
         if condition:
-            statement += f" WHERE {condition}"
-        statement += ";"
+            statement += sql.SQL(" WHERE ")
+            statement += condition
         with self.db_cursor as cur:
-            _LOGGER.info(f"Selecting from DB:\n - statement: {statement}")
-            cur.execute(statement)
+            cur.execute(query=statement, vars=(condition_val, ))
             result = cur.fetchall()
         return result
 
@@ -219,18 +254,19 @@ class BedBaseConf(yacman.YacAttMap):
 
         :param str table_name: name of the table to insert the values to
         :param dict values: a mapping of pairs of table column names and
-            respective values to bne inserted to the database
+            respective values to be inserted to the database
         :return int: id of the row just inserted
         """
-        statement = f"INSERT INTO {table_name} ({','.join(values.keys())})" \
-                    f" VALUES ({','.join(['%s'] * len(values))})"
-        statement += " RETURNING id;" if not skip_id_return else ";"
+        statement = sql.SQL("INSERT INTO {table_name} ({columns}) VALUES ({placeholder})").format(
+            placeholder=sql.SQL(','.join(['%s'] * len(values))),
+            columns=sql.SQL(',').join([sql.Identifier(v) for v in values.keys()]),
+            table_name=sql.Identifier(table_name))
+        if not skip_id_return:
+            statement += sql.SQL(" RETURNING id")
         # convert mappings to JSON for postgres
         values = tuple([Json(v) if isinstance(v, Mapping) else v
                         for v in list(values.values())])
         with self.db_cursor as cur:
-            _LOGGER.info(f"Inserting into DB:\n - statement: {statement}"
-                         f"\n - values: {values}")
             cur.execute(statement, values)
             if not skip_id_return:
                 return cur.fetchone()[0]
@@ -269,7 +305,9 @@ class BedBaseConf(yacman.YacAttMap):
         :return int: number of rows in the selected table
         """
         with self.db_cursor as cur:
-            cur.execute(f"SELECT COUNT(*) FROM {table_name}")
+            statement = sql.SQL("SELECT COUNT(*) FROM {}").format(
+                sql.Identifier(table_name))
+            cur.execute(statement)
             return cur.fetchall()[0][0]
 
     def count_bedfiles(self):
@@ -295,7 +333,9 @@ class BedBaseConf(yacman.YacAttMap):
         :param str table_name: name of the table to remove
         """
         with self.db_cursor as cur:
-            cur.execute(f"DROP table IF EXISTS {table_name};")
+            statement = sql.SQL("DROP table IF EXISTS {}").format(
+                sql.Identifier(table_name))
+            cur.execute(statement)
 
     def drop_bedfiles_table(self):
         """
@@ -325,10 +365,8 @@ class BedBaseConf(yacman.YacAttMap):
         """
         columns = _mk_list_of_str(columns)
         with self.db_cursor as cur:
-            cur.execute(f"CREATE TABLE {table_name} "
-                        f"({', '.join(columns)});")
-        _LOGGER.info(f"Created table '{table_name}' with "
-                     f"{len(columns) + 1} columns")
+            s = sql.SQL(f"CREATE TABLE {table_name} ({','.join(columns)})")
+            cur.execute(s)
 
     def _get_columns_types(self, table_name):
         """
@@ -338,9 +376,9 @@ class BedBaseConf(yacman.YacAttMap):
         :return list[psycopg2.extras.DictRow]: column types
         """
         with self.db_cursor as cur:
-            cur.execute(f"SELECT column_name, data_type "
-                        f"FROM information_schema.columns "
-                        f"WHERE table_name = '{table_name}';")
+            cur.execute("SELECT column_name, data_type "
+                        "FROM information_schema.columns "
+                        "WHERE table_name = %s", (table_name, ))
             return cur.fetchall()
 
     def get_bedfiles_table_columns_types(self):
@@ -396,24 +434,30 @@ class BedBaseConf(yacman.YacAttMap):
                    f"FOREIGN KEY ({REL_BED_ID_KEY}) REFERENCES {BED_TABLE} (id)"]
         self._create_table(table_name=REL_TABLE, columns=columns)
 
-    def select_bedfiles_for_bedset(self, query, bedfile_col=None):
+    def select_bedfiles_for_bedset(self, condition=None, condition_val=None,
+                                   bedfile_col=None):
         """
         Select bedfiles that are part of a bedset that matches the query
 
-        :param str query: bedsets table query to restrict the results with,
-            for instance "name='bedset1'"
+        :param str condition: bedsets table query to restrict the results with,
+            for instance `"id=%s"`
         :param list[str] | str bedfile_col: bedfile columns to include in the
             result, if none specified all columns will be included
         :return list[psycopg2.extras.DictRow]: matched bedfiles table contents
         """
-        col_str = ",".join(["f." + c for c in _mk_list_of_str(bedfile_col or BED_COL_NAMES)])
+        condition, condition_val = \
+            _preprocess_condition_pair(condition, condition_val)
+        columns = ["f." + c for c in _mk_list_of_str(bedfile_col or BED_COL_NAMES)]
+        columns = sql.SQL(',').join([sql.SQL(v) for v in columns])
+        statement_str = \
+            "SELECT {} FROM {} f INNER JOIN {} r ON r.bedfile_id = f.id INNER" \
+            " JOIN {} s ON r.bedset_id = s.id WHERE s."
         with self.db_cursor as cur:
-            cur.execute(
-                f"SELECT {col_str} FROM {BED_TABLE} f "
-                f"INNER JOIN {REL_TABLE} r ON r.bedfile_id = f.id "
-                f"INNER JOIN {BEDSET_TABLE} s ON r.bedset_id = s.id "
-                f"WHERE s.{query};"
-            )
+            statement = sql.SQL(statement_str).format(
+                columns, sql.Identifier(BED_TABLE),
+                sql.Identifier(REL_TABLE), sql.Identifier(BEDSET_TABLE))
+            statement += condition
+            cur.execute(statement, condition_val)
             return cur.fetchall()
 
     def _check_table_exists(self, table_name):
@@ -491,6 +535,34 @@ def get_bedbase_cfg(cfg=None):
             f"You must provide a config file or set the "
             f"{'or '.join(CFG_ENV_VARS)} environment variable")
     return selected_cfg
+
+
+def _preprocess_condition_pair(condition, condition_val):
+    """
+    Preprocess query condition and values to ensure sanity and compatibility
+
+    :param str condition: condition string
+    :param tuple condition_val: values to populate condition string with
+    :return (psycopg2.sql.SQL, tuple): condition pair
+    """
+    if condition:
+        if not isinstance(condition, str):
+            raise TypeError("Condition has to be a string")
+        else:
+            assert ";" not in condition, \
+                ValueError("semicolons are not permitted in condition strings")
+            placeholders = findall("%s", condition)
+            condition = sql.SQL(condition)
+        if not condition_val:
+            raise ValueError("condition provided but condition_val missing")
+        if not isinstance(condition_val, tuple):
+            assert ";" not in condition_val, \
+                ValueError("semicolons are not permitted in condition values")
+            condition_val = (condition_val, )
+        assert len(placeholders) == len(condition_val), \
+            ValueError(f"Number of condition values not equal number of "
+                       f"placeholders in: {condition}")
+    return condition, condition_val
 
 
 
