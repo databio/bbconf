@@ -34,7 +34,6 @@ class LoggingCursor(psycopg2.extras.DictCursor):
         :param vars:
         :return:
         """
-        _LOGGER.debug(f"query: {query}\nvars: {vars}")
         _LOGGER.info(f"Executing query: {self.mogrify(query, vars)}")
         try:
             super(LoggingCursor, self).execute(query=query, vars=vars)
