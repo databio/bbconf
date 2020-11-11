@@ -85,13 +85,12 @@ class TestDBTables:
             bbc.insert_bedfile_data(values=test_data_unique)
 
     @pytest.mark.parametrize(["columns", "condition", "condition_val", "match"], [
-        ("id", "test=%s", 'test_string', True),
-        ("test", "test=%s", 'test_string', True),
-        ("id", "test_json->'test_key1'->>'test_key2'=%s", 'test_val', True),
-        ("id", "test=%s", 'test_string_xxx', False),
-        ("id", "test_json->'test_key1_xxx'->>'test_key2'=%s", 'test_val', False),
-        ("id", "test_json->'test_key1'->>'test_key2'=%s", 'test_val_xxx', False)
-
+        ("id", "test=%s", ['test_string'], True),
+        ("test", "test=%s", ['test_string'], True),
+        ("id", "test_json->'test_key1'->>'test_key2'=%s", ['test_val'], True),
+        ("id", "test=%s", ['test_string_xxx'], False),
+        ("id", "test_json->'test_key1_xxx'->>'test_key2'=%s", ['test_val'], False),
+        ("id", "test_json->'test_key1'->>'test_key2'=%s", ['test_val_xxx'], False)
     ])
     def test_data_select(self, min_cfg_pth, columns, condition, condition_val, match):
         bbc = BedBaseConf(get_bedbase_cfg(cfg=min_cfg_pth))

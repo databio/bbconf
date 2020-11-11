@@ -34,6 +34,7 @@ class LoggingCursor(psycopg2.extras.DictCursor):
         :param vars:
         :return:
         """
+        _LOGGER.debug(f"query: {query}\nvars: {vars}")
         _LOGGER.info(f"Executing query: {self.mogrify(query, vars)}")
         try:
             super(LoggingCursor, self).execute(query=query, vars=vars)
@@ -228,7 +229,7 @@ class BedBaseConf(yacman.YacAttMap):
             with, will be appended to the end of the SELECT statement and
             safely populated with 'condition_val',
             for example: `"id=%s"`
-        :param str condition_val: value to fill the placeholder
+        :param list condition_val: values to fill the placeholder
             in 'condition' with
         :return list[psycopg2.extras.DictRow]: all table contents
         """
@@ -245,7 +246,7 @@ class BedBaseConf(yacman.YacAttMap):
             statement += sql.SQL(" WHERE ")
             statement += condition
         with self.db_cursor as cur:
-            cur.execute(query=statement, vars=(condition_val, ))
+            cur.execute(query=statement, vars=condition_val)
             result = cur.fetchall()
         return result
 
@@ -441,6 +442,7 @@ class BedBaseConf(yacman.YacAttMap):
 
         :param str condition: bedsets table query to restrict the results with,
             for instance `"id=%s"`
+        :param list condition_val:
         :param list[str] | str bedfile_col: bedfile columns to include in the
             result, if none specified all columns will be included
         :return list[psycopg2.extras.DictRow]: matched bedfiles table contents
@@ -545,23 +547,35 @@ def _preprocess_condition_pair(condition, condition_val):
     :param tuple condition_val: values to populate condition string with
     :return (psycopg2.sql.SQL, tuple): condition pair
     """
+
+    def _check_semicolon(x):
+        """
+        recursively check for semicolons in an object
+
+        :param aby x: object to inspect
+        :raises ValueError: if semicolon detected
+        """
+        if isinstance(x, str):
+            assert ";" not in x, ValueError(
+                f"semicolons are not permitted in condition values: '{str(x)}'")
+        if isinstance(x, list):
+            list(map(lambda v: _check_semicolon(v), x))
+
     if condition:
         if not isinstance(condition, str):
             raise TypeError("Condition has to be a string")
         else:
-            assert ";" not in condition, \
-                ValueError("semicolons are not permitted in condition strings")
+            _check_semicolon(condition)
             placeholders = findall("%s", condition)
             condition = sql.SQL(condition)
         if not condition_val:
             raise ValueError("condition provided but condition_val missing")
-        if not isinstance(condition_val, tuple):
-            assert ";" not in condition_val, \
-                ValueError("semicolons are not permitted in condition values")
-            condition_val = (condition_val, )
-        assert len(placeholders) == len(condition_val), \
-            ValueError(f"Number of condition values not equal number of "
-                       f"placeholders in: {condition}")
+        assert isinstance(condition_val, list), \
+            TypeError("condition_val has to be a list")
+        condition_val = tuple(condition_val)
+        assert len(placeholders) == len(condition_val), ValueError(
+            f"Number of condition ({len(condition_val)}) values not equal "
+            f"number of placeholders in: {condition}")
     return condition, condition_val
 
 
