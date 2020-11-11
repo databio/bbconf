@@ -1,8 +1,10 @@
 # full config example. Refer to bbconf/const.py for key names and default values
 
 path:
-  bedstat_output: /Users/mstolarczyk/Desktop/testing/bedbase_tutorial/bedstat_output
-  bedbuncher_output: /Users/mstolarczyk/Desktop/testing/bedbase_tutorial/bedbuncher_output
+  pipeline_output_path:  $HOME/bedbase
+  bedstat_dir: bedstat_output
+  bedbuncher_dir: bedbuncher_output
+  remote_url_base: null
 
 database:
   name: postgres

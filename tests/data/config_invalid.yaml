@@ -1,4 +1,4 @@
 # full config example. Refer to bbconf/const.py for key names and default values
 
 path:
-  bedstat_output: /Users/mstolarczyk/Desktop/testing/bedbase_tutorial/bedstat_output
+  pipeline_output_path:  $HOME/bedbase
