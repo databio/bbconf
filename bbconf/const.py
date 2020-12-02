@@ -2,6 +2,7 @@
 Constant variables shared among packages that constitute bedbase project
 """
 
+import os
 
 def _make_columns_list(template, nonnull_list, unique_list, col_list):
     """
@@ -24,6 +25,13 @@ def _make_columns_list(template, nonnull_list, unique_list, col_list):
         result.append(res)
     return result
 
+
+SCHEMA_DIRNAME = "schemas"
+SCHEMAS_PATH = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), SCHEMA_DIRNAME)
+BED_TABLE_SCHEMA = os.path.join(SCHEMAS_PATH, "bedfiles_schema.yaml")
+BEDSET_TABLE_SCHEMA = os.path.join(SCHEMAS_PATH, "bedsets_schema.yaml")
+REL_TABLE_SCHEMA = os.path.join(SCHEMAS_PATH, "bedset_bedfiles_schema.yaml")
 
 PKG_NAME = "bbconf"
 DOC_URL = "TBA"  # add documentation URL once it's established
@@ -50,8 +58,9 @@ SERVER_DEFAULT_HOST = '0.0.0.0'
 PATH_DEFAULT_REMOTE_URL_BASE = None
 
 PG_CLIENT_KEY = "__postgres_client"
+PIPESTATS_KEY = "__pipestats"
 
-HIDDEN_ATTR_KEYS = (PG_CLIENT_KEY)
+HIDDEN_ATTR_KEYS = (PG_CLIENT_KEY, PIPESTATS_KEY)
 
 # config file constants
 CFG_PATH_KEY = "path"
@@ -75,7 +84,7 @@ CFG_KEYS = [
     "CFG_PORT_KEY", "CFG_BED_TABLE_KEY", "CFG_BEDSET_TABLE_KEY", "CFG_NAME_KEY",
     "CFG_PASSWORD_KEY", "CFG_USER_KEY", "CFG_REL_TABLE_KEY",
     "CFG_REMOTE_URL_BASE_KEY", "CFG_PIPELINE_OUT_PTH_KEY", "CFG_BEDSTAT_DIR_KEY",
-    "CFG_BEDBUNCHER_DIR_KEY"]
+    "CFG_BEDBUNCHER_DIR_KEY", "PIPESTATS_KEY"]
 
 DEFAULT_SECTION_VALUES = {
     CFG_PATH_KEY: {
@@ -275,4 +284,6 @@ __all__ = ["BED_TABLE", "BEDSET_TABLE", "REL_TABLE", "RAW_BEDFILE_KEY",
            "JSON_BEDSET_KEY_NAMES", "JSON_METADATA_NAMES", "BEDSET_COLUMNS",
            "JSON_METADATA_VALUES", "HIDDEN_ATTR_KEYS", "BED_COLUMNS",
            "REL_BED_ID_KEY", "REL_BEDSET_ID_KEY", "BED_COL_NAMES",
-           "BEDSET_COL_NAMES"] + CFG_KEYS + JSON_KEYS
+           "BEDSET_COL_NAMES", "BED_TABLE_SCHEMA", "BEDSET_TABLE_SCHEMA", "REL_TABLE_SCHEMA"] + CFG_KEYS + JSON_KEYS
+
+

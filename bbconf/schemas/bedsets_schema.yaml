@@ -1,0 +1,30 @@
+name:
+  type: string
+  description: bedfile name
+md5sum:
+  type: string
+  description: bedfile checksum
+bedset_tar_archive_path:
+  type: string
+  description: bedfile checksum
+bedset_bedfiles_gd_stats:
+  type: string
+  description: bedfile checksum
+bedset_gd_stats:
+  type: string
+  description: bedfile checksum
+bedset_igd_database_path:
+  type: string
+  description: bedfile checksum
+bedset_pep:
+  type: string
+  description: bedfile checksum
+plots:
+  type: object
+  description: bedfile checksum
+bedset_means:
+  type: object
+  description: bedfile checksum
+bedset_standard_deviation:
+  type: object
+  description: bedfile checksum

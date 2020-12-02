@@ -1,19 +1,17 @@
-# full config example. Refer to bbconf/const.py for key names and default values
-
+database:
+  name: pipestat-test
+  user: postgres
+  password: pipestat-password
+  host: localhost
+  port: 5432
+  bed_table: bedfiles
+  bedset_table: bedsets
+  relationship_table: bedset_bedfiles
 path:
-  pipeline_output_path:  $HOME/bedbase
+  pipeline_output_path: $BEDBASE_DATA_PATH/outputs
   bedstat_dir: bedstat_output
   bedbuncher_dir: bedbuncher_output
   remote_url_base: null
-
-database:
-  name: postgres
-  user: postgres
-  password: bedbasepassword
-  host: localhost
-  bed_table: bedfiles
-  bedset_table: bedsets
-
 server:
   host: 0.0.0.0
   port: 8000

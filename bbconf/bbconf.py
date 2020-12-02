@@ -34,14 +34,14 @@ class LoggingCursor(psycopg2.extras.DictCursor):
         :param vars:
         :return:
         """
-        _LOGGER.info(f"Executing query: {self.mogrify(query, vars)}")
+        _LOGGER.debug(f"Executing query: {self.mogrify(query, vars)}")
         try:
             super(LoggingCursor, self).execute(query=query, vars=vars)
         except Exception as e:
             _LOGGER.error(f"{e.__class__.__name__}: {e}")
             raise
         else:
-            _LOGGER.info(f"Executed query: {self.query}")
+            _LOGGER.debug(f"Executed query: {self.query}")
 
 
 class BedBaseConf(yacman.YacAttMap):

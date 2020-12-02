@@ -1,0 +1,69 @@
+name:
+  type: string
+  description: bedfile name
+md5sum:
+  type: string
+  description: bedfile checksum
+bedfile_path:
+  type: string
+  description: bedfile path
+gc_content:
+  type: number
+  description: GC content
+mean_absolute_tss_dist:
+  type: number
+  description: bedfile path
+mean_region_width:
+  type: number
+  description: bedfile path
+exon_frequency:
+  type: number
+  description: bedfile path
+intron_frequency:
+  type: number
+  description: bedfile path
+promoterprox_frequency:
+  type: number
+  description: bedfile path
+intergenic_frequency:
+  type: number
+  description: bedfile path
+promotercore_frequency:
+  type: number
+  description: bedfile path
+fiveutr_frequency:
+  type: number
+  description: bedfile path
+fiveutr_percentage:
+  type: number
+  description: bedfile path
+threeutr_frequency:
+  type: number
+  description: bedfile path
+threeutr_percentage:
+  type: number
+  description: bedfile path
+promoterprox_percentage:
+  type: number
+  description: bedfile path
+exon_percentage:
+  type: number
+  description: bedfile path
+intron_percentage:
+  type: number
+  description: bedfile path
+intergenic_percentage:
+  type: number
+  description: bedfile path
+promotercore_percentage:
+  type: number
+  description: bedfile path
+regions_no:
+  type: integer
+  description: bedfile path
+plots:
+  type: object
+  description: bedfile path
+other:
+  type: object
+  description: bedfile path
