@@ -1,48 +1,51 @@
 name:
   type: string
-  description: bedfile name
+  description: BED file name
 md5sum:
   type: string
-  description: bedfile checksum
+  description: BED file checksum
 bedfile_path:
   type: string
-  description: bedfile path
+  description: BED file path
+regions_no:
+  type: integer
+  description: Number of regions
 gc_content:
   type: number
   description: GC content
 mean_absolute_tss_dist:
   type: number
-  description: bedfile path
+  description: Mean absolute distance from transcription start sites
 mean_region_width:
   type: number
-  description: bedfile path
+  description: Mean region witdth
 exon_frequency:
   type: number
-  description: bedfile path
+  description: Exon frequency
 intron_frequency:
   type: number
-  description: bedfile path
+  description: Intron frequency
 promoterprox_frequency:
   type: number
-  description: bedfile path
+  description: Promoter frequency
 intergenic_frequency:
   type: number
-  description: bedfile path
+  description: Intergenic frequency
 promotercore_frequency:
   type: number
-  description: bedfile path
+  description: Promoter core frequency
 fiveutr_frequency:
   type: number
-  description: bedfile path
-fiveutr_percentage:
-  type: number
-  description: bedfile path
+  description: 5' UTR frequency
 threeutr_frequency:
   type: number
-  description: bedfile path
+  description: 3' UTR frequency
+fiveutr_percentage:
+  type: number
+  description: 5' UTR percentage
 threeutr_percentage:
   type: number
-  description: bedfile path
+  description: 3' UTR percentage
 promoterprox_percentage:
   type: number
   description: bedfile path
@@ -51,19 +54,13 @@ exon_percentage:
   description: bedfile path
 intron_percentage:
   type: number
-  description: bedfile path
+  description: Intron percentage
 intergenic_percentage:
   type: number
-  description: bedfile path
+  description: Intergenic percentage
 promotercore_percentage:
   type: number
-  description: bedfile path
-regions_no:
-  type: integer
-  description: bedfile path
-plots:
-  type: object
-  description: bedfile path
+  description: Promoter core percentage
 other:
   type: object
-  description: bedfile path
+  description: Other, not categorized BED file metadata

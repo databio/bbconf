@@ -1,30 +1,27 @@
 name:
   type: string
-  description: bedfile name
+  description: BED set name
 md5sum:
   type: string
-  description: bedfile checksum
+  description: BED set checksum
 bedset_tar_archive_path:
-  type: string
-  description: bedfile checksum
-bedset_bedfiles_gd_stats:
-  type: string
-  description: bedfile checksum
-bedset_gd_stats:
-  type: string
-  description: bedfile checksum
+  type: file
+  description: Relative path to the TAR archive with BED files in this BED set
 bedset_igd_database_path:
-  type: string
-  description: bedfile checksum
+  type: file
+  description: Relative path to the iGD database
 bedset_pep:
-  type: string
-  description: bedfile checksum
-plots:
+  type: file
+  description: Relative path to PEP
+bedset_bedfiles_gd_stats:
   type: object
-  description: bedfile checksum
+  description: Statistics of BED files in this BED set
+bedset_gd_stats:
+  type: object
+  description: BED set statistics
 bedset_means:
   type: object
-  description: bedfile checksum
+  description: Mean statistics of the BED files in this BED set
 bedset_standard_deviation:
   type: object
-  description: bedfile checksum
+  description: Standard deviations of statistics of the BED files in this BED set

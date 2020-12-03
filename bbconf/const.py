@@ -4,6 +4,7 @@ Constant variables shared among packages that constitute bedbase project
 
 import os
 
+
 def _make_columns_list(template, nonnull_list, unique_list, col_list):
     """
     Create a list of column initialization strings with constraints
@@ -31,7 +32,6 @@ SCHEMAS_PATH = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), SCHEMA_DIRNAME)
 BED_TABLE_SCHEMA = os.path.join(SCHEMAS_PATH, "bedfiles_schema.yaml")
 BEDSET_TABLE_SCHEMA = os.path.join(SCHEMAS_PATH, "bedsets_schema.yaml")
-REL_TABLE_SCHEMA = os.path.join(SCHEMAS_PATH, "bedset_bedfiles_schema.yaml")
 
 PKG_NAME = "bbconf"
 DOC_URL = "TBA"  # add documentation URL once it's established
@@ -75,14 +75,10 @@ CFG_BEDSTAT_DIR_KEY = "bedstat_dir"
 CFG_BEDBUNCHER_DIR_KEY = "bedbuncher_dir"
 CFG_PIPELINE_OUT_PTH_KEY = "pipeline_output_path"
 CFG_REMOTE_URL_BASE_KEY = "remote_url_base"
-CFG_BED_TABLE_KEY = "bed_table"
-CFG_REL_TABLE_KEY = "relationship_table"
-CFG_BEDSET_TABLE_KEY = "bedset_table"
 
 CFG_KEYS = [
     "CFG_PATH_KEY", "CFG_SERVER_KEY", "CFG_DATABASE_KEY", "CFG_HOST_KEY",
-    "CFG_PORT_KEY", "CFG_BED_TABLE_KEY", "CFG_BEDSET_TABLE_KEY", "CFG_NAME_KEY",
-    "CFG_PASSWORD_KEY", "CFG_USER_KEY", "CFG_REL_TABLE_KEY",
+    "CFG_PORT_KEY", "CFG_NAME_KEY", "CFG_PASSWORD_KEY", "CFG_USER_KEY",
     "CFG_REMOTE_URL_BASE_KEY", "CFG_PIPELINE_OUT_PTH_KEY", "CFG_BEDSTAT_DIR_KEY",
     "CFG_BEDBUNCHER_DIR_KEY", "PIPESTATS_KEY"]
 
@@ -96,19 +92,12 @@ DEFAULT_SECTION_VALUES = {
         CFG_NAME_KEY: DB_DEFAULT_NAME,
         CFG_PORT_KEY: DB_DEFAULT_PORT,
         CFG_HOST_KEY: DB_DEFAULT_HOST,
-        CFG_BED_TABLE_KEY: BED_TABLE,
-        CFG_REL_TABLE_KEY: REL_TABLE,
-        CFG_BEDSET_TABLE_KEY: BEDSET_TABLE
     },
     CFG_SERVER_KEY: {
         CFG_HOST_KEY: SERVER_DEFAULT_HOST,
         CFG_PORT_KEY: SERVER_DEFAULT_PORT
     }
 }
-
-IDX_MAP = {CFG_BED_TABLE_KEY: BED_TABLE,
-           CFG_BEDSET_TABLE_KEY: BEDSET_TABLE,
-           CFG_REL_TABLE_KEY: REL_TABLE}
 
 # TODO: streamline DB column names naming
 # JSON bed metadata constants and descriptions (the keys are actually
@@ -277,13 +266,14 @@ REL_BEDSET_ID_KEY = "bedset_id"
 
 __all__ = ["BED_TABLE", "BEDSET_TABLE", "REL_TABLE", "RAW_BEDFILE_KEY",
            "CFG_ENV_VARS", "PG_CLIENT_KEY", "DB_DEFAULT_HOST",
-           "SERVER_DEFAULT_PORT", "SERVER_DEFAULT_HOST", "PKG_NAME", "IDX_MAP",
+           "SERVER_DEFAULT_PORT", "SERVER_DEFAULT_HOST", "PKG_NAME",
            "BEDFILE_PATH_KEY", "DEFAULT_SECTION_VALUES", "JSON_DICTS_KEY_DESCS",
            "JSON_KEYS", "JSON_FLOAT_KEY_VALUES", "JSON_FLOAT_KEY_NAMES",
            "JSON_INT_KEY_VALUES", "JSON_INT_KEY_NAMES", "JSON_BEDSET_KEY_VALUES",
            "JSON_BEDSET_KEY_NAMES", "JSON_METADATA_NAMES", "BEDSET_COLUMNS",
            "JSON_METADATA_VALUES", "HIDDEN_ATTR_KEYS", "BED_COLUMNS",
            "REL_BED_ID_KEY", "REL_BEDSET_ID_KEY", "BED_COL_NAMES",
-           "BEDSET_COL_NAMES", "BED_TABLE_SCHEMA", "BEDSET_TABLE_SCHEMA", "REL_TABLE_SCHEMA"] + CFG_KEYS + JSON_KEYS
+           "BEDSET_COL_NAMES", "BED_TABLE_SCHEMA", "BEDSET_TABLE_SCHEMA"] \
+          + CFG_KEYS + JSON_KEYS
 
 
