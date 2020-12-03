@@ -1,12 +1,15 @@
+import os
+from logging import getLogger
+from psycopg2 import sql
+
 import yacman
 import pipestat
 from pipestat.const import *
 
-from logging import getLogger
-from psycopg2 import sql
 
 from .exceptions import *
 from .const import *
+from .helpers import *
 
 _LOGGER = getLogger(PKG_NAME)
 
@@ -18,7 +21,7 @@ class BedBaseConf(dict):
     convenience methods for interacting with the database backend,
     i.e. [PostgreSQL](https://www.postgresql.org/)
     """
-    def __init__(self, config_path, database_only=False):
+    def __init__(self, config_path=None, database_only=False):
         """
         Initialize the object
 
@@ -31,7 +34,8 @@ class BedBaseConf(dict):
 
         super(BedBaseConf, self).__init__()
 
-        self[CONFIG_KEY] = yacman.YacAttMap(filepath=config_path)
+        cfg_path = get_bedbase_cfg(config_path)
+        self[CONFIG_KEY] = yacman.YacAttMap(filepath=cfg_path)
         if CFG_PATH_KEY not in self[CONFIG_KEY]:
             _raise_missing_key(CFG_PATH_KEY)
         if not self[CONFIG_KEY][CFG_PATH_KEY]:
@@ -58,13 +62,13 @@ class BedBaseConf(dict):
         self[PIPESTATS_KEY] = {}
         self[PIPESTATS_KEY][BED_TABLE] = pipestat.PipestatManager(
             name=BED_TABLE,
-            database_config=config_path,
+            database_config=cfg_path,
             schema_path=BED_TABLE_SCHEMA,
             database_only=database_only
         )
         self[PIPESTATS_KEY][BEDSET_TABLE] = pipestat.PipestatManager(
             name=BEDSET_TABLE,
-            database_config=config_path,
+            database_config=cfg_path,
             schema_path=BEDSET_TABLE_SCHEMA,
             database_only=database_only
         )
@@ -90,7 +94,7 @@ class BedBaseConf(dict):
         """
         Config used to initialize the object
 
-        :return:
+        :return yacman.YacAttMap: bedbase configuration file contents
         """
         return self[CONFIG_KEY]
 
@@ -111,6 +115,42 @@ class BedBaseConf(dict):
         :return pipestat.PipestatManager: manager of the bedsets table
         """
         return self[PIPESTATS_KEY][BEDSET_TABLE]
+
+    def _get_output_path(self, table_name, remote=False):
+        """
+        Get path to the output of the selected pipeline
+
+        :param bool remote: whether to use remote url base
+        :param str table_name: name of the table that is populated by the
+            pipeline to return the output path for
+        :return str: path to the selected pipeline output
+        """
+        dir_key = CFG_BEDBUNCHER_DIR_KEY if table_name == BEDSET_TABLE \
+            else CFG_BEDSTAT_DIR_KEY
+        base = self.config[CFG_PATH_KEY][CFG_REMOTE_URL_BASE_KEY] if remote \
+            else self.config[CFG_PATH_KEY][CFG_PIPELINE_OUT_PTH_KEY]
+        if remote and not base:
+            raise MissingConfigDataError(
+                f"{CFG_REMOTE_URL_BASE_KEY} key value is invalid: {base}")
+        return os.path.join(base, self.config[CFG_PATH_KEY][dir_key])
+
+    def get_bedbuncher_output_path(self, remote=False):
+        """
+        Get path to the output of the bedbuncher pipeline
+
+        :param bool remote: whether to use remote url base
+        :return str: path to the bedbuncher pipeline output
+        """
+        return self._get_output_path(table_name=BEDSET_TABLE, remote=remote)
+
+    def get_bedstat_output_path(self, remote=False):
+        """
+        Get path to the output of the bedstat pipeline
+
+        :param bool remote: whether to use remote url base
+        :return str: path to the bedstat pipeline output
+        """
+        return self._get_output_path(table_name=BED_TABLE, remote=remote)
 
     def _create_bedset_bedfiles_table(self):
         """

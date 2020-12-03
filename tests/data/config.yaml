@@ -4,9 +4,6 @@ database:
   password: pipestat-password
   host: localhost
   port: 5432
-  bed_table: bedfiles
-  bedset_table: bedsets
-  relationship_table: bedset_bedfiles
 path:
   pipeline_output_path: $BEDBASE_DATA_PATH/outputs
   bedstat_dir: bedstat_output
