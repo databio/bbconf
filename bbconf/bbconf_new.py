@@ -1,10 +1,12 @@
-import pipestat
 import yacman
+import pipestat
 from pipestat.const import *
-from .exceptions import *
-from .const import *
 
 from logging import getLogger
+from psycopg2 import sql
+
+from .exceptions import *
+from .const import *
 
 _LOGGER = getLogger(PKG_NAME)
 
@@ -137,3 +139,31 @@ class BedBaseConf(dict):
             statement = f"INSERT INTO {REL_TABLE} " \
                         f"({REL_BEDSET_ID_KEY},{REL_BED_ID_KEY}) VALUES (%s,%s)"
             cur.execute(statement, (bedset_id, bedfile_id))
+
+    def select_bedfiles_for_bedset(self, condition=None, condition_val=None,
+                                   bedfile_col=None):
+        """
+        Select bedfiles that are part of a bedset that matches the query
+
+        :param str condition: bedsets table query to restrict the results with,
+            for instance `"id=%s"`
+        :param list condition_val:
+        :param list[str] | str bedfile_col: bedfile columns to include in the
+            result, if none specified all columns will be included
+        :return list[psycopg2.extras.DictRow]: matched bedfiles table contents
+        """
+        condition, condition_val = \
+            pipestat.helpers.preprocess_condition_pair(condition, condition_val)
+        columns = ["f." + c for c in pipestat.helpers.mk_list_of_str(
+            bedfile_col or BED_COL_NAMES)]
+        columns = sql.SQL(',').join([sql.SQL(v) for v in columns])
+        statement_str = \
+            "SELECT {} FROM {} f INNER JOIN {} r ON r.bedfile_id = f.id INNER" \
+            " JOIN {} s ON r.bedset_id = s.id WHERE s."
+        with self.bed.db_cursor as cur:
+            statement = sql.SQL(statement_str).format(
+                columns, sql.Identifier(BED_TABLE),
+                sql.Identifier(REL_TABLE), sql.Identifier(BEDSET_TABLE))
+            statement += condition
+            cur.execute(statement, condition_val)
+            return cur.fetchall()
