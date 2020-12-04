@@ -61,6 +61,33 @@ intergenic_percentage:
 promotercore_percentage:
   type: number
   description: Promoter core percentage
+tssdist:
+  type: image
+  description: Region-TSS distance plot
+chrombins:
+  type: image
+  description: Regions distribution over chromosomes plot
+gccontent:
+  type: image
+  description: GC content plot
+paritions:
+  type: image
+  description: Regions distribution over genomic partitions plot
+expected_partitions:
+  type: image
+  description: Expected distribution over genomic partitions plot
+cumulative_partitions:
+  type: image
+  description: Cumulative distribution over genomic partitions plot
+widths_histogram:
+  type: image
+  description: Quantile-trimmed histogram of widths
+neighbor_distances:
+  type: image
+  description: Distance between neighbor regions
+open_chromatin:
+  type: image
+  description: Cell specific enrichment for open chromatin plot
 other:
   type: object
   description: Other, not categorized BED file metadata
