@@ -1,3 +1,4 @@
 logmuse
 psycopg2>=2.8.5
 # yacman>=0.7.1
+# pipestat
