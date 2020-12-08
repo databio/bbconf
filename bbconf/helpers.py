@@ -1,5 +1,4 @@
 import logging
-import os
 
 from yacman import select_config
 
