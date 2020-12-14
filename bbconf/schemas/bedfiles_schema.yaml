@@ -4,9 +4,9 @@ name:
 md5sum:
   type: string
   description: BED file checksum
-bedfile_path:
-  type: string
-  description: BED file path
+bedfile:
+  type: file
+  description: BED file
 regions_no:
   type: integer
   description: Number of regions
@@ -48,10 +48,10 @@ threeutr_percentage:
   description: 3' UTR percentage
 promoterprox_percentage:
   type: number
-  description: bedfile path
+  description: Promoter proc percentage
 exon_percentage:
   type: number
-  description: bedfile path
+  description: Exon percentage
 intron_percentage:
   type: number
   description: Intron percentage
