@@ -5,7 +5,7 @@ from psycopg2 import sql
 import yacman
 import pipestat
 from pipestat.const import *
-
+from pipestat.helpers import mk_list_of_str
 
 from .exceptions import *
 from .const import *
@@ -179,6 +179,29 @@ class BedBaseConf(dict):
             statement = f"INSERT INTO {REL_TABLE} " \
                         f"({REL_BEDSET_ID_KEY},{REL_BED_ID_KEY}) VALUES (%s,%s)"
             cur.execute(statement, (bedset_id, bedfile_id))
+
+    def remove_relationship(self, bedset_id, bedfile_ids=None):
+        """
+        Remove entries from the relationships table
+
+        :param str bedset_id: id of the bedset to remove
+        :param list[str] bedfile_ids: ids of the bedfiles to remove for the
+            selected bedset. If none provided, all the relationsips for the
+            selected bedset will be removed.
+        """
+        if not self.bed._check_table_exists(table_name=REL_TABLE):
+            raise BedBaseConfError(f"'{REL_TABLE}' not found")
+        bedfile_ids = mk_list_of_str(bedfile_ids)
+        if bedfile_ids is None:
+            res = self.select_bedfiles_for_bedset(
+                bedfile_col="id", condition="id=%s", condition_val=[bedset_id])
+            bedfile_ids = [i[0] for i in res]
+        with self.bed.db_cursor as cur:
+            for bedfile_id in bedfile_ids:
+                statment = f"DELETE FROM {REL_TABLE} " \
+                           f"WHERE {REL_BEDSET_ID_KEY} = %s and " \
+                           f"{REL_BED_ID_KEY} = %s"
+                cur.execute(statment, (bedset_id, bedfile_id))
 
     def select_bedfiles_for_bedset(self, condition=None, condition_val=None,
                                    bedfile_col=None):
