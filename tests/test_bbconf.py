@@ -4,16 +4,11 @@ import pytest
 from psycopg2.errors import ForeignKeyViolation
 from bbconf import BedBaseConf
 from bbconf.exceptions import *
-from .conftest import cfg_pth, cfg_pth
 from bbconf import get_bedbase_cfg
-from bbconf.const import *
-from pipestat.exceptions import PipestatDatabaseError
 from pipestat import PipestatManager
 
-from psycopg2.extensions import connection
 
-
-class TestDBTables:
+class TestAll:
     def test_invalid_config(self, invalid_cfg_pth):
         with pytest.raises(MissingConfigDataError):
             BedBaseConf(get_bedbase_cfg(cfg=invalid_cfg_pth))
