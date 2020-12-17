@@ -54,11 +54,16 @@ class TestDBTables:
         with pytest.raises(ForeignKeyViolation):
             bbc.bedset.remove(record_identifier="bedset1")
 
-    # def test_removal(self, cfg_pth):
-    #     bbc = BedBaseConf(get_bedbase_cfg(cfg=cfg_pth))
-    #     ori_cnt = bbc.bed.record_count
-    #     bbc.bed.remove(record_identifier="bed1")
-    #     assert ori_cnt - 1 == bbc.bed.record_count
-    #     ori_cnt = bbc.bedset.record_count
-    #     bbc.bedset.remove(record_identifier="bedset1")
-    #     assert ori_cnt - 1 == bbc.bedset.record_count
+    def test_removal(self, cfg_pth):
+        bbc = BedBaseConf(get_bedbase_cfg(cfg=cfg_pth))
+        bedset_id = bbc.bedset.retrieve(
+            record_identifier="bedset1", result_identifier="id")
+        bed_id = bbc.bed.retrieve(
+            record_identifier="bed1", result_identifier="id")
+        bbc.remove_relationship(bedset_id=bedset_id, bedfile_ids=[bed_id])
+        ori_cnt = bbc.bed.record_count
+        bbc.bed.remove(record_identifier="bed1")
+        assert ori_cnt - 1 == bbc.bed.record_count
+        ori_cnt = bbc.bedset.record_count
+        bbc.bedset.remove(record_identifier="bedset1")
+        assert ori_cnt - 1 == bbc.bedset.record_count
