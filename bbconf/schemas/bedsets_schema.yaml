@@ -28,3 +28,7 @@ bedset_standard_deviation:
 region_commonality:
   type: image
   description: Region commonality plot
+bedset_trackdb_path:
+  type: object
+  description: Path to the trackDb.txt files for the BED set
+  
