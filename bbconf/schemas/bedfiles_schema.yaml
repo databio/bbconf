@@ -7,6 +7,9 @@ md5sum:
 bedfile:
   type: file
   description: BED file
+bigbedfile:
+  type: file
+  description: bigBED file
 regions_no:
   type: integer
   description: Number of regions
