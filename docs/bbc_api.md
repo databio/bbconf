@@ -31,7 +31,7 @@ h4 .content {
 # Package `bbconf` Documentation
 
 ## <a name="BedBaseConf"></a> Class `BedBaseConf`
-This class provides is an in-memory representation of the configuration file for the *BEDBASE* project. Additionally it implements multiple convenience methods for interacting with the database backend, i.e. [PostgreSQL](https://www.postgresql.org/)
+This class standardizes reporting of bedstat and bedbuncher results. It formalizes a way for these pipelines and downstream tools to communicate -- the produced results can easily and reliably become an input for the server. The object exposes API for interacting with the results and is backed by a [PostgreSQL](https://www.postgresql.org/) database.
 
 
 ```python
@@ -154,7 +154,7 @@ Select bedfiles that are part of a bedset that matches the query
 #### Parameters:
 
 - `condition` (`str`):  bedsets table query to restrict the results with,for instance `"id=%s"`
-- `condition_val` (`list`): 
+- `condition_val` (`list[str]`):  values to populate the condition stringwith
 - `bedfile_col` (`list[str] | str`):  bedfile columns to include in theresult, if none specified all columns will be included
 
 
