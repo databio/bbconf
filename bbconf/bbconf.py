@@ -163,7 +163,7 @@ class BedBaseConf(dict):
                    f"FOREIGN KEY ({REL_BED_ID_KEY}) REFERENCES {BED_TABLE} (id)"]
         self.bed._create_table(table_name=REL_TABLE, columns=columns)
 
-    def report_bedfile_for_bedset(self, bedset_id, bedfile_id):
+    def report_relationship(self, bedset_id, bedfile_id):
         """
         Report a bedfile for bedset.
 
