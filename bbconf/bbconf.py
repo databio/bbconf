@@ -193,11 +193,12 @@ class BedBaseConf(dict):
         """
         if not self.bed._check_table_exists(table_name=REL_TABLE):
             raise BedBaseConfError(f"'{REL_TABLE}' not found")
-        bedfile_ids = mk_list_of_str(bedfile_ids)
         if bedfile_ids is None:
             res = self.select_bedfiles_for_bedset(
                 bedfile_col="id", condition="id=%s", condition_val=[bedset_id])
             bedfile_ids = [i[0] for i in res]
+        bedfile_ids = bedfile_ids if isinstance(bedfile_ids, list) \
+            else [bedfile_ids]
         with self.bed.db_cursor as cur:
             for bedfile_id in bedfile_ids:
                 statment = f"DELETE FROM {REL_TABLE} " \
@@ -212,7 +213,8 @@ class BedBaseConf(dict):
 
         :param str condition: bedsets table query to restrict the results with,
             for instance `"id=%s"`
-        :param list condition_val:
+        :param list[str] condition_val: values to populate the condition string
+            with
         :param list[str] | str bedfile_col: bedfile columns to include in the
             result, if none specified all columns will be included
         :return list[psycopg2.extras.DictRow]: matched bedfiles table contents
