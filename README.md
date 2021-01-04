@@ -7,7 +7,8 @@
 
 ## What is this?
 
-`bbconf` defines `BedBaseConf` class which is an in-memory representation of the configuration file for the *BEDBASE* project. This is the source of the project-wide constant variables. Additionally it implements multiple convenience methods for interacting with the database backend, i.e. [PostgreSQL](https://www.postgresql.org/)
+`bbconf` standardizes reporting of [bedstat](https://github.com/databio/bedstat) and [bedbuncher](https://github.com/databio/bedsbuncher) results. It formalizes a way for these pipelines and downstream tools to communicate -- the produced results can easily and reliably become an
+input for the server ([bedhost](https://github.com/databio/bedhost)). The object exposes API for interacting with the results and is backed by a [PostgreSQL](https://www.postgresql.org/) database.
 
 ## Installation
 

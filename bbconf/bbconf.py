@@ -16,10 +16,12 @@ _LOGGER = getLogger(PKG_NAME)
 
 class BedBaseConf(dict):
     """
-    This class provides is an in-memory representation of the configuration
-    file for the *BEDBASE* project. Additionally it implements multiple
-    convenience methods for interacting with the database backend,
-    i.e. [PostgreSQL](https://www.postgresql.org/)
+    This class standardizes reporting of bedstat and bedbuncher results.
+    It formalizes a way for these pipelines and downstream tools
+    to communicate -- the produced results can easily and reliably become an
+    input for the server. The object exposes API for interacting with the
+    results and is backed by a [PostgreSQL](https://www.postgresql.org/)
+    database.
     """
     def __init__(self, config_path=None, database_only=False):
         """
