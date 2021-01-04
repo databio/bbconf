@@ -19,5 +19,5 @@ pip install --user bbconf
 
 ## Usage
 
-- [Usage demonstration](https://github.com/databio/bbconf/blob/master/docs/demo.ipynb)
-- [Python API documentation](https://github.com/databio/bbconf/blob/master/docs/bbc_api.md)
+- [Usage demonstration](docs/demo.ipynb)
+- [Python API documentation](docs/bbc_api.md)
