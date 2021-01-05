@@ -16,10 +16,12 @@ _LOGGER = getLogger(PKG_NAME)
 
 class BedBaseConf(dict):
     """
-    This class provides is an in-memory representation of the configuration
-    file for the *BEDBASE* project. Additionally it implements multiple
-    convenience methods for interacting with the database backend,
-    i.e. [PostgreSQL](https://www.postgresql.org/)
+    This class standardizes reporting of bedstat and bedbuncher results.
+    It formalizes a way for these pipelines and downstream tools
+    to communicate -- the produced results can easily and reliably become an
+    input for the server. The object exposes API for interacting with the
+    results and is backed by a [PostgreSQL](https://www.postgresql.org/)
+    database.
     """
     def __init__(self, config_path=None, database_only=False):
         """
@@ -163,7 +165,7 @@ class BedBaseConf(dict):
                    f"FOREIGN KEY ({REL_BED_ID_KEY}) REFERENCES {BED_TABLE} (id)"]
         self.bed._create_table(table_name=REL_TABLE, columns=columns)
 
-    def report_bedfile_for_bedset(self, bedset_id, bedfile_id):
+    def report_relationship(self, bedset_id, bedfile_id):
         """
         Report a bedfile for bedset.
 
@@ -191,11 +193,12 @@ class BedBaseConf(dict):
         """
         if not self.bed._check_table_exists(table_name=REL_TABLE):
             raise BedBaseConfError(f"'{REL_TABLE}' not found")
-        bedfile_ids = mk_list_of_str(bedfile_ids)
         if bedfile_ids is None:
             res = self.select_bedfiles_for_bedset(
                 bedfile_col="id", condition="id=%s", condition_val=[bedset_id])
             bedfile_ids = [i[0] for i in res]
+        bedfile_ids = bedfile_ids if isinstance(bedfile_ids, list) \
+            else [bedfile_ids]
         with self.bed.db_cursor as cur:
             for bedfile_id in bedfile_ids:
                 statment = f"DELETE FROM {REL_TABLE} " \
@@ -210,7 +213,8 @@ class BedBaseConf(dict):
 
         :param str condition: bedsets table query to restrict the results with,
             for instance `"id=%s"`
-        :param list condition_val:
+        :param list[str] condition_val: values to populate the condition string
+            with
         :param list[str] | str bedfile_col: bedfile columns to include in the
             result, if none specified all columns will be included
         :return list[psycopg2.extras.DictRow]: matched bedfiles table contents

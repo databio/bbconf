@@ -40,7 +40,7 @@ class TestAll:
             record_identifier="bed1", result_identifier="id")
         bedset_id = bbc.bedset.retrieve(
             record_identifier="bedset1", result_identifier="id")
-        bbc.report_bedfile_for_bedset(bedfile_id=bed_id, bedset_id=bedset_id)
+        bbc.report_relationship(bedfile_id=bed_id, bedset_id=bedset_id)
 
     def test_cant_remove_record_if_in_reltable(self, cfg_pth):
         bbc = BedBaseConf(get_bedbase_cfg(cfg=cfg_pth))
