@@ -31,4 +31,7 @@ region_commonality:
 hubfile_path:
   type: file
   description: Path to the hub.txt files for the BED set
+genome:
+  type: string
+  description: genome assembly of the BED set
   
