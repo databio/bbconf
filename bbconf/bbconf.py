@@ -63,13 +63,13 @@ class BedBaseConf(dict):
 
         self[PIPESTATS_KEY] = {}
         self[PIPESTATS_KEY][BED_TABLE] = pipestat.PipestatManager(
-            name=BED_TABLE,
+            namespace=BED_TABLE,
             config=self.config,
             schema_path=BED_TABLE_SCHEMA,
             database_only=database_only
         )
         self[PIPESTATS_KEY][BEDSET_TABLE] = pipestat.PipestatManager(
-            name=BEDSET_TABLE,
+            namespace=BEDSET_TABLE,
             config=self.config,
             schema_path=BEDSET_TABLE_SCHEMA,
             database_only=database_only
