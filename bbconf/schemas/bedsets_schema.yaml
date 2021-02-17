@@ -28,3 +28,10 @@ bedset_standard_deviation:
 region_commonality:
   type: image
   description: Region commonality plot
+hubfile_path:
+  type: file
+  description: Path to the hub.txt files for the BED set
+genome:
+  type: string
+  description: genome assembly of the BED set
+  
