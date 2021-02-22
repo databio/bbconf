@@ -9,7 +9,7 @@ bedfile:
   description: BED file
 bigbedfile:
   type: file
-  description: bigBED file
+  description: bigBed file
 regions_no:
   type: integer
   description: Number of regions
