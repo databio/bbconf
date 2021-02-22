@@ -21,7 +21,7 @@ mean_absolute_tss_dist:
   description: Mean absolute distance from transcription start sites
 mean_region_width:
   type: number
-  description: Mean region witdth
+  description: Mean region width
 exon_frequency:
   type: number
   description: Exon frequency
