@@ -17,7 +17,7 @@ Install from [GitHub releases](https://github.com/databio/bbconf/releases) or fr
 pip install --user bbconf
 ```
 
-## Usage
-
+## Documentation
+- [Bedbase configuration file](docs/config.ipynb)
 - [Usage demonstration](docs/demo.ipynb)
-- [Python API documentation](docs/bbc_api.md)
+- [Python API](docs/bbc_api.md)
