@@ -2,6 +2,8 @@
 
 ![Run pytests](https://github.com/databio/bbconf/workflows/Run%20pytests/badge.svg)
 [![codecov](https://codecov.io/gh/databio/bbconf/branch/master/graph/badge.svg)](https://codecov.io/gh/databio/bbconf)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+
 
 *BEDBASE* project configuration package
 
