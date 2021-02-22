@@ -6,18 +6,23 @@ md5sum:
   description: BED set checksum
 bedset_tar_archive_path:
   type: file
+  label: BED set archive
   description: Relative path to the TAR archive with BED files in this BED set
 bedset_igd_database_path:
   type: file
+  label: BED set iGD database
   description: Relative path to the iGD database
 bedset_pep:
   type: file
+  label: BED set PEP
   description: Relative path to PEP
 bedset_bedfiles_gd_stats:
   type: object
+  label: BED files statistics
   description: Statistics of BED files in this BED set
 bedset_gd_stats:
   type: object
+  label: BED set statistics
   description: BED set statistics
 bedset_means:
   type: object
@@ -30,6 +35,7 @@ region_commonality:
   description: Region commonality plot
 hubfile_path:
   type: file
+  label: BED set hub file
   description: Path to the hub.txt files for the BED set
 genome:
   type: string
