@@ -1,0 +1,96 @@
+name:
+  type: string
+  description: BED file name
+md5sum:
+  type: string
+  description: BED file checksum
+bedfile:
+  type: file
+  description: BED file
+bigbedfile:
+  type: file
+  description: bigBed file
+regions_no:
+  type: integer
+  description: Number of regions
+gc_content:
+  type: number
+  description: GC content
+mean_absolute_tss_dist:
+  type: number
+  description: Mean absolute distance from transcription start sites
+mean_region_width:
+  type: number
+  description: Mean region width
+exon_frequency:
+  type: number
+  description: Exon frequency
+intron_frequency:
+  type: number
+  description: Intron frequency
+promoterprox_frequency:
+  type: number
+  description: Promoter frequency
+intergenic_frequency:
+  type: number
+  description: Intergenic frequency
+promotercore_frequency:
+  type: number
+  description: Promoter core frequency
+fiveutr_frequency:
+  type: number
+  description: 5' UTR frequency
+threeutr_frequency:
+  type: number
+  description: 3' UTR frequency
+fiveutr_percentage:
+  type: number
+  description: 5' UTR percentage
+threeutr_percentage:
+  type: number
+  description: 3' UTR percentage
+promoterprox_percentage:
+  type: number
+  description: Promoter proc percentage
+exon_percentage:
+  type: number
+  description: Exon percentage
+intron_percentage:
+  type: number
+  description: Intron percentage
+intergenic_percentage:
+  type: number
+  description: Intergenic percentage
+promotercore_percentage:
+  type: number
+  description: Promoter core percentage
+tssdist:
+  type: image
+  description: Region-TSS distance plot
+chrombins:
+  type: image
+  description: Regions distribution over chromosomes plot
+gccontent:
+  type: image
+  description: GC content plot
+paritions:
+  type: image
+  description: Regions distribution over genomic partitions plot
+expected_partitions:
+  type: image
+  description: Expected distribution over genomic partitions plot
+cumulative_partitions:
+  type: image
+  description: Cumulative distribution over genomic partitions plot
+widths_histogram:
+  type: image
+  description: Quantile-trimmed histogram of widths
+neighbor_distances:
+  type: image
+  description: Distance between neighbor regions
+open_chromatin:
+  type: image
+  description: Cell specific enrichment for open chromatin plot
+other:
+  type: object
+  description: Other, not categorized BED file metadata

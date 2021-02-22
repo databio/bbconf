@@ -6,11 +6,13 @@ __all__ = ["BedBaseConfError", "MissingConfigDataError", "BedBaseConnectionError
 
 class BedBaseConfError(Exception):
     """ Base exception type for this package """
+
     __metaclass__ = abc.ABCMeta
 
 
 class MissingConfigDataError(BedBaseConfError):
     """ Exception for invalid config file. """
+
     def __init__(self, msg):
         spacing = " " if msg[-1] in ["?", ".", "\n"] else "; "
         suggest = "For config format documentation please see: " + DOC_URL
@@ -19,4 +21,5 @@ class MissingConfigDataError(BedBaseConfError):
 
 class BedBaseConnectionError(BedBaseConfError):
     """ Error type for DB connection problems """
+
     pass

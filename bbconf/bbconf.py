@@ -1,337 +1,263 @@
-from elasticsearch import Elasticsearch
-from elasticsearch.exceptions import ConflictError
+import os
 from logging import getLogger
+from psycopg2 import sql
 
-from attmap import PathExAttMap as PXAM
 import yacman
+import pipestat
+from pipestat.const import *
+from pipestat.helpers import mk_list_of_str
 
-from .const import *
 from .exceptions import *
+from .const import *
+from .helpers import *
 
 _LOGGER = getLogger(PKG_NAME)
 
-__all__ = ["BedBaseConf", "get_bedbase_cfg"]
 
+class BedBaseConf(dict):
+    """
+    This class standardizes reporting of bedstat and bedbuncher results.
+    It formalizes a way for these pipelines and downstream tools
+    to communicate -- the produced results can easily and reliably become an
+    input for the server. The object exposes API for interacting with the
+    results and is backed by a [PostgreSQL](https://www.postgresql.org/)
+    database.
+    """
 
-class BedBaseConf(yacman.YacAttMap):
-    def __init__(self, filepath):
+    def __init__(self, config_path=None, database_only=False):
         """
-        Create the config instance by with a filepath
+        Initialize the object
 
-        :param str filepath: a path to the YAML file to read
+        :param str config_path: path to the bedbase configuration file
+        :param bool database_only: whether the database managers should not
+            keep an in-memory copy of the data in the database
         """
 
         def _raise_missing_key(key):
             raise MissingConfigDataError("Config lacks '{}' key".format(key))
 
-        super(BedBaseConf, self).__init__(filepath=filepath)
+        super(BedBaseConf, self).__init__()
 
-        if CFG_PATH_KEY not in self:
+        cfg_path = get_bedbase_cfg(config_path)
+        self[CONFIG_KEY] = yacman.YacAttMap(filepath=cfg_path)
+        if CFG_PATH_KEY not in self[CONFIG_KEY]:
             _raise_missing_key(CFG_PATH_KEY)
-        if not self[CFG_PATH_KEY]:
+        if not self[CONFIG_KEY][CFG_PATH_KEY]:
             # if there's nothing under path key (None)
-            self[CFG_PATH_KEY] = PXAM()
+            self[CONFIG_KEY][CFG_PATH_KEY] = {}
+        if CFG_PIPELINE_OUT_PTH_KEY not in self[CONFIG_KEY][CFG_PATH_KEY]:
+            _raise_missing_key(CFG_PIPELINE_OUT_PTH_KEY)
 
-        if CFG_BEDSTAT_OUTPUT_KEY not in self[CFG_PATH_KEY]:
-            _raise_missing_key(CFG_BEDSTAT_OUTPUT_KEY)
-            
-        if CFG_BEDBUNCHER_OUTPUT_KEY not in self[CFG_PATH_KEY]:
-            _raise_missing_key(CFG_BEDBUNCHER_OUTPUT_KEY)          
-        
+        if CFG_BEDSTAT_DIR_KEY not in self[CONFIG_KEY][CFG_PATH_KEY]:
+            _raise_missing_key(CFG_BEDSTAT_DIR_KEY)
+
+        if CFG_BEDBUNCHER_DIR_KEY not in self[CONFIG_KEY][CFG_PATH_KEY]:
+            _raise_missing_key(CFG_BEDBUNCHER_DIR_KEY)
+
         for section, mapping in DEFAULT_SECTION_VALUES.items():
-            if section not in self:
-                self[section] = PXAM()
+            if section not in self[CONFIG_KEY]:
+                self[CONFIG_KEY][section] = {}
             for key, default in mapping.items():
-                if key not in self[section]:
-                    _LOGGER.debug("Config lacks '{}.{}' key. Setting to: {}".
-                                  format(section, key, default))
-                    self[section][key] = default
+                if key not in self[CONFIG_KEY][section]:
+                    _LOGGER.debug(
+                        f"Config lacks '{section}.{key}' key. " f"Setting to: {default}"
+                    )
+                    self[CONFIG_KEY][section][key] = default
 
-    def establish_elasticsearch_connection(self, host=None):
-        """
-        Establish Elasticsearch connection using the config data
-
-        :return elasticsearch.Elasticsearch: connected client
-        """
-        if hasattr(self, ES_CLIENT_KEY):
-            raise BedBaseConnectionError(
-                "The connection is already established: {}".
-                    format(str(self[ES_CLIENT_KEY]))
-            )
-        hst = host or self[CFG_DATABASE_KEY][CFG_HOST_KEY]
-        self[ES_CLIENT_KEY] = Elasticsearch([{"host": hst}])
-        _LOGGER.info("Established connection with Elasticsearch: {}".
-                     format(hst))
-        _LOGGER.debug("Elasticsearch info:\n{}".
-                      format(self[ES_CLIENT_KEY].info()))
-
-    def assert_connection(self):
-        """
-        Check whether an Elasticsearch connection has been established
-
-        :raise BedBaseConnectionError: if there is no active connection
-        """
-        if not hasattr(self, ES_CLIENT_KEY):
-            raise BedBaseConnectionError(
-                "No active connection with Elasticsearch"
-            )
-
-    def _search_index(self, index_name, query, just_data=True, size=None,
-                      **kwargs):
-        """
-        Search selected Elasticsearch index with selected query
-
-        :param str index_name: name of the Elasticsearch index to search
-        :param dict query: query to search the DB against
-        :param bool just_data: whether just the hits should be returned
-        :param int size: number of hits to return, all are returned by default
-        :return dict | Iterable[dict] | NoneType: search results
-            or None if requested index does not exist
-        """
-        self.assert_connection()
-        if not self[ES_CLIENT_KEY].indices.exists(index_name):
-            _LOGGER.warning("'{}' index does not exist".format(index_name))
-            return
-        _LOGGER.debug("Searching index: {}\nQuery: {}".
-                      format(index_name, query))
-        query = {"query": query} if "query" not in query else query
-        size = size or self._count_docs(index=index_name)
-        search_results = self[ES_CLIENT_KEY].search(
-            index=index_name, body=query, size=size, **kwargs)
-        return [r["_source"] for r in search_results["hits"]["hits"]] \
-            if just_data else search_results
-
-    def search_bedfiles(self, query, just_data=True, **kwargs):
-        """
-        Search selected Elasticsearch bedset index with selected query
-
-        :param dict query: query to search the DB against
-        :param bool just_data: whether just the hits should be returned
-        :return dict | Iterable[dict]: search results
-        """
-        return self._search_index(index_name=BED_INDEX, query=query,
-                                  just_data=just_data, **kwargs)
-
-    def search_bedsets(self, query, just_data=True, **kwargs):
-        """
-        Search selected Elasticsearch bedfiles index with selected query
-
-        :param dict query: query to search the DB against
-        :param bool just_data: whether just the hits should be returned
-        :return dict | Iterable[dict]: search results
-        """
-        return self._search_index(index_name=BEDSET_INDEX, query=query,
-                                  just_data=just_data, **kwargs)
-
-    def _insert_data(self, index, data, doc_id, force_update=False, **kwargs):
-        """
-        Insert document to an index in a Elasticsearch DB
-        or create it and the insert in case it does not exist.
-
-        Document ID argument is optional. If not provided, a random ID
-        will be assigned.
-        If provided the document will be inserted only if no documents with
-        this ID are present in the DB. However, the document overwriting
-        can be forced if needed.
-
-        :param str index: name of the index to insert the data into
-        :param str doc_id: unique identifier for the document
-        :param bool force_update: whether the pre-existing document
-         should be overwritten
-        :param dict data: data to insert
-        """
-        self.assert_connection()
-        if doc_id is None:
-            _LOGGER.info("Inserting document to index '{}' with an "
-                         "automatically-assigned ID".format(index))
-            self[ES_CLIENT_KEY].index(index=index, body=data, **kwargs)
-        else:
-            try:
-                self[ES_CLIENT_KEY].create(index=index, body=data, id=doc_id,
-                                           **kwargs)
-            except ConflictError:
-                msg_base = "Document '{}' already exists in index '{}'"\
-                    .format(doc_id, index)
-                if force_update:
-                    _LOGGER.info(msg_base + ". Forcing update")
-                    self[ES_CLIENT_KEY].index(index=index, body=data, id=doc_id,
-                                              **kwargs)
-                else:
-                    _LOGGER.error("Could not insert data. " + msg_base)
-                    raise
-
-    def insert_bedfiles_data(self, data, doc_id=None, **kwargs):
-        """
-        Insert data to the bedfile index a Elasticsearch DB
-        or create it and the insert in case it does not exist.
-
-        Document ID argument is optional. If not provided, a random ID will
-        be assigned. If provided the document will be inserted only if no
-        documents with this ID are present in the DB. However, the document
-        overwriting can be forced if needed.
-
-        :param dict data: data to insert
-        :param str doc_id: unique identifier for the document, optional
-        """
-        self._insert_data(index=BED_INDEX, data=data, doc_id=doc_id, **kwargs)
-
-    def insert_bedsets_data(self, data, doc_id=None, **kwargs):
-        """
-        Insert data to the bedset index in a Elasticsearch DB
-        or create it and the insert in case it does not exist.
-
-        Document ID argument is optional. If not provided, a random ID will
-        be assigned.
-        If provided the document will be inserted only if no documents with
-        this ID are present in the DB.
-        However, the document overwriting can be forced if needed.
-
-        :param dict data: data to insert
-        :param str doc_id: unique identifier for the document, optional
-        """
-        self._insert_data(index=BEDSET_INDEX, data=data, doc_id=doc_id,
-                          **kwargs)
-
-    def _get_mapping(self, index, just_data=True, **kwargs):
-        """
-        Get mapping definitions for the selected index
-
-        :param str index: index to return the mappging for
-        :return dict: mapping definitions
-        """
-        self.assert_connection()
-        mapping = self[ES_CLIENT_KEY].indices.get_mapping(index, **kwargs)
-        return mapping[index]["mappings"]["properties"] \
-            if just_data else mapping
-
-    def get_bedfiles_mapping(self, just_data=True, **kwargs):
-        """
-        Get mapping definitions for the bedfiles index
-
-        :return dict: bedfiles mapping definitions
-        """
-        return self._get_mapping(index=BED_INDEX, just_data=just_data, **kwargs)
-
-    def get_bedsets_mapping(self, just_data=True, **kwargs):
-        """
-        Get mapping definitions for the bedsets index
-
-        :return dict: besets mapping definitions
-        """
-        return self._get_mapping(index=BEDSET_INDEX, just_data=just_data,
-                                 **kwargs)
-
-    def _get_doc(self, index, doc_id):
-        """
-        Get a document from an index by its ID
-
-        :param str index: name of the index to search
-        :param str doc_id: document ID to return
-        :return Mapping: matched document
-        """
-        return self[ES_CLIENT_KEY].get(index=index, id=doc_id)
-
-    def get_bedfiles_doc(self, doc_id):
-        """
-        Get a document from bedfiles index by its ID
-
-        :param str doc_id: document ID to return
-        :return Mapping: matched document
-        """
-        return self._get_doc(index=BED_INDEX, doc_id=doc_id)
-
-    def get_bedsets_doc(self, doc_id):
-        """
-        Get a document from bedsets index by its ID
-
-        :param str doc_id: document ID to return
-        :return Mapping: matched document
-        """
-        return self._get_doc(index=BEDSET_INDEX, doc_id=doc_id)
-
-    def _count_docs(self, index):
-        """
-        Get the total number of the documents in a selected index
-
-        :param str index: index to count the documents for
-        :return int | None: number of documents
-        """
-        self.assert_connection()
-        if not self[ES_CLIENT_KEY].indices.exists(index=index):
-            _LOGGER.warning("'{}' index does not exist".format(index))
-            return None
-        return int(self[ES_CLIENT_KEY].cat.count(
-            index, params={"format": "json"})[0]['count'])
-
-    def count_bedfiles_docs(self):
-        """
-        Get the total number of the documents in the bedfiles index
-
-        :return int: number of documents
-        """
-        return self._count_docs(index=BED_INDEX)
-
-    def count_bedsets_docs(self):
-        """
-        Get the total number of the documents in the bedsets index
-
-        :return int: number of documents
-        """
-        return self._count_docs(index=BEDSET_INDEX)
-
-    def _delete_index(self, index):
-        """
-        Delete selected index from Elasticsearch
-
-        :param str index: name of the index to delete
-        """
-        self.assert_connection()
-        self[ES_CLIENT_KEY].indices.delete(index=index)
-
-    def delete_bedfiles_index(self):
-        """
-        Delete bedfiles index from Elasticsearch
-        """
-        self._delete_index(index=BED_INDEX)
-
-    def delete_bedsets_index(self):
-        """
-        Delete bedsets index from Elasticsearch
-        """
-        self._delete_index(index=BEDSET_INDEX)
-
-    def _get_all(self, index_name, just_data=False):
-        """
-        Convenience method for index exploration
-
-        :param str index_name: name of the Elasticsearch index to search
-        :param bool just_data: whether just the hits should be returned
-        :return:
-        """
-        self.assert_connection()
-        return self._search_index(index_name=index_name, query=QUERY_ALL,
-                                  just_data=just_data)
-
-
-def get_bedbase_cfg(cfg=None):
-    """
-    Determine path to the bedbase configuration file
-
-    The path can be either explicitly provided
-    or read from a $BEDBASE environment variable
-
-    :param str cfg: path to the config file.
-        Optional, the $BEDBASE config env var will be used if not provided
-    :return str: configuration file path
-    """
-    selected_cfg = yacman.select_config(config_filepath=cfg,
-                                        config_env_vars=CFG_ENV_VARS)
-    if not selected_cfg:
-        raise BedBaseConnectionError(
-            "You must provide a config file or set the {} environment variable"
-                .format("or ".join(CFG_ENV_VARS))
+        self[PIPESTATS_KEY] = {}
+        self[PIPESTATS_KEY][BED_TABLE] = pipestat.PipestatManager(
+            namespace=BED_TABLE,
+            config=self.config,
+            schema_path=BED_TABLE_SCHEMA,
+            database_only=database_only,
         )
-    return selected_cfg
+        self[PIPESTATS_KEY][BEDSET_TABLE] = pipestat.PipestatManager(
+            namespace=BEDSET_TABLE,
+            config=self.config,
+            schema_path=BEDSET_TABLE_SCHEMA,
+            database_only=database_only,
+        )
 
+    def __str__(self):
+        """
+        Generate string representation of the object
 
+        :return str: string representation of the object
+        """
+        from textwrap import indent
 
+        res = f"{self.__class__.__name__}\n"
+        res += f"{BED_TABLE}:\n"
+        res += f"{indent(str(self.bed), '  ')}"
+        res += f"\n{BEDSET_TABLE}:\n"
+        res += f"{indent(str(self.bedset), '  ')}"
+        res += f"\nconfig:\n"
+        res += f"{indent(str(self.config), '  ')}"
+        return res
+
+    @property
+    def config(self):
+        """
+        Config used to initialize the object
+
+        :return yacman.YacAttMap: bedbase configuration file contents
+        """
+        return self[CONFIG_KEY]
+
+    @property
+    def bed(self):
+        """
+        PipestatManager of the bedfiles table
+
+        :return pipestat.PipestatManager: manager of the bedfiles table
+        """
+        return self[PIPESTATS_KEY][BED_TABLE]
+
+    @property
+    def bedset(self):
+        """
+        PipestatManager of the bedsets table
+
+        :return pipestat.PipestatManager: manager of the bedsets table
+        """
+        return self[PIPESTATS_KEY][BEDSET_TABLE]
+
+    def _get_output_path(self, table_name, remote=False):
+        """
+        Get path to the output of the selected pipeline
+
+        :param bool remote: whether to use remote url base
+        :param str table_name: name of the table that is populated by the
+            pipeline to return the output path for
+        :return str: path to the selected pipeline output
+        """
+        dir_key = (
+            CFG_BEDBUNCHER_DIR_KEY
+            if table_name == BEDSET_TABLE
+            else CFG_BEDSTAT_DIR_KEY
+        )
+        base = (
+            self.config[CFG_PATH_KEY][CFG_REMOTE_URL_BASE_KEY]
+            if remote
+            else self.config[CFG_PATH_KEY][CFG_PIPELINE_OUT_PTH_KEY]
+        )
+        if remote and not base:
+            raise MissingConfigDataError(
+                f"{CFG_REMOTE_URL_BASE_KEY} key value is invalid: {base}"
+            )
+        return os.path.join(base, self.config[CFG_PATH_KEY][dir_key])
+
+    def get_bedbuncher_output_path(self, remote=False):
+        """
+        Get path to the output of the bedbuncher pipeline
+
+        :param bool remote: whether to use remote url base
+        :return str: path to the bedbuncher pipeline output
+        """
+        return self._get_output_path(table_name=BEDSET_TABLE, remote=remote)
+
+    def get_bedstat_output_path(self, remote=False):
+        """
+        Get path to the output of the bedstat pipeline
+
+        :param bool remote: whether to use remote url base
+        :return str: path to the bedstat pipeline output
+        """
+        return self._get_output_path(table_name=BED_TABLE, remote=remote)
+
+    def _create_bedset_bedfiles_table(self):
+        """
+        Create a bedsets table, id column is defined by default
+        """
+        columns = [
+            f"PRIMARY KEY ({REL_BEDSET_ID_KEY}, {REL_BED_ID_KEY})",
+            f"{REL_BEDSET_ID_KEY} INT NOT NULL",
+            f"{REL_BED_ID_KEY} INT NOT NULL",
+            f"FOREIGN KEY ({REL_BEDSET_ID_KEY}) REFERENCES {BEDSET_TABLE} (id)",
+            f"FOREIGN KEY ({REL_BED_ID_KEY}) REFERENCES {BED_TABLE} (id)",
+        ]
+        self.bed._create_table(table_name=REL_TABLE, columns=columns)
+
+    def report_relationship(self, bedset_id, bedfile_id):
+        """
+        Report a bedfile for bedset.
+
+        Inserts the ID pair into the relationship table, which allows to
+        manage many to many bedfile bedset relationships
+
+        :param int bedset_id: id of the bedset to report bedfile for
+        :param int bedfile_id: id of the bedfile to report
+        """
+        if not self.bed._check_table_exists(table_name=REL_TABLE):
+            self._create_bedset_bedfiles_table()
+        with self.bed.db_cursor as cur:
+            statement = (
+                f"INSERT INTO {REL_TABLE} "
+                f"({REL_BEDSET_ID_KEY},{REL_BED_ID_KEY}) VALUES (%s,%s)"
+            )
+            cur.execute(statement, (bedset_id, bedfile_id))
+
+    def remove_relationship(self, bedset_id, bedfile_ids=None):
+        """
+        Remove entries from the relationships table
+
+        :param str bedset_id: id of the bedset to remove
+        :param list[str] bedfile_ids: ids of the bedfiles to remove for the
+            selected bedset. If none provided, all the relationsips for the
+            selected bedset will be removed.
+        """
+        if not self.bed._check_table_exists(table_name=REL_TABLE):
+            raise BedBaseConfError(f"'{REL_TABLE}' not found")
+        if bedfile_ids is None:
+            res = self.select_bedfiles_for_bedset(
+                bedfile_col="id", condition="id=%s", condition_val=[bedset_id]
+            )
+            bedfile_ids = [i[0] for i in res]
+        bedfile_ids = bedfile_ids if isinstance(bedfile_ids, list) else [bedfile_ids]
+        with self.bed.db_cursor as cur:
+            for bedfile_id in bedfile_ids:
+                statment = (
+                    f"DELETE FROM {REL_TABLE} "
+                    f"WHERE {REL_BEDSET_ID_KEY} = %s and "
+                    f"{REL_BED_ID_KEY} = %s"
+                )
+                cur.execute(statment, (bedset_id, bedfile_id))
+
+    def select_bedfiles_for_bedset(
+        self, condition=None, condition_val=None, bedfile_col=None
+    ):
+        """
+        Select bedfiles that are part of a bedset that matches the query
+
+        :param str condition: bedsets table query to restrict the results with,
+            for instance `"id=%s"`
+        :param list[str] condition_val: values to populate the condition string
+            with
+        :param list[str] | str bedfile_col: bedfile columns to include in the
+            result, if none specified all columns will be included
+        :return list[psycopg2.extras.DictRow]: matched bedfiles table contents
+        """
+        condition, condition_val = pipestat.helpers.preprocess_condition_pair(
+            condition, condition_val
+        )
+        columns = [
+            "f." + c
+            for c in pipestat.helpers.mk_list_of_str(
+                bedfile_col or list(self.bed.schema.keys())
+            )
+        ]
+        columns = sql.SQL(",").join([sql.SQL(v) for v in columns])
+        statement_str = (
+            "SELECT {} FROM {} f INNER JOIN {} r ON r.bedfile_id = f.id INNER"
+            " JOIN {} s ON r.bedset_id = s.id WHERE s."
+        )
+        with self.bed.db_cursor as cur:
+            statement = sql.SQL(statement_str).format(
+                columns,
+                sql.Identifier(BED_TABLE),
+                sql.Identifier(REL_TABLE),
+                sql.Identifier(BEDSET_TABLE),
+            )
+            statement += condition
+            cur.execute(statement, condition_val)
+            return cur.fetchall()

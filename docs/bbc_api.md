@@ -31,242 +31,136 @@ h4 .content {
 # Package `bbconf` Documentation
 
 ## <a name="BedBaseConf"></a> Class `BedBaseConf`
-A class that extends AttMap to provide yaml reading and race-free writing in multi-user contexts.
-
-The YacAttMap class is a YAML Configuration Attribute Map. Think of it as a python representation of your YAML
-configuration file, that can do a lot of cool stuff. You can access the hierarchical YAML attributes with dot
-notation or dict notation. You can read and write YAML config files with easy functions. It also retains memory
-of the its source filepath. If both a filepath and an entries dict are provided, it will first load the file
-and then updated it with values from the dict.
+This class standardizes reporting of bedstat and bedbuncher results. It formalizes a way for these pipelines and downstream tools to communicate -- the produced results can easily and reliably become an input for the server. The object exposes API for interacting with the results and is backed by a [PostgreSQL](https://www.postgresql.org/) database.
 
 
 ```python
-def __init__(self, filepath)
+def __init__(self, config_path=None, database_only=False)
 ```
 
-Create the config instance by with a filepath
+Initialize the object
 #### Parameters:
 
-- `filepath` (`str`):  a path to the YAML file to read
+- `config_path` (`str`):  path to the bedbase configuration file
+- `database_only` (`bool`):  whether the database managers should notkeep an in-memory copy of the data in the database
 
 
 
 
 ```python
-def assert_connection(self)
+def bed(self)
 ```
 
-Check whether an Elasticsearch connection has been established
-#### Raises:
-
-- `BedBaseConnectionError`:  if there is no active connection
-
-
-
-
-```python
-def count_bedfiles_docs(self)
-```
-
-Get the total number of the documents in the bedfiles index
+PipestatManager of the bedfiles table
 #### Returns:
 
-- `int`:  number of documents
+- `pipestat.PipestatManager`:  manager of the bedfiles table
 
 
 
 
 ```python
-def count_bedsets_docs(self)
+def bedset(self)
 ```
 
-Get the total number of the documents in the bedsets index
+PipestatManager of the bedsets table
 #### Returns:
 
-- `int`:  number of documents
+- `pipestat.PipestatManager`:  manager of the bedsets table
 
 
 
 
 ```python
-def delete_bedfiles_index(self)
+def config(self)
 ```
 
-Delete bedfiles index from Elasticsearch
-
-
-
-```python
-def delete_bedsets_index(self)
-```
-
-Delete bedsets index from Elasticsearch
-
-
-
-```python
-def establish_elasticsearch_connection(self, host=None)
-```
-
-Establish Elasticsearch connection using the config data
+Config used to initialize the object
 #### Returns:
 
-- `elasticsearch.Elasticsearch`:  connected client
+- `yacman.YacAttMap`:  bedbase configuration file contents
 
 
 
 
 ```python
-def file_path(self)
+def get_bedbuncher_output_path(self, remote=False)
 ```
 
-Return the path to the config file or None if not set
-#### Returns:
-
-- `str | None`:  path to the file the object will would to
-
-
-
-
-```python
-def get_bedfiles_doc(self, doc_id)
-```
-
-Get a document from bedfiles index by its ID
+Get path to the output of the bedbuncher pipeline
 #### Parameters:
 
-- `doc_id` (`str`):  document ID to return
+- `remote` (`bool`):  whether to use remote url base
 
 
 #### Returns:
 
-- `Mapping`:  matched document
+- `str`:  path to the bedbuncher pipeline output
 
 
 
 
 ```python
-def get_bedfiles_mapping(self, just_data=True, **kwargs)
+def get_bedstat_output_path(self, remote=False)
 ```
 
-Get mapping definitions for the bedfiles index
-#### Returns:
-
-- `dict`:  bedfiles mapping definitions
-
-
-
-
-```python
-def get_bedsets_doc(self, doc_id)
-```
-
-Get a document from bedsets index by its ID
+Get path to the output of the bedstat pipeline
 #### Parameters:
 
-- `doc_id` (`str`):  document ID to return
+- `remote` (`bool`):  whether to use remote url base
 
 
 #### Returns:
 
-- `Mapping`:  matched document
+- `str`:  path to the bedstat pipeline output
 
 
 
 
 ```python
-def get_bedsets_mapping(self, just_data=True, **kwargs)
+def remove_relationship(self, bedset_id, bedfile_ids=None)
 ```
 
-Get mapping definitions for the bedsets index
-#### Returns:
-
-- `dict`:  besets mapping definitions
-
-
-
-
-```python
-def insert_bedfiles_data(self, data, doc_id=None, **kwargs)
-```
-
-Insert data to the bedfile index a Elasticsearch DB or create it and the insert in case it does not exist.
-
-Document ID argument is optional. If not provided, a random ID will
-be assigned. If provided the document will be inserted only if no
-documents with this ID are present in the DB. However, the document
-overwriting can be forced if needed.
+Remove entries from the relationships table
 #### Parameters:
 
-- `data` (`dict`):  data to insert
-- `doc_id` (`str`):  unique identifier for the document, optional
+- `bedset_id` (`str`):  id of the bedset to remove
+- `bedfile_ids` (`list[str]`):  ids of the bedfiles to remove for theselected bedset. If none provided, all the relationsips for the selected bedset will be removed.
 
 
 
 
 ```python
-def insert_bedsets_data(self, data, doc_id=None, **kwargs)
+def report_relationship(self, bedset_id, bedfile_id)
 ```
 
-Insert data to the bedset index in a Elasticsearch DB or create it and the insert in case it does not exist.
+Report a bedfile for bedset.
 
-Document ID argument is optional. If not provided, a random ID will
-be assigned.
-If provided the document will be inserted only if no documents with
-this ID are present in the DB.
-However, the document overwriting can be forced if needed.
+Inserts the ID pair into the relationship table, which allows to
+manage many to many bedfile bedset relationships
 #### Parameters:
 
-- `data` (`dict`):  data to insert
-- `doc_id` (`str`):  unique identifier for the document, optional
+- `bedset_id` (`int`):  id of the bedset to report bedfile for
+- `bedfile_id` (`int`):  id of the bedfile to report
 
 
 
 
 ```python
-def search_bedfiles(self, query, just_data=True, **kwargs)
+def select_bedfiles_for_bedset(self, condition=None, condition_val=None, bedfile_col=None)
 ```
 
-Search selected Elasticsearch bedset index with selected query
+Select bedfiles that are part of a bedset that matches the query
 #### Parameters:
 
-- `query` (`dict`):  query to search the DB against
-- `just_data` (`bool`):  whether just the hits should be returned
+- `condition` (`str`):  bedsets table query to restrict the results with,for instance `"id=%s"`
+- `condition_val` (`list[str]`):  values to populate the condition stringwith
+- `bedfile_col` (`list[str] | str`):  bedfile columns to include in theresult, if none specified all columns will be included
 
 
 #### Returns:
 
-- `dict | Iterable[dict]`:  search results
-
-
-
-
-```python
-def search_bedsets(self, query, just_data=True, **kwargs)
-```
-
-Search selected Elasticsearch bedfiles index with selected query
-#### Parameters:
-
-- `query` (`dict`):  query to search the DB against
-- `just_data` (`bool`):  whether just the hits should be returned
-
-
-#### Returns:
-
-- `dict | Iterable[dict]`:  search results
-
-
-
-
-```python
-def writable(self)
-```
-
-Return writability flag or None if not set
-#### Returns:
-
-- `bool | None`:  whether the object is writable now
+- `list[psycopg2.extras.DictRow]`:  matched bedfiles table contents
 
 
 
@@ -294,4 +188,4 @@ or read from a $BEDBASE environment variable
 
 
 
-*Version Information: `bbconf` v0.0.2, generated by `lucidoc` v0.4.3*
+*Version Information: `bbconf` v0.1.0, generated by `lucidoc` v0.4.3*
