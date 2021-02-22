@@ -29,17 +29,21 @@ class TestAll:
         bbc.bedset.report(record_identifier="bedset1", values=test_data_bedset)
         assert ori_cnt + 1 == bbc.bedset.record_count
 
-    def test_nonunique_digest_insert_error(self, cfg_pth, test_data_bed, test_data_bedset):
+    def test_nonunique_digest_insert_error(
+        self, cfg_pth, test_data_bed, test_data_bedset
+    ):
         bbc = BedBaseConf(get_bedbase_cfg(cfg=cfg_pth))
         assert not bbc.bed.report(record_identifier="bed1", values=test_data_bed)
-        assert not bbc.bedset.report(record_identifier="bedset1", values=test_data_bedset)
+        assert not bbc.bedset.report(
+            record_identifier="bedset1", values=test_data_bedset
+        )
 
     def test_reporting_relationships(self, cfg_pth):
         bbc = BedBaseConf(get_bedbase_cfg(cfg=cfg_pth))
-        bed_id = bbc.bed.retrieve(
-            record_identifier="bed1", result_identifier="id")
+        bed_id = bbc.bed.retrieve(record_identifier="bed1", result_identifier="id")
         bedset_id = bbc.bedset.retrieve(
-            record_identifier="bedset1", result_identifier="id")
+            record_identifier="bedset1", result_identifier="id"
+        )
         bbc.report_relationship(bedfile_id=bed_id, bedset_id=bedset_id)
 
     def test_cant_remove_record_if_in_reltable(self, cfg_pth):
@@ -52,9 +56,9 @@ class TestAll:
     def test_removal(self, cfg_pth):
         bbc = BedBaseConf(get_bedbase_cfg(cfg=cfg_pth))
         bedset_id = bbc.bedset.retrieve(
-            record_identifier="bedset1", result_identifier="id")
-        bed_id = bbc.bed.retrieve(
-            record_identifier="bed1", result_identifier="id")
+            record_identifier="bedset1", result_identifier="id"
+        )
+        bed_id = bbc.bed.retrieve(record_identifier="bed1", result_identifier="id")
         bbc.remove_relationship(bedset_id=bedset_id, bedfile_ids=[bed_id])
         ori_cnt = bbc.bed.record_count
         bbc.bed.remove(record_identifier="bed1")

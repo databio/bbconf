@@ -6,18 +6,13 @@ import os
 @pytest.fixture
 def test_data_bed():
     s = "test_string"
-    return {"name": s,
-            "md5sum": s,
-            "bedfile": {"path": s, "title": s},
-            "regions_no": 1}
+    return {"name": s, "md5sum": s, "bedfile": {"path": s, "title": s}, "regions_no": 1}
 
 
 @pytest.fixture
 def test_data_bedset():
     s = "test_string"
-    return {"name": s,
-            "md5sum": s,
-            "bedset_tar_archive_path": {"path": s, "title": s}}
+    return {"name": s, "md5sum": s, "bedset_tar_archive_path": {"path": s, "title": s}}
 
 
 @pytest.fixture

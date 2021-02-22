@@ -19,12 +19,10 @@ def get_bedbase_cfg(cfg=None):
         Optional, the $BEDBASE config env var will be used if not provided
     :return str: configuration file path
     """
-    selected_cfg = select_config(
-        config_filepath=cfg,
-        config_env_vars=CFG_ENV_VARS
-    )
+    selected_cfg = select_config(config_filepath=cfg, config_env_vars=CFG_ENV_VARS)
     if not selected_cfg:
         raise BedBaseConnectionError(
             f"You must provide a config file or set the "
-            f"{'or '.join(CFG_ENV_VARS)} environment variable")
+            f"{'or '.join(CFG_ENV_VARS)} environment variable"
+        )
     return selected_cfg
