@@ -102,9 +102,6 @@ open_chromatin:
   type: image
   label: Open_chromatin
   description: Cell specific enrichment for open chromatin plot
-genome:
-  type: object
-  description: genome assembly and it's refgenie digest
 other:
   type: object
   description: Other, not categorized BED file metadata
