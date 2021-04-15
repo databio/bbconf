@@ -6,9 +6,11 @@ md5sum:
   description: BED file checksum
 bedfile:
   type: file
+  label: bed
   description: BED file
 bigbedfile:
   type: file
+  label: bigBed
   description: bigBed file
 regions_no:
   type: integer
@@ -66,30 +68,39 @@ promotercore_percentage:
   description: Promoter core percentage
 tssdist:
   type: image
+  label: TSS_distance
   description: Region-TSS distance plot
 chrombins:
   type: image
+  label: Chromosome_bins
   description: Regions distribution over chromosomes plot
 gccontent:
   type: image
+  label: GC_content
   description: GC content plot
 paritions:
   type: image
+  label: Regions_dist_partitions
   description: Regions distribution over genomic partitions plot
 expected_partitions:
   type: image
+  label: Expected_partitions
   description: Expected distribution over genomic partitions plot
 cumulative_partitions:
   type: image
+  label: Cumulative_partitions
   description: Cumulative distribution over genomic partitions plot
 widths_histogram:
   type: image
+  label: Widths_histogram 
   description: Quantile-trimmed histogram of widths
 neighbor_distances:
   type: image
+  label: Neighbor_distance
   description: Distance between neighbor regions
 open_chromatin:
   type: image
+  label: Open_chromatin
   description: Cell specific enrichment for open chromatin plot
 other:
   type: object
