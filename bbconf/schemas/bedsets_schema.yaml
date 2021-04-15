@@ -39,6 +39,6 @@ region_commonality:
   label: Region_commonality
   description: Region commonality plot
 genome:
-  type: object
+  type: string
   description: genome assembly of the BED set
   
