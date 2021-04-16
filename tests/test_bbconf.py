@@ -1,11 +1,11 @@
 """ Tests for BedBaseConf database features """
 
 import pytest
-from psycopg2.errors import ForeignKeyViolation
-from bbconf import BedBaseConf
-from bbconf.exceptions import *
-from bbconf import get_bedbase_cfg
 from pipestat import PipestatManager
+from sqlalchemy.exc import IntegrityError
+
+from bbconf import BedBaseConf, get_bedbase_cfg
+from bbconf.exceptions import *
 
 
 class TestAll:
@@ -48,9 +48,9 @@ class TestAll:
 
     def test_cant_remove_record_if_in_reltable(self, cfg_pth):
         bbc = BedBaseConf(get_bedbase_cfg(cfg=cfg_pth))
-        with pytest.raises(ForeignKeyViolation):
+        with pytest.raises(IntegrityError):
             bbc.bed.remove(record_identifier="bed1")
-        with pytest.raises(ForeignKeyViolation):
+        with pytest.raises(IntegrityError):
             bbc.bedset.remove(record_identifier="bedset1")
 
     def test_removal(self, cfg_pth):
