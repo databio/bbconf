@@ -1,12 +1,13 @@
 import os
 from logging import getLogger
+from typing import Dict, List, Optional, Tuple, Union
 
 import pipestat
 import yacman
 from pipestat.const import *
-from pipestat.helpers import mk_list_of_str
-from psycopg2 import sql
+from pipestat.helpers import dynamic_filter, mk_list_of_str
 from sqlalchemy import Column, ForeignKey, Integer, Table
+from sqlalchemy.engine.row import Row
 from sqlalchemy.orm import declarative_base, relationship
 
 from .const import *
@@ -242,41 +243,30 @@ class BedBaseConf(dict):
                     getattr(bedset, BEDFILES_REL_KEY).remove(bedfile)
             s.commit()
 
-    # def select_bedfiles_for_bedset(
-    #     self, condition=None, condition_val=None, bedfile_col=None
-    # ):
-    #     """
-    #     Select bedfiles that are part of a bedset that matches the query
-    #
-    #     :param str condition: bedsets table query to restrict the results with,
-    #         for instance `"id=%s"`
-    #     :param list[str] condition_val: values to populate the condition string
-    #         with
-    #     :param list[str] | str bedfile_col: bedfile columns to include in the
-    #         result, if none specified all columns will be included
-    #     :return list[psycopg2.extras.DictRow]: matched bedfiles table contents
-    #     """
-    #     condition, condition_val = pipestat.helpers.preprocess_condition_pair(
-    #         condition, condition_val
-    #     )
-    #     columns = [
-    #         "f." + c
-    #         for c in pipestat.helpers.mk_list_of_str(
-    #             bedfile_col or list(self.bed.schema.keys())
-    #         )
-    #     ]
-    #     columns = sql.SQL(",").join([sql.SQL(v) for v in columns])
-    #     statement_str = (
-    #         "SELECT {} FROM {} f INNER JOIN {} r ON r.bedfile_id = f.id INNER"
-    #         " JOIN {} s ON r.bedset_id = s.id WHERE s."
-    #     )
-    #     with self.bed.db_cursor as cur:
-    #         statement = sql.SQL(statement_str).format(
-    #             columns,
-    #             sql.Identifier(BED_TABLE),
-    #             sql.Identifier(REL_TABLE),
-    #             sql.Identifier(BEDSET_TABLE),
-    #         )
-    #         statement += condition
-    #         cur.execute(statement, condition_val)
-    #         return cur.fetchall()
+    def select_bedfiles_for_bedset(
+        self,
+        filter_conditions: Optional[List[Tuple[str, str, Union[str, List[str]]]]] = [],
+        bedfile_cols: Optional[List[str]] = None,
+    ) -> List[Row]:
+        """
+        Select bedfiles that are part of a bedset that matches the query
+
+        :param List[str] filter_conditions:  table query to restrict the results with
+        :param Union[List[str], str] bedfile_cols: bedfile columns to include in the
+            result, if none specified all columns will be included
+        :return List[sqlalchemy.engine.row.Row]: matched bedfiles table contents
+        """
+        BedORM = self.bed._get_orm(BED_TABLE)
+        BedsetORM = self.bedset._get_orm(BEDSET_TABLE)
+        cols = (
+            [getattr(BedORM, bedfile_col) for bedfile_col in bedfile_cols]
+            if bedfile_cols is not None
+            else BedORM.__table__.columns
+        )
+        with self.bed.session as s:
+            q = s.query(*cols).join(BedORM, BedsetORM.bedfiles)
+            q = dynamic_filter(
+                ORM=BedsetORM, query=q, filter_conditions=filter_conditions
+            )
+            bed_names = q.all()
+        return bed_names
