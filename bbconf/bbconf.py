@@ -246,6 +246,7 @@ class BedBaseConf(dict):
     def select_bedfiles_for_bedset(
         self,
         filter_conditions: Optional[List[Tuple[str, str, Union[str, List[str]]]]] = [],
+        json_filter_conditions: Optional[List[Tuple[str, str, str]]] = [],
         bedfile_cols: Optional[List[str]] = None,
     ) -> List[Row]:
         """
@@ -266,7 +267,10 @@ class BedBaseConf(dict):
         with self.bed.session as s:
             q = s.query(*cols).join(BedORM, BedsetORM.bedfiles)
             q = dynamic_filter(
-                ORM=BedsetORM, query=q, filter_conditions=filter_conditions
+                ORM=BedsetORM,
+                query=q,
+                filter_conditions=filter_conditions,
+                json_filter_conditions=json_filter_conditions,
             )
             bed_names = q.all()
         return bed_names
