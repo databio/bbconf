@@ -177,14 +177,17 @@ class BedBaseConf(dict):
         """
         A distance table creation method
         """
-        Table(
-            DIST_TABLE,
-            self[COMMON_DECL_BASE_KEY].metadata,
-            Column("id", Integer, primary_key=True),
-            Column("bed_id", Integer, ForeignKey(f"{self.bed.namespace}.id")),
-            Column("bed_label", String),
-            Column("search_term", String),
-            Column("score", Float),
+        attr_dict = {
+            "__tablename__": DIST_TABLE,
+            "id": Column(Integer, primary_key=True),
+            "bed_id": Column(Integer, ForeignKey(f"{self.bed.namespace}.id")),
+            "bed_label": Column(String),
+            "search_term": Column(String),
+            "score": Column(Float),
+        }
+
+        self.bed[DB_ORMS_KEY][DIST_TABLE] = type(
+            DIST_TABLE.capitalize(), (self[COMMON_DECL_BASE_KEY],), attr_dict
         )
         self[COMMON_DECL_BASE_KEY].metadata.create_all(bind=self.bed["_db_engine"])
 
@@ -233,12 +236,12 @@ class BedBaseConf(dict):
         """
         if not self.bed._check_table_exists(table_name=DIST_TABLE):
             self._create_distance_table()
-        BedORM = self.bed._get_orm(self.bed.namespace)
+        BedORM = self.bed._get_orm(table_name=self.bed.namespace)
         DistORM = self.bed._get_orm(table_name=DIST_TABLE)
         with self.bed.session as s:
-            bed_id = s.query(BedORM.id).filter(BedORM.md5sum == bed_md5sum)
+            bed = s.query(BedORM.id).filter(BedORM.md5sum == bed_md5sum).first()
             new_dist = DistORM(
-                bed_id=bed_id,
+                bed_id=bed.id,
                 bed_label=bed_label,
                 search_term=search_term,
                 score=score,
