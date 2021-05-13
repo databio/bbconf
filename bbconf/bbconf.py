@@ -180,11 +180,11 @@ class BedBaseConf(dict):
         Table(
             DIST_TABLE,
             self[COMMON_DECL_BASE_KEY].metadata,
-            id=Column(Integer, primary_key=True),
-            bed_md5sum=Column(Integer, ForeignKey(f"{self.bed.namespace}.md5sum")),
-            bed_label=Column(String),
-            search_term=Column(String),
-            score=Column(Float),
+            Column("id", Integer, primary_key=True),
+            Column("bed_id", Integer, ForeignKey(f"{self.bed.namespace}.id")),
+            Column("bed_label", String),
+            Column("search_term", String),
+            Column("score", Float),
         )
         self[COMMON_DECL_BASE_KEY].metadata.create_all(bind=self.bed["_db_engine"])
 
@@ -233,10 +233,12 @@ class BedBaseConf(dict):
         """
         if not self.bed._check_table_exists(table_name=DIST_TABLE):
             self._create_distance_table()
+        BedORM = self.bed._get_orm(self.bed.namespace)
         DistORM = self.bed._get_orm(table_name=DIST_TABLE)
         with self.bed.session as s:
+            bed_id = s.query(BedORM.id).filter(BedORM.md5sum == bed_md5sum)
             new_dist = DistORM(
-                bed_md5sum=bed_md5sum,
+                bed_id=bed_id,
                 bed_label=bed_label,
                 search_term=search_term,
                 score=score,
