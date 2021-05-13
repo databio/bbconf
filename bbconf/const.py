@@ -20,6 +20,7 @@ BEDSETS_REL_KEY = "bedsets"
 
 
 REL_TABLE = "bedset_bedfiles"
+DIST_TABLE = "distaces"
 
 CFG_ENV_VARS = ["BEDBASE"]
 
@@ -94,6 +95,7 @@ __all__ = [
     "BED_TABLE",
     "BEDSET_TABLE",
     "REL_TABLE",
+    "DIST_TABLE",
     "CFG_ENV_VARS",
     "DB_DEFAULT_HOST",
     "SERVER_DEFAULT_PORT",

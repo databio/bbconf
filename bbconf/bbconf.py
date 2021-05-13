@@ -1,12 +1,12 @@
 import os
 from logging import getLogger
-from typing import Dict, List, Optional, Tuple, Union
+from typing import List, Optional, Tuple, Union
 
 import pipestat
 import yacman
 from pipestat.const import *
-from pipestat.helpers import dynamic_filter, mk_list_of_str
-from sqlalchemy import Column, ForeignKey, Integer, Table
+from pipestat.helpers import dynamic_filter
+from sqlalchemy import Column, Float, ForeignKey, Integer, String, Table
 from sqlalchemy.engine.row import Row
 from sqlalchemy.orm import declarative_base, relationship
 
@@ -83,6 +83,8 @@ class BedBaseConf(dict):
             custom_declarative_base=self[COMMON_DECL_BASE_KEY],
         )
         self._create_bedset_bedfiles_table()
+        self._create_distance_table()
+        self[COMMON_DECL_BASE_KEY].metadata.create_all(bind=self.bed["_db_engine"])
 
     def __str__(self):
         """
@@ -171,6 +173,21 @@ class BedBaseConf(dict):
         """
         return self._get_output_path(table_name=BED_TABLE, remote=remote)
 
+    def _create_distance_table(self):
+        """
+        A distance table creation method
+        """
+        Table(
+            DIST_TABLE,
+            self[COMMON_DECL_BASE_KEY].metadata,
+            id=Column(Integer, primary_key=True),
+            bed_md5sum=Column(Integer, ForeignKey(f"{self.bed.namespace}.md5sum")),
+            bed_label=Column(String),
+            search_term=Column(String),
+            score=Column(Float),
+        )
+        self[COMMON_DECL_BASE_KEY].metadata.create_all(bind=self.bed["_db_engine"])
+
     def _create_bedset_bedfiles_table(self):
         """
         A relationship table
@@ -196,6 +213,36 @@ class BedBaseConf(dict):
             ),
         )
         self[COMMON_DECL_BASE_KEY].metadata.create_all(bind=self.bed["_db_engine"])
+
+    def report_distance(
+        self,
+        bed_md5sum,
+        bed_label,
+        search_term,
+        score,
+    ):
+        """
+        Report a search term - bedfile distance.
+
+        Inserts a distance of the bedfile to a search term
+
+        :param str bed_md5sum: bedfile MD5SUM
+        :param str bed_label: bedfile label
+        :param str search_term: search term
+        :param float score: associated score
+        """
+        if not self.bed._check_table_exists(table_name=DIST_TABLE):
+            self._create_distance_table()
+        DistORM = self.bed._get_orm(table_name=DIST_TABLE)
+        with self.bed.session as s:
+            new_dist = DistORM(
+                bed_md5sum=bed_md5sum,
+                bed_label=bed_label,
+                search_term=search_term,
+                score=score,
+            )
+            s.add(new_dist)
+            s.commit()
 
     def report_relationship(self, bedset_id, bedfile_id):
         """

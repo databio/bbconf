@@ -2,8 +2,8 @@ import logging
 
 from yacman import select_config
 
-from .exceptions import *
 from .const import *
+from .exceptions import *
 
 _LOGGER = logging.getLogger(__name__)
 
