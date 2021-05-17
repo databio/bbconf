@@ -8,6 +8,7 @@ SCHEMA_DIRNAME = "schemas"
 SCHEMAS_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), SCHEMA_DIRNAME)
 BED_TABLE_SCHEMA = os.path.join(SCHEMAS_PATH, "bedfiles_schema.yaml")
 BEDSET_TABLE_SCHEMA = os.path.join(SCHEMAS_PATH, "bedsets_schema.yaml")
+DIST_TABLE_SCHEMA = os.path.join(SCHEMAS_PATH, "distance_schema.yaml")
 
 PKG_NAME = "bbconf"
 DOC_URL = "TBA"  # TODO: add documentation URL once it's established
@@ -107,6 +108,7 @@ __all__ = [
     "REL_BEDSET_ID_KEY",
     "BED_TABLE_SCHEMA",
     "BEDSET_TABLE_SCHEMA",
+    "DIST_TABLE_SCHEMA",
     "PIPESTATS_KEY",
     "COMMON_DECL_BASE_KEY",
     "BEDSETS_REL_KEY",
