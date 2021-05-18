@@ -82,8 +82,16 @@ class BedBaseConf(dict):
             database_only=database_only,
             custom_declarative_base=self[COMMON_DECL_BASE_KEY],
         )
+        self[PIPESTATS_KEY][DIST_TABLE] = pipestat.PipestatManager(
+            namespace=DIST_TABLE,
+            config=self.config,
+            schema_path=DIST_TABLE_SCHEMA,
+            database_only=database_only,
+            custom_declarative_base=self[COMMON_DECL_BASE_KEY],
+        )
+
         self._create_bedset_bedfiles_table()
-        self._create_distance_table()
+        # self._create_distance_table()
         self[COMMON_DECL_BASE_KEY].metadata.create_all(bind=self.bed["_db_engine"])
 
     def __str__(self):
@@ -120,6 +128,15 @@ class BedBaseConf(dict):
         :return pipestat.PipestatManager: manager of the bedfiles table
         """
         return self[PIPESTATS_KEY][BED_TABLE]
+
+    @property
+    def dist(self):
+        """
+        PipestatManager of the distances table
+
+        :return pipestat.PipestatManager: manager of the bedfiles table
+        """
+        return self[PIPESTATS_KEY][DIST_TABLE]
 
     @property
     def bedset(self):
@@ -173,24 +190,6 @@ class BedBaseConf(dict):
         """
         return self._get_output_path(table_name=BED_TABLE, remote=remote)
 
-    def _create_distance_table(self):
-        """
-        A distance table creation method
-        """
-        attr_dict = {
-            "__tablename__": DIST_TABLE,
-            "id": Column(Integer, primary_key=True),
-            "bed_id": Column(Integer, ForeignKey(f"{self.bed.namespace}.id")),
-            "bed_label": Column(String),
-            "search_term": Column(String),
-            "score": Column(Float),
-        }
-
-        self.bed[DB_ORMS_KEY][DIST_TABLE] = type(
-            DIST_TABLE.capitalize(), (self[COMMON_DECL_BASE_KEY],), attr_dict
-        )
-        self[COMMON_DECL_BASE_KEY].metadata.create_all(bind=self.bed["_db_engine"])
-
     def _create_bedset_bedfiles_table(self):
         """
         A relationship table
@@ -234,20 +233,14 @@ class BedBaseConf(dict):
         :param str search_term: search term
         :param float score: associated score
         """
-        if not self.bed._check_table_exists(table_name=DIST_TABLE):
-            self._create_distance_table()
+        # TODO: This method should be removed and the next few lines added in the clients
         BedORM = self.bed._get_orm(table_name=self.bed.namespace)
-        DistORM = self.bed._get_orm(table_name=DIST_TABLE)
         with self.bed.session as s:
             bed = s.query(BedORM.id).filter(BedORM.md5sum == bed_md5sum).first()
-            new_dist = DistORM(
-                bed_id=bed.id,
-                bed_label=bed_label,
-                search_term=search_term,
-                score=score,
-            )
-            s.add(new_dist)
-            s.commit()
+        values = dict(
+            bed_id=bed.id, bed_label=bed_label, search_term=search_term, score=score
+        )
+        self.dist.report(values=values, record_identifier=f"{bed_md5sum}_{search_term}")
 
     def report_relationship(self, bedset_id, bedfile_id):
         """
