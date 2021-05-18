@@ -1,0 +1,12 @@
+md5sum:
+  type: string
+  description: BED file checksum
+bed_label:
+  type: string
+  description: label of the file
+search_term:
+  type: string
+  description: Meta data search term
+score:
+  type: number
+  description: score of the search term
