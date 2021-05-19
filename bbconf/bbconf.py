@@ -5,6 +5,7 @@ from typing import List, Optional, Tuple, Union
 import pipestat
 import yacman
 from pipestat.const import *
+from pipestat.exceptions import PipestatDatabaseError
 from pipestat.helpers import dynamic_filter
 from sqlalchemy import Column, Float, ForeignKey, Integer, String, Table
 from sqlalchemy.engine.row import Row
@@ -232,11 +233,17 @@ class BedBaseConf(dict):
         :param str bed_label: bedfile label
         :param str search_term: search term
         :param float score: associated score
+        :rasie ValueError: if none of the BED files match the provided md5sum
         """
         # TODO: This method should be removed and the next few lines added in the clients
         BedORM = self.bed._get_orm(table_name=self.bed.namespace)
         with self.bed.session as s:
             bed = s.query(BedORM.id).filter(BedORM.md5sum == bed_md5sum).first()
+        if bed is None:
+            raise ValueError(
+                f"None of the files in the '{self.bed.namespace}' table "
+                f"match the md5sum: {bed_md5sum}"
+            )
         values = dict(
             bed_id=bed.id, bed_label=bed_label, search_term=search_term, score=score
         )
