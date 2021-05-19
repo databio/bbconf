@@ -162,13 +162,13 @@ class BedBaseConf(dict):
             else CFG_BEDSTAT_DIR_KEY
         )
         base = (
-            self.config[CFG_PATH_KEY][CFG_REMOTE_URL_BASE_KEY]
+            self.config[CFG_REMOTE_KEY][remote_key]["prefix"]
             if remote
             else self.config[CFG_PATH_KEY][CFG_PIPELINE_OUT_PTH_KEY]
         )
         if remote and not base:
             raise MissingConfigDataError(
-                f"{CFG_REMOTE_URL_BASE_KEY} key value is invalid: {base}"
+                f"{CFG_REMOTE_KEY} key value is invalid: {base}"
             )
         return os.path.join(base, self.config[CFG_PATH_KEY][dir_key])
 
@@ -319,3 +319,114 @@ class BedBaseConf(dict):
             )
             bed_names = q.all()
         return bed_names
+
+    def select_bedfiles_for_distance(
+        self, genome, condition_val=None, bedfile_col=None, limit=None
+    ):
+        """
+        Select bedfiles that are relate to given search terms
+
+        :param str genome: genome assembly
+        :param list[str] condition_val: values to populate the condition string
+            with
+        :param list[str] | str bedfile_col: bedfile columns to include in the
+            result, if none specified all columns will be included
+        :return list[psycopg2.extras.DictRow]: matched bedfiles table contents
+        """
+
+        num_terms = len(condition_val)
+
+        if num_terms > 1:
+            for i in range(num_terms):
+                if i == 0:
+                    avg = "R" + str(i) + ".score"
+                    join = "FROM distances R" + str(i)
+                    where = "WHERE R" + str(i) + ".search_term ILIKE %s"
+                else:
+                    avg += " + R" + str(i) + ".score"
+                    join += (
+                        " INNER JOIN distances R"
+                        + str(i)
+                        + " ON R"
+                        + str(i - 1)
+                        + ".bed_id = R"
+                        + str(i)
+                        + ".bed_id"
+                    )
+                    where += " AND R" + str(i) + ".search_term ILIKE %s"
+
+                condition = (
+                    f"SELECT R0.bed_id AS bed_id, AVG({avg}) AS score "
+                    f"{join} {where} GROUP BY R0.bed_id ORDER BY score ASC"
+                )
+                if limit:
+                    condition += f" LIMIT {limit}"
+        else:
+            condition = (
+                f"SELECT bed_id, score FROM {DIST_TABLE} "
+                "WHERE search_term ILIKE %s ORDER BY score ASC"
+            )
+            if limit:
+                condition += f" LIMIT {limit}"
+
+        condition, condition_val = pipestat.helpers.preprocess_condition_pair(
+            condition, condition_val
+        )
+
+        columns = [
+            "f." + c
+            for c in pipestat.helpers.mk_list_of_str(
+                bedfile_col or list(self.bed.schema.keys())
+            )
+        ]
+        columns = sql.SQL(",").join([sql.SQL(v) for v in columns])
+        statement_str = (
+            "SELECT {} FROM {} f INNER JOIN ({}) r ON r.bed_id = f.id "
+            "WHERE f.genome ->> 'alias' = '" + genome + "' ORDER BY score ASC"
+        )
+        with self.bed.db_cursor as cur:
+            statement = sql.SQL(statement_str).format(
+                columns, sql.Identifier(BED_TABLE), condition
+            )
+            cur.execute(statement, condition_val)
+            return cur.fetchall()
+
+    def select_unique(self, table_name, column=None):
+        """
+        Select bedfiles that are part of a bedset that matches the query
+
+        :param str table_name: table to query in
+        :param str col: column to include in the result
+        :return list[psycopg2.extras.DictRow]: unique entries in the column
+        """
+
+            
+
+
+        if table_name == "bedfiles":
+            values = self.bed.select(
+                columns=[column],
+            )
+        elif table_name == "bedsets":
+            values = self.bedset.select(
+                columns=[column],
+            )
+        return [i for n, i in enumerate(values) if i not in values[n + 1:]]
+        # if table_name == "bedfiles":
+        #     with self.bed.session as s:
+        #         q = s.query(*[getattr(ORM, col) for col in column])
+        #         q = dynamic_filter(
+        #             ORM=ORM,
+        #             query=q,
+        #         )
+
+        # elif table_name == "bedsets":
+        #     with self.bedset.session as s:
+        #         q = s.query(*[getattr(ORM, col) for col in column])
+
+        #         q = dynamic_filter(
+        #             ORM=ORM,
+        #             query=q,
+        #         )
+
+        # return q.distinct(column[0])
