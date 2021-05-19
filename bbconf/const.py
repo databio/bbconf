@@ -8,7 +8,7 @@ SCHEMA_DIRNAME = "schemas"
 SCHEMAS_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), SCHEMA_DIRNAME)
 BED_TABLE_SCHEMA = os.path.join(SCHEMAS_PATH, "bedfiles_schema.yaml")
 BEDSET_TABLE_SCHEMA = os.path.join(SCHEMAS_PATH, "bedsets_schema.yaml")
-DIST_TABLE_SCHEMA = os.path.join(SCHEMAS_PATH, "distances_schema.yaml")
+DIST_TABLE_SCHEMA = os.path.join(SCHEMAS_PATH, "distance_schema.yaml")
 
 PKG_NAME = "bbconf"
 DOC_URL = "TBA"  # TODO: add documentation URL once it's established
@@ -59,10 +59,9 @@ CFG_USER_KEY = "user"
 CFG_BEDSTAT_DIR_KEY = "bedstat_dir"
 CFG_BEDBUNCHER_DIR_KEY = "bedbuncher_dir"
 CFG_PIPELINE_OUT_PTH_KEY = "pipeline_output_path"
-CFG_REMOTE_URL_BASE_KEY = "remote_url_base"
+CFG_REMOTE_KEY = "remotes"
 
 DEFAULT_SECTION_VALUES = {
-    CFG_PATH_KEY: {CFG_REMOTE_URL_BASE_KEY: PATH_DEFAULT_REMOTE_URL_BASE},
     CFG_DATABASE_KEY: {
         CFG_USER_KEY: DB_DEFAULT_USER,
         CFG_PASSWORD_KEY: DB_DEFAULT_PASSWORD,
@@ -85,10 +84,10 @@ CFG_KEYS = [
     "CFG_NAME_KEY",
     "CFG_PASSWORD_KEY",
     "CFG_USER_KEY",
-    "CFG_REMOTE_URL_BASE_KEY",
     "CFG_PIPELINE_OUT_PTH_KEY",
     "CFG_BEDSTAT_DIR_KEY",
     "CFG_BEDBUNCHER_DIR_KEY",
+    "CFG_REMOTE_KEY",
 ]
 
 

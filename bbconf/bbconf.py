@@ -407,9 +407,6 @@ class BedBaseConf(dict):
         :return list[psycopg2.extras.DictRow]: unique entries in the column
         """
 
-            
-
-
         if table_name == "bedfiles":
             values = self.bed.select(
                 columns=[column],
@@ -418,22 +415,4 @@ class BedBaseConf(dict):
             values = self.bedset.select(
                 columns=[column],
             )
-        return [i for n, i in enumerate(values) if i not in values[n + 1:]]
-        # if table_name == "bedfiles":
-        #     with self.bed.session as s:
-        #         q = s.query(*[getattr(ORM, col) for col in column])
-        #         q = dynamic_filter(
-        #             ORM=ORM,
-        #             query=q,
-        #         )
-
-        # elif table_name == "bedsets":
-        #     with self.bedset.session as s:
-        #         q = s.query(*[getattr(ORM, col) for col in column])
-
-        #         q = dynamic_filter(
-        #             ORM=ORM,
-        #             query=q,
-        #         )
-
-        # return q.distinct(column[0])
+        return [i for n, i in enumerate(values) if i not in values[n + 1 :]]
