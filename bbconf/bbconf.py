@@ -309,8 +309,10 @@ class BedBaseConf(dict):
             result, if none specified all columns will be included
         :return List[sqlalchemy.engine.row.Row]: matched bedfiles table contents
         """
+        print (self)
         BedORM = self.bed._get_orm(BED_TABLE)
         BedsetORM = self.bedset._get_orm(BEDSET_TABLE)
+        print ("here:", BedsetORM.bedfiles)
         cols = (
             [getattr(BedORM, bedfile_col) for bedfile_col in bedfile_cols]
             if bedfile_cols is not None
@@ -325,10 +327,16 @@ class BedBaseConf(dict):
                 json_filter_conditions=json_filter_conditions,
             )
             bed_names = q.all()
+            print("query format: ", q)
         return bed_names
 
     def select_bedfiles_for_distance(
-        self, genome, condition_val=None, bedfile_col=None, limit=None
+        self,
+        genome,
+        filter_conditions: Optional[List[Tuple[str, str, Union[str, List[str]]]]] = [],
+        json_filter_conditions: Optional[List[Tuple[str, str, str]]] = [],
+        bedfile_cols: Optional[List[str]] = None,
+        limit: Optional[int] = None,
     ):
         """
         Select bedfiles that are relate to given search terms
@@ -340,63 +348,100 @@ class BedBaseConf(dict):
             result, if none specified all columns will be included
         :return list[psycopg2.extras.DictRow]: matched bedfiles table contents
         """
-
-        num_terms = len(condition_val)
-
-        if num_terms > 1:
-            for i in range(num_terms):
-                if i == 0:
-                    avg = "R" + str(i) + ".score"
-                    join = "FROM distances R" + str(i)
-                    where = "WHERE R" + str(i) + ".search_term ILIKE %s"
-                else:
-                    avg += " + R" + str(i) + ".score"
-                    join += (
-                        " INNER JOIN distances R"
-                        + str(i)
-                        + " ON R"
-                        + str(i - 1)
-                        + ".bed_id = R"
-                        + str(i)
-                        + ".bed_id"
-                    )
-                    where += " AND R" + str(i) + ".search_term ILIKE %s"
-
-                condition = (
-                    f"SELECT R0.bed_id AS bed_id, AVG({avg}) AS score "
-                    f"{join} {where} GROUP BY R0.bed_id ORDER BY score ASC"
-                )
-                if limit:
-                    condition += f" LIMIT {limit}"
-        else:
-            condition = (
-                f"SELECT bed_id, score FROM {DIST_TABLE} "
-                "WHERE search_term ILIKE %s ORDER BY score ASC"
-            )
-            if limit:
-                condition += f" LIMIT {limit}"
-
-        condition, condition_val = pipestat.helpers.preprocess_condition_pair(
-            condition, condition_val
+        
+        BedORM = self.bed._get_orm(BED_TABLE)
+        DistORM = self.dist._get_orm(DIST_TABLE)
+        print ("here:", DistORM.bed_id)
+        cols = (
+            [getattr(BedORM, bedfile_col) for bedfile_col in bedfile_cols]
+            if bedfile_cols is not None
+            else BedORM.__table__.columns
         )
+        print(getattr(DistORM, 'score'))
+        print (cols)
+        with self.bed.session as s:
+            q = s.query(*cols).join(BedORM, DistORM.bedfile)
+            print("query format1: ", q)
+            q = dynamic_filter(
+                ORM=DistORM,
+                query=q,
+                filter_conditions=filter_conditions,
+                json_filter_conditions=json_filter_conditions,
+            )
+            print("query format2: ", q)
+            if isinstance(limit, int):
+                q = q.limit(limit)
+            print("results: ", q)
+            bed_names = q.all()
+            print("results: ", bed_names)
+            return bed_names
 
-        columns = [
-            "f." + c
-            for c in pipestat.helpers.mk_list_of_str(
-                bedfile_col or list(self.bed.schema.keys())
-            )
-        ]
-        columns = sql.SQL(",").join([sql.SQL(v) for v in columns])
-        statement_str = (
-            "SELECT {} FROM {} f INNER JOIN ({}) r ON r.bed_id = f.id "
-            "WHERE f.genome ->> 'alias' = '" + genome + "' ORDER BY score ASC"
-        )
-        with self.bed.db_cursor as cur:
-            statement = sql.SQL(statement_str).format(
-                columns, sql.Identifier(BED_TABLE), condition
-            )
-            cur.execute(statement, condition_val)
-            return cur.fetchall()
+
+        # num_terms = len(condition_val)
+
+        # if num_terms > 1:
+        #     for i in range(num_terms):
+        #         if i == 0:
+        #             avg = "R" + str(i) + ".score"
+        #             join = "FROM distances R" + str(i)
+        #             where = "WHERE R" + str(i) + ".search_term ILIKE %s"
+        #         else:
+        #             avg += " + R" + str(i) + ".score"
+        #             join += (
+        #                 " INNER JOIN distances R"
+        #                 + str(i)
+        #                 + " ON R"
+        #                 + str(i - 1)
+        #                 + ".bed_id = R"
+        #                 + str(i)
+        #                 + ".bed_id"
+        #             )
+        #             where += " AND R" + str(i) + ".search_term ILIKE %s"
+
+        #         condition = (
+        #             f"SELECT R0.bed_id AS bed_id, AVG({avg}) AS score "
+        #             f"{join} {where} GROUP BY R0.bed_id ORDER BY score ASC"
+        #         )
+        #         if limit:
+        #             condition += f" LIMIT {limit}"
+        # else:
+        #     condition = (
+        #         f"SELECT bed_id, score FROM {DIST_TABLE} "
+        #         "WHERE search_term ILIKE %s ORDER BY score ASC"
+        #     )
+        #     if limit:
+        #         condition += f" LIMIT {limit}"
+
+        # condition, condition_val = pipestat.helpers.preprocess_condition_pair(
+        #     condition, condition_val
+        # )
+
+        # columns = [
+        #     "f." + c
+        #     for c in pipestat.helpers.mk_list_of_str(
+        #         bedfile_col or list(self.bed.schema.keys())
+        #     )
+        # ]
+
+        # columns = sql.SQL(",").join([sql.SQL(v) for v in columns])
+        # statement_str = (
+        #     "SELECT {} FROM {} f INNER JOIN ({}) r ON r.bed_id = f.id "
+        #     "WHERE f.genome ->> 'alias' = '" + genome + "' ORDER BY score ASC"
+        # )
+        # statement = statement_str.format(columns, BED_TABLE, condition)
+        # statement = statement.replace('%s','{}').format(*condition_val)
+
+        # print (statement)
+        # with self.bed.session as s:
+        #     return statement.all()
+
+
+        # with self.bed.db_cursor as cur:
+        #     statement = sql.SQL(statement_str).format(
+        #         columns, sql.Identifier(BED_TABLE), condition
+        #     )
+        #     cur.execute(statement, condition_val)
+        #     return cur.fetchall()
 
     def select_unique(self, table_name, column=None):
         """
