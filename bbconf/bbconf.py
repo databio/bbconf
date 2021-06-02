@@ -204,8 +204,8 @@ class BedBaseConf(dict):
             ),
         )
 
-        BedORM = self.bed._get_orm(table_name=self.bed.namespace)
-        BedsetORM = self.bedset._get_orm(table_name=self.bedset.namespace)
+        BedORM = self.bed.get_orm(table_name=self.bed.namespace)
+        BedsetORM = self.bedset.get_orm(table_name=self.bedset.namespace)
 
         BedORM.__mapper__.add_property(
             BEDSETS_REL_KEY,
@@ -236,7 +236,7 @@ class BedBaseConf(dict):
         :rasie ValueError: if none of the BED files match the provided md5sum
         """
         # TODO: This method should be removed and the next few lines added in the clients
-        BedORM = self.bed._get_orm(table_name=self.bed.namespace)
+        BedORM = self.bed.get_orm(table_name=self.bed.namespace)
         with self.bed.session as s:
             bed = s.query(BedORM.id).filter(BedORM.md5sum == bed_md5sum).first()
         if bed is None:
@@ -261,8 +261,8 @@ class BedBaseConf(dict):
         """
         if not self.bed._check_table_exists(table_name=REL_TABLE):
             self._create_bedset_bedfiles_table()
-        BedORM = self.bed._get_orm(self.bed.namespace)
-        BedsetORM = self.bedset._get_orm(self.bedset.namespace)
+        BedORM = self.bed.get_orm(self.bed.namespace)
+        BedsetORM = self.bedset.get_orm(self.bedset.namespace)
         with self.bed.session as s:
             bed = s.query(BedORM).get(bedfile_id)
             bedset = s.query(BedsetORM).get(bedset_id)
@@ -283,8 +283,8 @@ class BedBaseConf(dict):
             raise BedBaseConfError(
                 f"Can't remove a relationship, '{REL_TABLE}' does not exist"
             )
-        BedORM = self.bed._get_orm(self.bed.namespace)
-        BedsetORM = self.bedset._get_orm(self.bedset.namespace)
+        BedORM = self.bed.get_orm(self.bed.namespace)
+        BedsetORM = self.bedset.get_orm(self.bedset.namespace)
         with self.bedset.session as s:
             bedset = s.query(BedsetORM).get(bedset_id)
             if bedfile_ids is None:
@@ -309,10 +309,10 @@ class BedBaseConf(dict):
             result, if none specified all columns will be included
         :return List[sqlalchemy.engine.row.Row]: matched bedfiles table contents
         """
-        print (self)
-        BedORM = self.bed._get_orm(BED_TABLE)
-        BedsetORM = self.bedset._get_orm(BEDSET_TABLE)
-        print ("here:", BedsetORM.bedfiles)
+        print(self)
+        BedORM = self.bed.get_orm(BED_TABLE)
+        BedsetORM = self.bedset.get_orm(BEDSET_TABLE)
+        print("here:", BedsetORM.bedfiles)
         cols = (
             [getattr(BedORM, bedfile_col) for bedfile_col in bedfile_cols]
             if bedfile_cols is not None
@@ -332,14 +332,13 @@ class BedBaseConf(dict):
 
     def select_bedfiles_for_distance(
         self,
-        genome,
         filter_conditions: Optional[List[Tuple[str, str, Union[str, List[str]]]]] = [],
         json_filter_conditions: Optional[List[Tuple[str, str, str]]] = [],
         bedfile_cols: Optional[List[str]] = None,
         limit: Optional[int] = None,
     ):
         """
-        Select bedfiles that are relate to given search terms
+        Select bedfiles that are related to given search terms
 
         :param str genome: genome assembly
         :param list[str] condition_val: values to populate the condition string
@@ -348,34 +347,25 @@ class BedBaseConf(dict):
             result, if none specified all columns will be included
         :return list[psycopg2.extras.DictRow]: matched bedfiles table contents
         """
-        
-        BedORM = self.bed._get_orm(BED_TABLE)
-        DistORM = self.dist._get_orm(DIST_TABLE)
-        print ("here:", DistORM.bed_id)
+
+        BedORM = self.bed.get_orm(BED_TABLE)
+        DistORM = self.dist.get_orm(DIST_TABLE)
         cols = (
             [getattr(BedORM, bedfile_col) for bedfile_col in bedfile_cols]
             if bedfile_cols is not None
             else BedORM.__table__.columns
         )
-        print(getattr(DistORM, 'score'))
-        print (cols)
         with self.bed.session as s:
             q = s.query(*cols).join(BedORM, DistORM.bedfile)
-            print("query format1: ", q)
             q = dynamic_filter(
                 ORM=DistORM,
                 query=q,
                 filter_conditions=filter_conditions,
                 json_filter_conditions=json_filter_conditions,
             )
-            print("query format2: ", q)
             if isinstance(limit, int):
                 q = q.limit(limit)
-            print("results: ", q)
-            bed_names = q.all()
-            print("results: ", bed_names)
-            return bed_names
-
+            return q.all()
 
         # num_terms = len(condition_val)
 
@@ -434,7 +424,6 @@ class BedBaseConf(dict):
         # print (statement)
         # with self.bed.session as s:
         #     return statement.all()
-
 
         # with self.bed.db_cursor as cur:
         #     statement = sql.SQL(statement_str).format(
