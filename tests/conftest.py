@@ -1,6 +1,7 @@
 """ Test suite shared objects and setup """
-import pytest
 import os
+
+import pytest
 
 
 @pytest.fixture

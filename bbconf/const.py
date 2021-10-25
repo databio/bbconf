@@ -8,13 +8,20 @@ SCHEMA_DIRNAME = "schemas"
 SCHEMAS_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), SCHEMA_DIRNAME)
 BED_TABLE_SCHEMA = os.path.join(SCHEMAS_PATH, "bedfiles_schema.yaml")
 BEDSET_TABLE_SCHEMA = os.path.join(SCHEMAS_PATH, "bedsets_schema.yaml")
+DIST_TABLE_SCHEMA = os.path.join(SCHEMAS_PATH, "distance_schema.yaml")
 
 PKG_NAME = "bbconf"
 DOC_URL = "TBA"  # TODO: add documentation URL once it's established
 
 BED_TABLE = "bedfiles"
 BEDSET_TABLE = "bedsets"
+
+BEDFILES_REL_KEY = "bedfiles"
+BEDSETS_REL_KEY = "bedsets"
+
+
 REL_TABLE = "bedset_bedfiles"
+DIST_TABLE = "distances"
 
 CFG_ENV_VARS = ["BEDBASE"]
 
@@ -23,6 +30,7 @@ DB_DEFAULT_USER = "postgres"
 DB_DEFAULT_PASSWORD = "bedbasepassword"
 DB_DEFAULT_NAME = "postgres"
 DB_DEFAULT_PORT = 5432
+DB_DEFAULT_DIALECT = "postgresql"
 
 SERVER_DEFAULT_PORT = 80
 SERVER_DEFAULT_HOST = "0.0.0.0"
@@ -30,8 +38,9 @@ SERVER_DEFAULT_HOST = "0.0.0.0"
 PATH_DEFAULT_REMOTE_URL_BASE = None
 
 PIPESTATS_KEY = "__pipestats"
+COMMON_DECL_BASE_KEY = "__common_declarative_base"
 
-HIDDEN_ATTR_KEYS = PIPESTATS_KEY
+HIDDEN_ATTR_KEYS = [PIPESTATS_KEY, COMMON_DECL_BASE_KEY]
 
 # bedset_bedfiles table definition
 
@@ -50,10 +59,9 @@ CFG_USER_KEY = "user"
 CFG_BEDSTAT_DIR_KEY = "bedstat_dir"
 CFG_BEDBUNCHER_DIR_KEY = "bedbuncher_dir"
 CFG_PIPELINE_OUT_PTH_KEY = "pipeline_output_path"
-CFG_REMOTE_URL_BASE_KEY = "remote_url_base"
+CFG_REMOTE_KEY = "remotes"
 
 DEFAULT_SECTION_VALUES = {
-    CFG_PATH_KEY: {CFG_REMOTE_URL_BASE_KEY: PATH_DEFAULT_REMOTE_URL_BASE},
     CFG_DATABASE_KEY: {
         CFG_USER_KEY: DB_DEFAULT_USER,
         CFG_PASSWORD_KEY: DB_DEFAULT_PASSWORD,
@@ -76,11 +84,10 @@ CFG_KEYS = [
     "CFG_NAME_KEY",
     "CFG_PASSWORD_KEY",
     "CFG_USER_KEY",
-    "CFG_REMOTE_URL_BASE_KEY",
     "CFG_PIPELINE_OUT_PTH_KEY",
     "CFG_BEDSTAT_DIR_KEY",
     "CFG_BEDBUNCHER_DIR_KEY",
-    "PIPESTATS_KEY",
+    "CFG_REMOTE_KEY",
 ]
 
 
@@ -88,6 +95,7 @@ __all__ = [
     "BED_TABLE",
     "BEDSET_TABLE",
     "REL_TABLE",
+    "DIST_TABLE",
     "CFG_ENV_VARS",
     "DB_DEFAULT_HOST",
     "SERVER_DEFAULT_PORT",
@@ -99,4 +107,9 @@ __all__ = [
     "REL_BEDSET_ID_KEY",
     "BED_TABLE_SCHEMA",
     "BEDSET_TABLE_SCHEMA",
+    "DIST_TABLE_SCHEMA",
+    "PIPESTATS_KEY",
+    "COMMON_DECL_BASE_KEY",
+    "BEDSETS_REL_KEY",
+    "BEDFILES_REL_KEY",
 ] + CFG_KEYS

@@ -3,6 +3,8 @@ database:
   user: postgres
   password: pipestat-password
   host: localhost
+  dialect: postgresql
+  driver: psycopg2
 #  port: 5432; intentionally commented out to test the defaults setting system
 path:
   pipeline_output_path: $BEDBASE_DATA_PATH/outputs

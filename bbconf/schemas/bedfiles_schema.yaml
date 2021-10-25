@@ -4,6 +4,9 @@ name:
 md5sum:
   type: string
   description: BED file checksum
+genome:
+  type: object
+  description: genome assembly of the BED files
 bedfile:
   type: file
   label: bed

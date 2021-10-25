@@ -1,14 +1,18 @@
 import os
 from logging import getLogger
-from psycopg2 import sql
+from typing import List, Optional, Tuple, Union
 
-import yacman
 import pipestat
+import yacman
 from pipestat.const import *
-from pipestat.helpers import mk_list_of_str
+from pipestat.exceptions import PipestatDatabaseError
+from pipestat.helpers import dynamic_filter
+from sqlalchemy import Column, Float, ForeignKey, Integer, String, Table
+from sqlalchemy.engine.row import Row
+from sqlalchemy.orm import declarative_base, relationship
 
-from .exceptions import *
 from .const import *
+from .exceptions import *
 from .helpers import *
 
 _LOGGER = getLogger(PKG_NAME)
@@ -63,20 +67,33 @@ class BedBaseConf(dict):
                         f"Config lacks '{section}.{key}' key. " f"Setting to: {default}"
                     )
                     self[CONFIG_KEY][section][key] = default
-
+        self[COMMON_DECL_BASE_KEY] = declarative_base()
         self[PIPESTATS_KEY] = {}
         self[PIPESTATS_KEY][BED_TABLE] = pipestat.PipestatManager(
             namespace=BED_TABLE,
             config=self.config,
             schema_path=BED_TABLE_SCHEMA,
             database_only=database_only,
+            custom_declarative_base=self[COMMON_DECL_BASE_KEY],
         )
         self[PIPESTATS_KEY][BEDSET_TABLE] = pipestat.PipestatManager(
             namespace=BEDSET_TABLE,
             config=self.config,
             schema_path=BEDSET_TABLE_SCHEMA,
             database_only=database_only,
+            custom_declarative_base=self[COMMON_DECL_BASE_KEY],
         )
+        self[PIPESTATS_KEY][DIST_TABLE] = pipestat.PipestatManager(
+            namespace=DIST_TABLE,
+            config=self.config,
+            schema_path=DIST_TABLE_SCHEMA,
+            database_only=database_only,
+            custom_declarative_base=self[COMMON_DECL_BASE_KEY],
+        )
+
+        self._create_bedset_bedfiles_table()
+        # self._create_distance_table()
+        self[COMMON_DECL_BASE_KEY].metadata.create_all(bind=self.bed["_db_engine"])
 
     def __str__(self):
         """
@@ -114,6 +131,15 @@ class BedBaseConf(dict):
         return self[PIPESTATS_KEY][BED_TABLE]
 
     @property
+    def dist(self):
+        """
+        PipestatManager of the distances table
+
+        :return pipestat.PipestatManager: manager of the bedfiles table
+        """
+        return self[PIPESTATS_KEY][DIST_TABLE]
+
+    @property
     def bedset(self):
         """
         PipestatManager of the bedsets table
@@ -137,13 +163,13 @@ class BedBaseConf(dict):
             else CFG_BEDSTAT_DIR_KEY
         )
         base = (
-            self.config[CFG_PATH_KEY][CFG_REMOTE_URL_BASE_KEY]
+            self.config[CFG_REMOTE_KEY][remote_key]["prefix"]
             if remote
             else self.config[CFG_PATH_KEY][CFG_PIPELINE_OUT_PTH_KEY]
         )
         if remote and not base:
             raise MissingConfigDataError(
-                f"{CFG_REMOTE_URL_BASE_KEY} key value is invalid: {base}"
+                f"{CFG_REMOTE_KEY} key value is invalid: {base}"
             )
         return os.path.join(base, self.config[CFG_PATH_KEY][dir_key])
 
@@ -167,16 +193,61 @@ class BedBaseConf(dict):
 
     def _create_bedset_bedfiles_table(self):
         """
-        Create a bedsets table, id column is defined by default
+        A relationship table
         """
-        columns = [
-            f"PRIMARY KEY ({REL_BEDSET_ID_KEY}, {REL_BED_ID_KEY})",
-            f"{REL_BEDSET_ID_KEY} INT NOT NULL",
-            f"{REL_BED_ID_KEY} INT NOT NULL",
-            f"FOREIGN KEY ({REL_BEDSET_ID_KEY}) REFERENCES {BEDSET_TABLE} (id)",
-            f"FOREIGN KEY ({REL_BED_ID_KEY}) REFERENCES {BED_TABLE} (id)",
-        ]
-        self.bed._create_table(table_name=REL_TABLE, columns=columns)
+        rel_table = Table(
+            REL_TABLE,
+            self[COMMON_DECL_BASE_KEY].metadata,
+            Column(REL_BED_ID_KEY, Integer, ForeignKey(f"{self.bed.namespace}.id")),
+            Column(
+                REL_BEDSET_ID_KEY, Integer, ForeignKey(f"{self.bedset.namespace}.id")
+            ),
+        )
+
+        BedORM = self.bed.get_orm(table_name=self.bed.namespace)
+        BedsetORM = self.bedset.get_orm(table_name=self.bedset.namespace)
+
+        BedORM.__mapper__.add_property(
+            BEDSETS_REL_KEY,
+            relationship(
+                BedsetORM,
+                secondary=rel_table,
+                backref=BEDFILES_REL_KEY,
+            ),
+        )
+        self[COMMON_DECL_BASE_KEY].metadata.create_all(bind=self.bed["_db_engine"])
+
+    def report_distance(
+        self,
+        bed_md5sum,
+        bed_label,
+        search_term,
+        score,
+    ):
+        """
+        Report a search term - bedfile distance.
+
+        Inserts a distance of the bedfile to a search term
+
+        :param str bed_md5sum: bedfile MD5SUM
+        :param str bed_label: bedfile label
+        :param str search_term: search term
+        :param float score: associated score
+        :rasie ValueError: if none of the BED files match the provided md5sum
+        """
+        # TODO: This method should be removed and the next few lines added in the clients
+        BedORM = self.bed.get_orm(table_name=self.bed.namespace)
+        with self.bed.session as s:
+            bed = s.query(BedORM.id).filter(BedORM.md5sum == bed_md5sum).first()
+        if bed is None:
+            raise ValueError(
+                f"None of the files in the '{self.bed.namespace}' table "
+                f"match the md5sum: {bed_md5sum}"
+            )
+        values = dict(
+            bed_id=bed.id, bed_label=bed_label, search_term=search_term, score=score
+        )
+        self.dist.report(values=values, record_identifier=f"{bed_md5sum}_{search_term}")
 
     def report_relationship(self, bedset_id, bedfile_id):
         """
@@ -190,12 +261,13 @@ class BedBaseConf(dict):
         """
         if not self.bed._check_table_exists(table_name=REL_TABLE):
             self._create_bedset_bedfiles_table()
-        with self.bed.db_cursor as cur:
-            statement = (
-                f"INSERT INTO {REL_TABLE} "
-                f"({REL_BEDSET_ID_KEY},{REL_BED_ID_KEY}) VALUES (%s,%s)"
-            )
-            cur.execute(statement, (bedset_id, bedfile_id))
+        BedORM = self.bed.get_orm(self.bed.namespace)
+        BedsetORM = self.bedset.get_orm(self.bedset.namespace)
+        with self.bed.session as s:
+            bed = s.query(BedORM).get(bedfile_id)
+            bedset = s.query(BedsetORM).get(bedset_id)
+            getattr(bedset, BEDFILES_REL_KEY).append(bed)
+            s.commit()
 
     def remove_relationship(self, bedset_id, bedfile_ids=None):
         """
@@ -206,58 +278,175 @@ class BedBaseConf(dict):
             selected bedset. If none provided, all the relationsips for the
             selected bedset will be removed.
         """
+
         if not self.bed._check_table_exists(table_name=REL_TABLE):
-            raise BedBaseConfError(f"'{REL_TABLE}' not found")
-        if bedfile_ids is None:
-            res = self.select_bedfiles_for_bedset(
-                bedfile_col="id", condition="id=%s", condition_val=[bedset_id]
+            raise BedBaseConfError(
+                f"Can't remove a relationship, '{REL_TABLE}' does not exist"
             )
-            bedfile_ids = [i[0] for i in res]
-        bedfile_ids = bedfile_ids if isinstance(bedfile_ids, list) else [bedfile_ids]
-        with self.bed.db_cursor as cur:
-            for bedfile_id in bedfile_ids:
-                statment = (
-                    f"DELETE FROM {REL_TABLE} "
-                    f"WHERE {REL_BEDSET_ID_KEY} = %s and "
-                    f"{REL_BED_ID_KEY} = %s"
-                )
-                cur.execute(statment, (bedset_id, bedfile_id))
+        BedORM = self.bed.get_orm(self.bed.namespace)
+        BedsetORM = self.bedset.get_orm(self.bedset.namespace)
+        with self.bedset.session as s:
+            bedset = s.query(BedsetORM).get(bedset_id)
+            if bedfile_ids is None:
+                getattr(bedset, BEDFILES_REL_KEY)[:] = []
+            else:
+                for bedfile_id in bedfile_ids:
+                    bedfile = s.query(BedORM).get(bedfile_id)
+                    getattr(bedset, BEDFILES_REL_KEY).remove(bedfile)
+            s.commit()
 
     def select_bedfiles_for_bedset(
-        self, condition=None, condition_val=None, bedfile_col=None
-    ):
+        self,
+        filter_conditions: Optional[List[Tuple[str, str, Union[str, List[str]]]]] = [],
+        json_filter_conditions: Optional[List[Tuple[str, str, str]]] = [],
+        bedfile_cols: Optional[List[str]] = None,
+    ) -> List[Row]:
         """
         Select bedfiles that are part of a bedset that matches the query
 
-        :param str condition: bedsets table query to restrict the results with,
-            for instance `"id=%s"`
+        :param List[str] filter_conditions:  table query to restrict the results with
+        :param Union[List[str], str] bedfile_cols: bedfile columns to include in the
+            result, if none specified all columns will be included
+        :return List[sqlalchemy.engine.row.Row]: matched bedfiles table contents
+        """
+        print(self)
+        BedORM = self.bed.get_orm(BED_TABLE)
+        BedsetORM = self.bedset.get_orm(BEDSET_TABLE)
+        print("here:", BedsetORM.bedfiles)
+        cols = (
+            [getattr(BedORM, bedfile_col) for bedfile_col in bedfile_cols]
+            if bedfile_cols is not None
+            else BedORM.__table__.columns
+        )
+        with self.bed.session as s:
+            q = s.query(*cols).join(BedORM, BedsetORM.bedfiles)
+            q = dynamic_filter(
+                ORM=BedsetORM,
+                query=q,
+                filter_conditions=filter_conditions,
+                json_filter_conditions=json_filter_conditions,
+            )
+            bed_names = q.all()
+            print("query format: ", q)
+        return bed_names
+
+    def select_bedfiles_for_distance(
+        self,
+        filter_conditions: Optional[List[Tuple[str, str, Union[str, List[str]]]]] = [],
+        json_filter_conditions: Optional[List[Tuple[str, str, str]]] = [],
+        bedfile_cols: Optional[List[str]] = None,
+        limit: Optional[int] = None,
+    ):
+        """
+        Select bedfiles that are related to given search terms
+
+        :param str genome: genome assembly
         :param list[str] condition_val: values to populate the condition string
             with
         :param list[str] | str bedfile_col: bedfile columns to include in the
             result, if none specified all columns will be included
         :return list[psycopg2.extras.DictRow]: matched bedfiles table contents
         """
-        condition, condition_val = pipestat.helpers.preprocess_condition_pair(
-            condition, condition_val
+
+        BedORM = self.bed.get_orm(BED_TABLE)
+        DistORM = self.dist.get_orm(DIST_TABLE)
+        cols = (
+            [getattr(BedORM, bedfile_col) for bedfile_col in bedfile_cols]
+            if bedfile_cols is not None
+            else BedORM.__table__.columns
         )
-        columns = [
-            "f." + c
-            for c in pipestat.helpers.mk_list_of_str(
-                bedfile_col or list(self.bed.schema.keys())
+        with self.bed.session as s:
+            q = s.query(*cols).join(BedORM, DistORM.bedfile)
+            q = dynamic_filter(
+                ORM=DistORM,
+                query=q,
+                filter_conditions=filter_conditions,
+                json_filter_conditions=json_filter_conditions,
             )
-        ]
-        columns = sql.SQL(",").join([sql.SQL(v) for v in columns])
-        statement_str = (
-            "SELECT {} FROM {} f INNER JOIN {} r ON r.bedfile_id = f.id INNER"
-            " JOIN {} s ON r.bedset_id = s.id WHERE s."
-        )
-        with self.bed.db_cursor as cur:
-            statement = sql.SQL(statement_str).format(
-                columns,
-                sql.Identifier(BED_TABLE),
-                sql.Identifier(REL_TABLE),
-                sql.Identifier(BEDSET_TABLE),
+            if isinstance(limit, int):
+                q = q.limit(limit)
+            return q.all()
+
+        # num_terms = len(condition_val)
+
+        # if num_terms > 1:
+        #     for i in range(num_terms):
+        #         if i == 0:
+        #             avg = "R" + str(i) + ".score"
+        #             join = "FROM distances R" + str(i)
+        #             where = "WHERE R" + str(i) + ".search_term ILIKE %s"
+        #         else:
+        #             avg += " + R" + str(i) + ".score"
+        #             join += (
+        #                 " INNER JOIN distances R"
+        #                 + str(i)
+        #                 + " ON R"
+        #                 + str(i - 1)
+        #                 + ".bed_id = R"
+        #                 + str(i)
+        #                 + ".bed_id"
+        #             )
+        #             where += " AND R" + str(i) + ".search_term ILIKE %s"
+
+        #         condition = (
+        #             f"SELECT R0.bed_id AS bed_id, AVG({avg}) AS score "
+        #             f"{join} {where} GROUP BY R0.bed_id ORDER BY score ASC"
+        #         )
+        #         if limit:
+        #             condition += f" LIMIT {limit}"
+        # else:
+        #     condition = (
+        #         f"SELECT bed_id, score FROM {DIST_TABLE} "
+        #         "WHERE search_term ILIKE %s ORDER BY score ASC"
+        #     )
+        #     if limit:
+        #         condition += f" LIMIT {limit}"
+
+        # condition, condition_val = pipestat.helpers.preprocess_condition_pair(
+        #     condition, condition_val
+        # )
+
+        # columns = [
+        #     "f." + c
+        #     for c in pipestat.helpers.mk_list_of_str(
+        #         bedfile_col or list(self.bed.schema.keys())
+        #     )
+        # ]
+
+        # columns = sql.SQL(",").join([sql.SQL(v) for v in columns])
+        # statement_str = (
+        #     "SELECT {} FROM {} f INNER JOIN ({}) r ON r.bed_id = f.id "
+        #     "WHERE f.genome ->> 'alias' = '" + genome + "' ORDER BY score ASC"
+        # )
+        # statement = statement_str.format(columns, BED_TABLE, condition)
+        # statement = statement.replace('%s','{}').format(*condition_val)
+
+        # print (statement)
+        # with self.bed.session as s:
+        #     return statement.all()
+
+        # with self.bed.db_cursor as cur:
+        #     statement = sql.SQL(statement_str).format(
+        #         columns, sql.Identifier(BED_TABLE), condition
+        #     )
+        #     cur.execute(statement, condition_val)
+        #     return cur.fetchall()
+
+    def select_unique(self, table_name, column=None):
+        """
+        Select bedfiles that are part of a bedset that matches the query
+
+        :param str table_name: table to query in
+        :param str col: column to include in the result
+        :return list[psycopg2.extras.DictRow]: unique entries in the column
+        """
+
+        if table_name == "bedfiles":
+            values = self.bed.select(
+                columns=[column],
             )
-            statement += condition
-            cur.execute(statement, condition_val)
-            return cur.fetchall()
+        elif table_name == "bedsets":
+            values = self.bedset.select(
+                columns=[column],
+            )
+        return [i for n, i in enumerate(values) if i not in values[n + 1 :]]

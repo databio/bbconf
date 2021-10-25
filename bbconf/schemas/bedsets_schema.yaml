@@ -4,6 +4,9 @@ name:
 md5sum:
   type: string
   description: BED set checksum
+genome:
+  type: object
+  description: genome assembly of the BED sets
 bedset_tar_archive_path:
   type: file
   label: BED_set_archive
@@ -38,7 +41,4 @@ region_commonality:
   type: image
   label: Region_commonality
   description: Region commonality plot
-genome:
-  type: string
-  description: genome assembly of the BED set
   
