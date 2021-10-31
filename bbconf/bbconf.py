@@ -434,7 +434,7 @@ class BedBaseConf(dict):
 
     def select_unique(self, table_name, column=None):
         """
-        Select bedfiles that are part of a bedset that matches the query
+        Select unique value in given column and table
 
         :param str table_name: table to query in
         :param str col: column to include in the result
