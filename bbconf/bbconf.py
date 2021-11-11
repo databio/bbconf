@@ -450,3 +450,6 @@ class BedBaseConf(dict):
                 columns=[column],
             )
         return [i for n, i in enumerate(values) if i not in values[n + 1 :]]
+
+    def __del__(self):
+        self.bed.session.close()
