@@ -21,7 +21,7 @@ regions_no:
 gc_content:
   type: number
   description: GC content
-mean_absolute_tss_dist:
+median_tss_dist:
   type: number
   description: Mean absolute distance from transcription start sites
 mean_region_width:

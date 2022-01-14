@@ -367,71 +367,6 @@ class BedBaseConf(dict):
                 q = q.limit(limit)
             return q.all()
 
-        # num_terms = len(condition_val)
-
-        # if num_terms > 1:
-        #     for i in range(num_terms):
-        #         if i == 0:
-        #             avg = "R" + str(i) + ".score"
-        #             join = "FROM distances R" + str(i)
-        #             where = "WHERE R" + str(i) + ".search_term ILIKE %s"
-        #         else:
-        #             avg += " + R" + str(i) + ".score"
-        #             join += (
-        #                 " INNER JOIN distances R"
-        #                 + str(i)
-        #                 + " ON R"
-        #                 + str(i - 1)
-        #                 + ".bed_id = R"
-        #                 + str(i)
-        #                 + ".bed_id"
-        #             )
-        #             where += " AND R" + str(i) + ".search_term ILIKE %s"
-
-        #         condition = (
-        #             f"SELECT R0.bed_id AS bed_id, AVG({avg}) AS score "
-        #             f"{join} {where} GROUP BY R0.bed_id ORDER BY score ASC"
-        #         )
-        #         if limit:
-        #             condition += f" LIMIT {limit}"
-        # else:
-        #     condition = (
-        #         f"SELECT bed_id, score FROM {DIST_TABLE} "
-        #         "WHERE search_term ILIKE %s ORDER BY score ASC"
-        #     )
-        #     if limit:
-        #         condition += f" LIMIT {limit}"
-
-        # condition, condition_val = pipestat.helpers.preprocess_condition_pair(
-        #     condition, condition_val
-        # )
-
-        # columns = [
-        #     "f." + c
-        #     for c in pipestat.helpers.mk_list_of_str(
-        #         bedfile_col or list(self.bed.schema.keys())
-        #     )
-        # ]
-
-        # columns = sql.SQL(",").join([sql.SQL(v) for v in columns])
-        # statement_str = (
-        #     "SELECT {} FROM {} f INNER JOIN ({}) r ON r.bed_id = f.id "
-        #     "WHERE f.genome ->> 'alias' = '" + genome + "' ORDER BY score ASC"
-        # )
-        # statement = statement_str.format(columns, BED_TABLE, condition)
-        # statement = statement.replace('%s','{}').format(*condition_val)
-
-        # print (statement)
-        # with self.bed.session as s:
-        #     return statement.all()
-
-        # with self.bed.db_cursor as cur:
-        #     statement = sql.SQL(statement_str).format(
-        #         columns, sql.Identifier(BED_TABLE), condition
-        #     )
-        #     cur.execute(statement, condition_val)
-        #     return cur.fetchall()
-
     def select_unique(self, table_name, column=None):
         """
         Select unique value in given column and table
@@ -450,6 +385,3 @@ class BedBaseConf(dict):
                 columns=[column],
             )
         return [i for n, i in enumerate(values) if i not in values[n + 1 :]]
-
-    def __del__(self):
-        self.bed.session.close()
