@@ -23,7 +23,7 @@ gc_content:
   description: GC content
 median_tss_dist:
   type: number
-  description: Mean absolute distance from transcription start sites
+  description: Median TSS distance
 mean_region_width:
   type: number
   description: Mean region width
