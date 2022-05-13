@@ -27,10 +27,6 @@ bedset_gd_stats:
   type: file
   label: BED_set_statistics
   description: BED set statistics
-hubfile_path:
-  type: file
-  label: Hub_file
-  description: Path to the hub.txt files for the BED set
 bedset_means:
   type: object
   description: Mean statistics of the BED files in this BED set
