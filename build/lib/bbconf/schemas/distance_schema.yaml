@@ -1,0 +1,17 @@
+bed_id:
+  type: integer
+  description: BED file identifier
+  relationship:
+    name: bedfile
+    table: bedfiles
+    column: id
+    backref: distances
+bed_label:
+  type: string
+  description: BED file label
+search_term:
+  type: string
+  description: Associated search term
+score:
+  type: number
+  description: BED search_term distance score
