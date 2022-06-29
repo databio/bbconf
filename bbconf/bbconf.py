@@ -380,11 +380,13 @@ class BedBaseConf(dict):
         """
 
         if table_name == "bedfiles":
-            values = self.bed.select(
-                columns=[column],
-            )
+            with self.bed.session as s:
+                values = s.select(
+                    columns=[column],
+                )
         elif table_name == "bedsets":
-            values = self.bedset.select(
-                columns=[column],
-            )
+            with self.bedset.session as s:
+                values = s.select(
+                    columns=[column],
+                )
         return [i for n, i in enumerate(values) if i not in values[n + 1 :]]

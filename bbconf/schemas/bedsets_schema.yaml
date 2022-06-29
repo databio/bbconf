@@ -37,4 +37,9 @@ region_commonality:
   type: image
   label: Region_commonality
   description: Region commonality plot
+processed:
+  type: boolean
+  label: BED_set_status
+  description: whether the BED set stats/plot are completed
+  
   
