@@ -2,6 +2,15 @@
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) and [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) format.
 
+## [0.3.0] - 2022-08-18
+### Change
+- update select_bedfiles_for_distance
+- update database table schema
+
+## [0.2.1] - 2021-11-11
+### Fix
+- attempt to fix database connection error
+
 ## [0.2.0] - 2021-10-25
 **This release introduces backwards incompatible changes** 
 ### Changed
