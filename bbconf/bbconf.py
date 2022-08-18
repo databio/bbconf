@@ -7,7 +7,7 @@ import yacman
 from pipestat.const import *
 from pipestat.exceptions import PipestatDatabaseError
 from pipestat.helpers import dynamic_filter
-from sqlalchemy import Column, Float, ForeignKey, Integer, String, Table
+from sqlalchemy import Column, Float, ForeignKey, Integer, String, Table, text
 from sqlalchemy.engine.row import Row
 from sqlalchemy.orm import declarative_base, relationship
 
@@ -309,10 +309,10 @@ class BedBaseConf(dict):
             result, if none specified all columns will be included
         :return List[sqlalchemy.engine.row.Row]: matched bedfiles table contents
         """
-        print(self)
+
         BedORM = self.bed.get_orm(BED_TABLE)
         BedsetORM = self.bedset.get_orm(BEDSET_TABLE)
-        print("here:", BedsetORM.bedfiles)
+
         cols = (
             [getattr(BedORM, bedfile_col) for bedfile_col in bedfile_cols]
             if bedfile_cols is not None
@@ -327,110 +327,80 @@ class BedBaseConf(dict):
                 json_filter_conditions=json_filter_conditions,
             )
             bed_names = q.all()
-            print("query format: ", q)
+
         return bed_names
 
     def select_bedfiles_for_distance(
         self,
-        filter_conditions: Optional[List[Tuple[str, str, Union[str, List[str]]]]] = [],
-        json_filter_conditions: Optional[List[Tuple[str, str, str]]] = [],
+        terms,
+        genome,
         bedfile_cols: Optional[List[str]] = None,
         limit: Optional[int] = None,
     ):
         """
         Select bedfiles that are related to given search terms
 
-        :param str genome: genome assembly
-        :param list[str] condition_val: values to populate the condition string
-            with
-        :param list[str] | str bedfile_col: bedfile columns to include in the
+        :param List[str] terms:  search terms
+        :param str genome: genome assembly to search in
+        :param Union[List[str], str] bedfile_cols: bedfile columns to include in the
             result, if none specified all columns will be included
-        :return list[psycopg2.extras.DictRow]: matched bedfiles table contents
+        :param int limit: max number of records to return
+        :return List[sqlalchemy.engine.row.Row]: matched bedfiles table contents
         """
+        num_terms = len(terms)
+        if num_terms > 1:
+            for i in range(num_terms):
+                if i == 0:
+                    avg = f"coalesce(R{str(i)}.score, 0.5)"
+                    join = f"FROM distances R{str(i)}"
+                    where = f"WHERE R{str(i)}.search_term ILIKE '{terms[i]}'"
+                else:
+                    avg += f" + coalesce(R{str(i)}.score, 0.5)"
+                    join += (
+                        " INNER JOIN distances R"
+                        + str(i)
+                        + " ON R"
+                        + str(i - 1)
+                        + ".bed_id = R"
+                        + str(i)
+                        + ".bed_id"
+                    )
+                    where += f" OR R{str(i)}.search_term ILIKE '{terms[i]}'"
 
-        BedORM = self.bed.get_orm(BED_TABLE)
-        DistORM = self.dist.get_orm(DIST_TABLE)
-        cols = (
-            [getattr(BedORM, bedfile_col) for bedfile_col in bedfile_cols]
-            if bedfile_cols is not None
-            else BedORM.__table__.columns
+                condition = (
+                    f"SELECT R0.bed_id AS bed_id, AVG({avg}) AS score "
+                    f"{join} {where} GROUP BY R0.bed_id ORDER BY score ASC"
+                )
+                if limit:
+                    condition += f" LIMIT {limit}"
+
+        else:
+            condition = (
+                f"SELECT bed_id, score FROM {DIST_TABLE} "
+                f"WHERE search_term ILIKE '{terms[0]}' ORDER BY score ASC"
+            )
+            if limit:
+                condition += f" LIMIT {limit}"
+
+        columns = [
+            "f." + c
+            for c in pipestat.helpers.mk_list_of_str(
+                bedfile_cols or list(self.bed.schema.keys())
+            )
+        ]
+        columns = ", ".join([c for c in columns])
+        statement_str = (
+            "SELECT {}, score FROM {} f INNER JOIN ({}) r ON r.bed_id = f.id "
+            "WHERE f.genome ->> 'alias' = '" + genome + "' ORDER BY score ASC"
         )
         with self.bed.session as s:
-            q = s.query(*cols).join(BedORM, DistORM.bedfile)
-            q = dynamic_filter(
-                ORM=DistORM,
-                query=q,
-                filter_conditions=filter_conditions,
-                json_filter_conditions=json_filter_conditions,
+            res = s.execute(
+                text(statement_str.format(columns, BED_TABLE, condition)),
             )
-            if isinstance(limit, int):
-                q = q.limit(limit)
-            return q.all()
+        res = res.mappings().all()
+        print("here: ", res)
 
-        # num_terms = len(condition_val)
-
-        # if num_terms > 1:
-        #     for i in range(num_terms):
-        #         if i == 0:
-        #             avg = "R" + str(i) + ".score"
-        #             join = "FROM distances R" + str(i)
-        #             where = "WHERE R" + str(i) + ".search_term ILIKE %s"
-        #         else:
-        #             avg += " + R" + str(i) + ".score"
-        #             join += (
-        #                 " INNER JOIN distances R"
-        #                 + str(i)
-        #                 + " ON R"
-        #                 + str(i - 1)
-        #                 + ".bed_id = R"
-        #                 + str(i)
-        #                 + ".bed_id"
-        #             )
-        #             where += " AND R" + str(i) + ".search_term ILIKE %s"
-
-        #         condition = (
-        #             f"SELECT R0.bed_id AS bed_id, AVG({avg}) AS score "
-        #             f"{join} {where} GROUP BY R0.bed_id ORDER BY score ASC"
-        #         )
-        #         if limit:
-        #             condition += f" LIMIT {limit}"
-        # else:
-        #     condition = (
-        #         f"SELECT bed_id, score FROM {DIST_TABLE} "
-        #         "WHERE search_term ILIKE %s ORDER BY score ASC"
-        #     )
-        #     if limit:
-        #         condition += f" LIMIT {limit}"
-
-        # condition, condition_val = pipestat.helpers.preprocess_condition_pair(
-        #     condition, condition_val
-        # )
-
-        # columns = [
-        #     "f." + c
-        #     for c in pipestat.helpers.mk_list_of_str(
-        #         bedfile_col or list(self.bed.schema.keys())
-        #     )
-        # ]
-
-        # columns = sql.SQL(",").join([sql.SQL(v) for v in columns])
-        # statement_str = (
-        #     "SELECT {} FROM {} f INNER JOIN ({}) r ON r.bed_id = f.id "
-        #     "WHERE f.genome ->> 'alias' = '" + genome + "' ORDER BY score ASC"
-        # )
-        # statement = statement_str.format(columns, BED_TABLE, condition)
-        # statement = statement.replace('%s','{}').format(*condition_val)
-
-        # print (statement)
-        # with self.bed.session as s:
-        #     return statement.all()
-
-        # with self.bed.db_cursor as cur:
-        #     statement = sql.SQL(statement_str).format(
-        #         columns, sql.Identifier(BED_TABLE), condition
-        #     )
-        #     cur.execute(statement, condition_val)
-        #     return cur.fetchall()
+        return res
 
     def select_unique(self, table_name, column=None):
         """
@@ -442,14 +412,13 @@ class BedBaseConf(dict):
         """
 
         if table_name == "bedfiles":
-            values = self.bed.select(
-                columns=[column],
-            )
+            with self.bed.session as s:
+                values = s.select(
+                    columns=[column],
+                )
         elif table_name == "bedsets":
-            values = self.bedset.select(
-                columns=[column],
-            )
+            with self.bedset.session as s:
+                values = s.select(
+                    columns=[column],
+                )
         return [i for n, i in enumerate(values) if i not in values[n + 1 :]]
-
-    def __del__(self):
-        self.bed.session.close()
