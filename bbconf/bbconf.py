@@ -44,7 +44,7 @@ class BedBaseConf(dict):
 
         cfg_path = get_bedbase_cfg(config_path)
         self[CONFIG_KEY] = yacman.YacAttMap(filepath=cfg_path)
-        #self[CONFIG_KEY] = cfg_path
+        # self[CONFIG_KEY] = cfg_path
         if CFG_PATH_KEY not in self[CONFIG_KEY]:
             _raise_missing_key(CFG_PATH_KEY)
         if not self[CONFIG_KEY][CFG_PATH_KEY]:
@@ -71,34 +71,34 @@ class BedBaseConf(dict):
         self[COMMON_DECL_BASE_KEY] = declarative_base()
         self[PIPESTATS_KEY] = {}
         self[PIPESTATS_KEY][BED_TABLE] = pipestat.PipestatManager(
-            #namespace=BED_TABLE,
-            #pipeline_name=BED_TABLE,
+            # namespace=BED_TABLE,
+            # pipeline_name=BED_TABLE,
             config_file=cfg_path,
             schema_path=BED_TABLE_SCHEMA,
             database_only=database_only,
-            #custom_declarative_base=self[COMMON_DECL_BASE_KEY],
+            # custom_declarative_base=self[COMMON_DECL_BASE_KEY],
         )
         self[PIPESTATS_KEY][BEDSET_TABLE] = pipestat.PipestatManager(
-            #namespace=BEDSET_TABLE,
-            #pipeline_name=BEDSET_TABLE,
+            # namespace=BEDSET_TABLE,
+            # pipeline_name=BEDSET_TABLE,
             config_file=cfg_path,
             schema_path=BEDSET_TABLE_SCHEMA,
             database_only=database_only,
-            #custom_declarative_base=self[COMMON_DECL_BASE_KEY],
+            # custom_declarative_base=self[COMMON_DECL_BASE_KEY],
         )
         self[PIPESTATS_KEY][DIST_TABLE] = pipestat.PipestatManager(
-            #namespace=DIST_TABLE,
-            #pipeline_name=DIST_TABLE,
+            # namespace=DIST_TABLE,
+            # pipeline_name=DIST_TABLE,
             config_file=cfg_path,
             schema_path=DIST_TABLE_SCHEMA,
             database_only=database_only,
-            #custom_declarative_base=self[COMMON_DECL_BASE_KEY],
+            # custom_declarative_base=self[COMMON_DECL_BASE_KEY],
         )
 
         # The below happens during each pipestat instatiation, so it should not be necessary.
-        #self._create_bedset_bedfiles_table()
+        # self._create_bedset_bedfiles_table()
         # self._create_distance_table()
-        #self[COMMON_DECL_BASE_KEY].metadata.create_all(bind=self.bed["_db_engine"])
+        # self[COMMON_DECL_BASE_KEY].metadata.create_all(bind=self.bed["_db_engine"])
 
     def __str__(self):
         """

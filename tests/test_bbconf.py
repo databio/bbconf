@@ -10,6 +10,8 @@ from sqlmodel import Session, SQLModel, create_engine
 from sqlmodel.main import default_registry
 
 DB_URL = "postgresql+psycopg2://postgres:pipestat-password@127.0.0.1:5432/pipestat-test"
+
+
 class ContextManagerDBTesting:
     """
     Creates context manager to connect to database at db_url and drop everything from the database upon exit to ensure
@@ -28,6 +30,7 @@ class ContextManagerDBTesting:
         SQLModel.metadata.drop_all(self.engine)
         default_registry.dispose()
         self.connection.close()
+
 
 class TestAll:
     def test_invalid_config(self, invalid_cfg_pth):
@@ -59,9 +62,7 @@ class TestAll:
         with ContextManagerDBTesting(DB_URL):
             bbc = BedBaseConf(get_bedbase_cfg(cfg=cfg_pth))
             assert not bbc.bed.report(sample_name="bed1", values=test_data_bed)
-            assert not bbc.bedset.report(
-                sample_name="bedset1", values=test_data_bedset
-            )
+            assert not bbc.bedset.report(sample_name="bedset1", values=test_data_bedset)
 
     def test_reporting_relationships(self, cfg_pth):
         with ContextManagerDBTesting(DB_URL):
