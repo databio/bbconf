@@ -95,9 +95,10 @@ class BedBaseConf(dict):
             #custom_declarative_base=self[COMMON_DECL_BASE_KEY],
         )
 
-        self._create_bedset_bedfiles_table()
+        # The below happens during each pipestat instatiation, so it should not be necessary.
+        #self._create_bedset_bedfiles_table()
         # self._create_distance_table()
-        self[COMMON_DECL_BASE_KEY].metadata.create_all(bind=self.bed["_db_engine"])
+        #self[COMMON_DECL_BASE_KEY].metadata.create_all(bind=self.bed["_db_engine"])
 
     def __str__(self):
         """
@@ -266,6 +267,9 @@ class BedBaseConf(dict):
         :param int bedset_id: id of the bedset to report bedfile for
         :param int bedfile_id: id of the bedfile to report
         """
+
+        # TODO create this relationship table during initial set up?
+        # TODO continued check_table_exists no longer in pipestat
         if not self.bed._check_table_exists(table_name=REL_TABLE):
             self._create_bedset_bedfiles_table()
         BedORM = self.bed.get_orm(self.bed.namespace)
