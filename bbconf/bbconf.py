@@ -44,6 +44,7 @@ class BedBaseConf(dict):
 
         cfg_path = get_bedbase_cfg(config_path)
         self[CONFIG_KEY] = yacman.YacAttMap(filepath=cfg_path)
+        #self[CONFIG_KEY] = cfg_path
         if CFG_PATH_KEY not in self[CONFIG_KEY]:
             _raise_missing_key(CFG_PATH_KEY)
         if not self[CONFIG_KEY][CFG_PATH_KEY]:
@@ -70,25 +71,28 @@ class BedBaseConf(dict):
         self[COMMON_DECL_BASE_KEY] = declarative_base()
         self[PIPESTATS_KEY] = {}
         self[PIPESTATS_KEY][BED_TABLE] = pipestat.PipestatManager(
-            namespace=BED_TABLE,
-            config=self.config,
+            #namespace=BED_TABLE,
+            #pipeline_name=BED_TABLE,
+            config_file=cfg_path,
             schema_path=BED_TABLE_SCHEMA,
             database_only=database_only,
-            custom_declarative_base=self[COMMON_DECL_BASE_KEY],
+            #custom_declarative_base=self[COMMON_DECL_BASE_KEY],
         )
         self[PIPESTATS_KEY][BEDSET_TABLE] = pipestat.PipestatManager(
-            namespace=BEDSET_TABLE,
-            config=self.config,
+            #namespace=BEDSET_TABLE,
+            #pipeline_name=BEDSET_TABLE,
+            config_file=cfg_path,
             schema_path=BEDSET_TABLE_SCHEMA,
             database_only=database_only,
-            custom_declarative_base=self[COMMON_DECL_BASE_KEY],
+            #custom_declarative_base=self[COMMON_DECL_BASE_KEY],
         )
         self[PIPESTATS_KEY][DIST_TABLE] = pipestat.PipestatManager(
-            namespace=DIST_TABLE,
-            config=self.config,
+            #namespace=DIST_TABLE,
+            #pipeline_name=DIST_TABLE,
+            config_file=cfg_path,
             schema_path=DIST_TABLE_SCHEMA,
             database_only=database_only,
-            custom_declarative_base=self[COMMON_DECL_BASE_KEY],
+            #custom_declarative_base=self[COMMON_DECL_BASE_KEY],
         )
 
         self._create_bedset_bedfiles_table()
@@ -195,6 +199,9 @@ class BedBaseConf(dict):
         """
         A relationship table
         """
+
+        # TODO Pipestat now uses sqlmodel and creates all columns based on output schema during parsing.
+        # TODO continued: should all of this below actually be happening in pipestat?
         rel_table = Table(
             REL_TABLE,
             self[COMMON_DECL_BASE_KEY].metadata,
