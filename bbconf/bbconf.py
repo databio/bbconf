@@ -10,6 +10,7 @@ from pipestat.helpers import dynamic_filter
 from sqlalchemy import Column, Float, ForeignKey, Integer, String, Table, text
 from sqlalchemy.engine.row import Row
 from sqlalchemy.orm import declarative_base, relationship
+from sqlmodel.main import SQLModel
 
 from .const import *
 from .exceptions import *
@@ -71,34 +72,22 @@ class BedBaseConf(dict):
         self[COMMON_DECL_BASE_KEY] = declarative_base()
         self[PIPESTATS_KEY] = {}
         self[PIPESTATS_KEY][BED_TABLE] = pipestat.PipestatManager(
-            # namespace=BED_TABLE,
-            # pipeline_name=BED_TABLE,
             config_file=cfg_path,
             schema_path=BED_TABLE_SCHEMA,
             database_only=database_only,
-            # custom_declarative_base=self[COMMON_DECL_BASE_KEY],
         )
         self[PIPESTATS_KEY][BEDSET_TABLE] = pipestat.PipestatManager(
-            # namespace=BEDSET_TABLE,
-            # pipeline_name=BEDSET_TABLE,
             config_file=cfg_path,
             schema_path=BEDSET_TABLE_SCHEMA,
             database_only=database_only,
-            # custom_declarative_base=self[COMMON_DECL_BASE_KEY],
         )
         self[PIPESTATS_KEY][DIST_TABLE] = pipestat.PipestatManager(
-            # namespace=DIST_TABLE,
-            # pipeline_name=DIST_TABLE,
             config_file=cfg_path,
             schema_path=DIST_TABLE_SCHEMA,
             database_only=database_only,
-            # custom_declarative_base=self[COMMON_DECL_BASE_KEY],
         )
 
-        # The below happens during each pipestat instatiation, so it should not be necessary.
-        # self._create_bedset_bedfiles_table()
-        # self._create_distance_table()
-        # self[COMMON_DECL_BASE_KEY].metadata.create_all(bind=self.bed["_db_engine"])
+        self._create_bedset_bedfiles_table()
 
     def __str__(self):
         """
@@ -153,6 +142,18 @@ class BedBaseConf(dict):
         """
         return self[PIPESTATS_KEY][BEDSET_TABLE]
 
+    def _check_table_exists(self, table_name: str) -> bool:
+        """
+        Check if the specified table exists on the 'bed' pipestatmanager object
+
+        :param str table_name: table name to be checked
+        :return bool: whether the specified table exists
+        """
+        from sqlalchemy import inspect
+
+        with self.bed.backend.session as s:
+            return inspect(s.bind).has_table(table_name=table_name)
+
     def _get_output_path(self, table_name, remote=False):
         """
         Get path to the output of the selected pipeline
@@ -201,19 +202,26 @@ class BedBaseConf(dict):
         A relationship table
         """
 
-        # TODO Pipestat now uses sqlmodel and creates all columns based on output schema during parsing.
-        # TODO continued: should all of this below actually be happening in pipestat?
         rel_table = Table(
             REL_TABLE,
-            self[COMMON_DECL_BASE_KEY].metadata,
-            Column(REL_BED_ID_KEY, Integer, ForeignKey(f"{self.bed.namespace}.id")),
+            SQLModel.metadata,
             Column(
-                REL_BEDSET_ID_KEY, Integer, ForeignKey(f"{self.bedset.namespace}.id")
+                REL_BED_ID_KEY,
+                Integer,
+                ForeignKey(f"{self.bed.pipeline_name}__sample.id"),
             ),
+            Column(
+                REL_BEDSET_ID_KEY,
+                Integer,
+                ForeignKey(f"{self.bedset.pipeline_name}__sample.id"),
+            ),
+            extend_existing=True,
         )
 
-        BedORM = self.bed.get_orm(table_name=self.bed.namespace)
-        BedsetORM = self.bedset.get_orm(table_name=self.bedset.namespace)
+        table_name = self.bed.backend.get_table_name()
+        BedORM = self.bed.backend.get_orm(table_name)
+        table_name = self.bedset.backend.get_table_name()
+        BedsetORM = self.bedset.backend.get_orm(table_name)
 
         BedORM.__mapper__.add_property(
             BEDSETS_REL_KEY,
@@ -223,7 +231,8 @@ class BedBaseConf(dict):
                 backref=BEDFILES_REL_KEY,
             ),
         )
-        self[COMMON_DECL_BASE_KEY].metadata.create_all(bind=self.bed["_db_engine"])
+
+        SQLModel.metadata.create_all(bind=self.bed.backend.db_engine_key)
 
     def report_distance(
         self,
@@ -268,13 +277,13 @@ class BedBaseConf(dict):
         :param int bedfile_id: id of the bedfile to report
         """
 
-        # TODO create this relationship table during initial set up?
-        # TODO continued check_table_exists no longer in pipestat
-        if not self.bed._check_table_exists(table_name=REL_TABLE):
+        if not self._check_table_exists(table_name=REL_TABLE):
             self._create_bedset_bedfiles_table()
-        BedORM = self.bed.get_orm(self.bed.namespace)
-        BedsetORM = self.bedset.get_orm(self.bedset.namespace)
-        with self.bed.session as s:
+        table_name = self.bed.backend.get_table_name()
+        BedORM = self.bed.backend.get_orm(table_name)
+        table_name = self.bedset.backend.get_table_name()
+        BedsetORM = self.bedset.backend.get_orm(table_name)
+        with self.bed.backend.session as s:
             bed = s.query(BedORM).get(bedfile_id)
             bedset = s.query(BedsetORM).get(bedset_id)
             getattr(bedset, BEDFILES_REL_KEY).append(bed)
@@ -290,13 +299,15 @@ class BedBaseConf(dict):
             selected bedset will be removed.
         """
 
-        if not self.bed._check_table_exists(table_name=REL_TABLE):
+        if not self._check_table_exists(table_name=REL_TABLE):
             raise BedBaseConfError(
                 f"Can't remove a relationship, '{REL_TABLE}' does not exist"
             )
-        BedORM = self.bed.get_orm(self.bed.namespace)
-        BedsetORM = self.bedset.get_orm(self.bedset.namespace)
-        with self.bedset.session as s:
+        table_name = self.bed.backend.get_table_name()
+        BedORM = self.bed.backend.get_orm(table_name)
+        table_name = self.bedset.backend.get_table_name()
+        BedsetORM = self.bedset.backend.get_orm(table_name)
+        with self.bedset.backend.session as s:
             bedset = s.query(BedsetORM).get(bedset_id)
             if bedfile_ids is None:
                 getattr(bedset, BEDFILES_REL_KEY)[:] = []

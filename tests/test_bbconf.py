@@ -75,12 +75,20 @@ class TestAll:
             bedset_id = bbc.bedset.retrieve(
                 sample_name="bedset1", result_identifier="id"
             )
-            # TODO build relationship table
             bbc.report_relationship(bedfile_id=bed_id, bedset_id=bedset_id)
 
-    def test_cant_remove_record_if_in_reltable(self, cfg_pth):
+    def test_cant_remove_record_if_in_reltable(
+        self, cfg_pth, test_data_bed, test_data_bedset
+    ):
         with ContextManagerDBTesting(DB_URL):
             bbc = BedBaseConf(get_bedbase_cfg(cfg=cfg_pth))
+            bbc.bed.report(sample_name="bed1", values=test_data_bed)
+            bed_id = bbc.bed.retrieve(sample_name="bed1", result_identifier="id")
+            bbc.bedset.report(sample_name="bedset1", values=test_data_bedset)
+            bedset_id = bbc.bedset.retrieve(
+                sample_name="bedset1", result_identifier="id"
+            )
+            bbc.report_relationship(bedfile_id=bed_id, bedset_id=bedset_id)
             with pytest.raises(IntegrityError):
                 bbc.bed.remove(sample_name="bed1")
             with pytest.raises(IntegrityError):
@@ -95,6 +103,7 @@ class TestAll:
                 sample_name="bedset1", result_identifier="id"
             )
             bed_id = bbc.bed.retrieve(sample_name="bed1", result_identifier="id")
+            bbc.report_relationship(bedfile_id=bed_id, bedset_id=bedset_id)
             bbc.remove_relationship(bedset_id=bedset_id, bedfile_ids=[bed_id])
             ori_cnt = bbc.bed.record_count
             bbc.bed.remove(sample_name="bed1")
