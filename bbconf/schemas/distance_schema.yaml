@@ -1,4 +1,4 @@
-pipeline_name: default_distance
+pipeline_name: distance
 samples:
   bed_id:
     type: integer

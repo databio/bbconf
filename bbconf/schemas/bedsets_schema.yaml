@@ -1,4 +1,4 @@
-pipeline_name: default_bedsets
+pipeline_name: bedsets
 samples:
   name:
     type: string

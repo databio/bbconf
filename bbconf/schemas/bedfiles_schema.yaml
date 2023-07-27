@@ -1,4 +1,4 @@
-pipeline_name: default_bedfile
+pipeline_name: bedfile
 samples:
   name:
     type: string
