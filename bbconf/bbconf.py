@@ -332,23 +332,28 @@ class BedBaseConf(dict):
         :return List[sqlalchemy.engine.row.Row]: matched bedfiles table contents
         """
 
-        BedORM = self.bed.get_orm(BED_TABLE)
-        BedsetORM = self.bedset.get_orm(BEDSET_TABLE)
+        # BedORM = self.bed.get_orm(BED_TABLE)
+        # BedsetORM = self.bedset.get_orm(BEDSET_TABLE)
+        table_name = self.bed.backend.get_table_name()
+        BedORM = self.bed.backend.get_orm(table_name)
+        table_name = self.bedset.backend.get_table_name()
+        BedsetORM = self.bedset.backend.get_orm(table_name)
 
         cols = (
             [getattr(BedORM, bedfile_col) for bedfile_col in bedfile_cols]
             if bedfile_cols is not None
             else BedORM.__table__.columns
         )
-        with self.bed.session as s:
+        with self.bed.backend.session as s:
             q = s.query(*cols).join(BedORM, BedsetORM.bedfiles)
             q = dynamic_filter(
                 ORM=BedsetORM,
-                query=q,
+                statement=q,
                 filter_conditions=filter_conditions,
                 json_filter_conditions=json_filter_conditions,
             )
             bed_names = q.all()
+            # values = self.bed.backend.select(columns=column)
 
         return bed_names
 
@@ -415,7 +420,7 @@ class BedBaseConf(dict):
             "SELECT {}, score FROM {} f INNER JOIN ({}) r ON r.bed_id = f.id "
             "WHERE f.genome ->> 'alias' = '" + genome + "' ORDER BY score ASC"
         )
-        with self.bed.session as s:
+        with self.bed.backend.session as s:
             res = s.execute(
                 text(statement_str.format(columns, BED_TABLE, condition)),
             )

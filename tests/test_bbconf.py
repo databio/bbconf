@@ -109,6 +109,8 @@ class TestAll:
             assert unique_bedfiles[0].sample_name == "bed1"
             unique_bedsets = bbc.select_unique(table_name="bedsets__sample")
             assert unique_bedsets[0].sample_name == "bedset1"
+            results = bbc.select_bedfiles_for_bedset()
+            assert results is not None
 
     def test_removal(self, cfg_pth, test_data_bed, test_data_bedset):
         with ContextManagerDBTesting(DB_URL):
