@@ -94,6 +94,22 @@ class TestAll:
             with pytest.raises(IntegrityError):
                 bbc.bedset.remove(sample_name="bedset1")
 
+    def test_select(self, cfg_pth, test_data_bed, test_data_bedset):
+        with ContextManagerDBTesting(DB_URL):
+            bbc = BedBaseConf(get_bedbase_cfg(cfg=cfg_pth))
+            bbc.bed.report(sample_name="bed1", values=test_data_bed)
+            bbc.bedset.report(sample_name="bedset1", values=test_data_bedset)
+            bedset_id = bbc.bedset.retrieve(
+                sample_name="bedset1", result_identifier="id"
+            )
+            bed_id = bbc.bed.retrieve(sample_name="bed1", result_identifier="id")
+            bbc.report_relationship(bedfile_id=bed_id, bedset_id=bedset_id)
+
+            unique_bedfiles = bbc.select_unique(table_name="bedfile__sample")
+            assert unique_bedfiles[0].sample_name == "bed1"
+            unique_bedsets = bbc.select_unique(table_name="bedsets__sample")
+            assert unique_bedsets[0].sample_name == "bedset1"
+
     def test_removal(self, cfg_pth, test_data_bed, test_data_bedset):
         with ContextManagerDBTesting(DB_URL):
             bbc = BedBaseConf(get_bedbase_cfg(cfg=cfg_pth))

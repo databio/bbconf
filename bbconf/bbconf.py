@@ -433,14 +433,16 @@ class BedBaseConf(dict):
         :return list[psycopg2.extras.DictRow]: unique entries in the column
         """
 
-        if table_name == "bedfiles":
-            with self.bed.session as s:
-                values = s.select(
-                    columns=[column],
-                )
-        elif table_name == "bedsets":
-            with self.bedset.session as s:
-                values = s.select(
-                    columns=[column],
-                )
+        if table_name == "bedfile__sample":
+            with self.bed.backend.session as s:
+                # values = s.select(
+                #     columns=[column],
+                # )
+                values = self.bed.backend.select(columns=column)
+        elif table_name == "bedsets__sample":
+            with self.bedset.backend.session as s:
+                # values = s.select(
+                #     columns=[column],
+                # )
+                values = self.bedset.backend.select(columns=column)
         return [i for n, i in enumerate(values) if i not in values[n + 1 :]]
