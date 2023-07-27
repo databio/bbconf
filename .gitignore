@@ -74,6 +74,7 @@ open_pipelines/
 # Build-related stuff
 dist/
 *.egg-info/
+build/
 
 
 #ipynm checkpoints
