@@ -435,14 +435,8 @@ class BedBaseConf(dict):
 
         if table_name == "bedfile__sample":
             with self.bed.backend.session as s:
-                # values = s.select(
-                #     columns=[column],
-                # )
                 values = self.bed.backend.select(columns=column)
         elif table_name == "bedsets__sample":
             with self.bedset.backend.session as s:
-                # values = s.select(
-                #     columns=[column],
-                # )
                 values = self.bedset.backend.select(columns=column)
         return [i for n, i in enumerate(values) if i not in values[n + 1 :]]
