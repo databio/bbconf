@@ -1,7 +1,7 @@
 database:
-  name: pipestat-test
+  name: pep-db
   user: postgres
-  password: pipestat-password
+  password: docker
   host: localhost
   dialect: postgresql
   driver: psycopg2

@@ -9,7 +9,7 @@ from bbconf.exceptions import *
 from sqlmodel import Session, SQLModel, create_engine
 from sqlmodel.main import default_registry
 
-DB_URL = "postgresql+psycopg2://postgres:pipestat-password@127.0.0.1:5432/pipestat-test"
+DB_URL = "postgresql+psycopg2://postgres:docker@127.0.0.1:5432/pep-db"
 
 
 class ContextManagerDBTesting:
@@ -76,6 +76,7 @@ class TestAll:
                 sample_name="bedset1", result_identifier="id"
             )
             bbc.report_relationship(bedfile_id=bed_id, bedset_id=bedset_id)
+            print("a")
 
     def test_cant_remove_record_if_in_reltable(
         self, cfg_pth, test_data_bed, test_data_bedset

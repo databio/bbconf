@@ -20,7 +20,7 @@ BEDFILES_REL_KEY = "bedfiles"
 BEDSETS_REL_KEY = "bedsets"
 
 
-REL_TABLE = "bedset_bedfiles"
+BEDFILE_BEDSET_ASSOCIATION_TABLE_KEY = "bedset_bedfiles"
 DIST_TABLE = "distances"
 
 CFG_ENV_VARS = ["BEDBASE"]
@@ -94,7 +94,7 @@ CFG_KEYS = [
 __all__ = [
     "BED_TABLE",
     "BEDSET_TABLE",
-    "REL_TABLE",
+    "BEDFILE_BEDSET_ASSOCIATION_TABLE_KEY",
     "DIST_TABLE",
     "CFG_ENV_VARS",
     "DB_DEFAULT_HOST",
