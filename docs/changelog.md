@@ -2,7 +2,7 @@
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) and [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) format.
 
-## [0.3.2] - 2023-XX-XX
+## [0.3.0a1] - 2023-08-02
 ### Change
 - bbconf to use pipestat v0.4.1 and SQLModel
 
