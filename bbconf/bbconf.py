@@ -87,7 +87,6 @@ class BedBaseConf:
         }
 
         self._create_bedset_bedfiles_table()
-        a
 
     def __str__(self):
         """
