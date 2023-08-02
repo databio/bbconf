@@ -3,16 +3,15 @@ from logging import getLogger
 from typing import List, Optional, Tuple, Union
 from textwrap import indent
 
-import pipestat
 import yacman
-from pipestat.const import *
-from pipestat.exceptions import PipestatDatabaseError
+
+import pipestat
 from pipestat.helpers import dynamic_filter
-from sqlalchemy import Column, Float, ForeignKey, Integer, String, Table, text
-from sqlalchemy.engine.row import Row
-from sqlalchemy.orm import declarative_base, relationship
+
+from sqlmodel import SQLModel, Field
+
+from sqlalchemy.orm import relationship
 from sqlalchemy import inspect
-from sqlmodel.main import SQLModel
 
 from .const import *
 from .exceptions import *
@@ -80,11 +79,11 @@ class BedBaseConf:
                 schema_path=BEDSET_TABLE_SCHEMA,
                 database_only=database_only,
             ),
-            DIST_TABLE: pipestat.PipestatManager(
-                config_file=cfg_path,
-                schema_path=DIST_TABLE_SCHEMA,
-                database_only=database_only,
-            ),
+            # DIST_TABLE: pipestat.PipestatManager(
+            #     config_file=cfg_path,
+            #     schema_path=DIST_TABLE_SCHEMA,
+            #     database_only=database_only,
+            # ),
         }
 
         self._create_bedset_bedfiles_table()
@@ -198,24 +197,18 @@ class BedBaseConf:
         """
         Create a relationship table
         """
+        class BedFileBedSetAssociation(SQLModel, table=True):
+            __tablename__ = BEDFILE_BEDSET_ASSOCIATION_TABLE_KEY
+            bedfile_id: Optional[int] = Field(
+                default=None, foreign_key=f"{self.bed.pipeline_name}__sample.id", primary_key=True
+            )
+            bedset_id: Optional[int] = Field(
+                default=None, foreign_key=f"{self.bedset.pipeline_name}__sample.id", primary_key=True
+            )
 
-        rel_table = Table(
-            BEDFILE_BEDSET_ASSOCIATION_TABLE_KEY,
-            SQLModel.metadata,
-            Column(
-                REL_BED_ID_KEY,
-                # Integer,
-                ForeignKey(f"{self.bed.pipeline_name}__sample.id"),
-                primary_key=True,
-            ),
-            Column(
-                REL_BEDSET_ID_KEY,
-                # Integer,
-                ForeignKey(f"{self.bedset.pipeline_name}__sample.id"),
-                primary_key=True,
-            ),
-            extend_existing=True,
-        )
+            __table_args__ = {'extend_existing': True}
+
+        returned_model = BedFileBedSetAssociation.__table__
 
         table_name = self.bed.backend.get_table_name()
         BedORM = self.bed.backend.get_orm(table_name)
@@ -226,69 +219,69 @@ class BedBaseConf:
             BEDSETS_REL_KEY,
             relationship(
                 BedsetORM,
-                secondary=rel_table,
+                secondary=returned_model,
                 backref=BEDFILES_REL_KEY,
             ),
         )
 
         SQLModel.metadata.create_all(bind=self.bed.backend.db_engine_key)
 
-    def report_distance(
-        self,
-        bed_md5sum,
-        bed_label,
-        search_term,
-        score,
-    ):
-        """
-        Report a search term - bedfile distance.
-
-        Inserts a distance of the bedfile to a search term
-
-        :param str bed_md5sum: bedfile MD5SUM
-        :param str bed_label: bedfile label
-        :param str search_term: search term
-        :param float score: associated score
-        :rasie ValueError: if none of the BED files match the provided md5sum
-        """
-        # TODO: This method should be removed and the next few lines added in the clients
-        BedORM = self.bed.get_orm(table_name=self.bed.namespace)
-        with self.bed.session as s:
-            bed = s.query(BedORM.id).filter(BedORM.md5sum == bed_md5sum).first()
-        if bed is None:
-            raise ValueError(
-                f"None of the files in the '{self.bed.namespace}' table "
-                f"match the md5sum: {bed_md5sum}"
-            )
-        values = dict(
-            bed_id=bed.id, bed_label=bed_label, search_term=search_term, score=score
-        )
-        self.dist.report(values=values, record_identifier=f"{bed_md5sum}_{search_term}")
-
-    def report_relationship(self, bedset_id, bedfile_id):
-        """
-        Report a bedfile for bedset.
-
-        Inserts the ID pair into the relationship table, which allows to
-        manage many to many bedfile bedset relationships
-
-        :param int bedset_id: id of the bedset to report bedfile for
-        :param int bedfile_id: id of the bedfile to report
-        """
-
-        if not self._check_table_exists(
-            table_name=BEDFILE_BEDSET_ASSOCIATION_TABLE_KEY
-        ):
-            self._create_bedset_bedfiles_table()
-        table_name = self.bed.backend.get_table_name()
-        BedORM = self.bed.backend.get_orm(table_name)
-        table_name = self.bedset.backend.get_table_name()
-        BedsetORM = self.bedset.backend.get_orm(table_name)
-        with self.bed.backend.session as s:
-            bed = s.query(BedORM).get(bedfile_id)
-            bedset = s.query(BedsetORM).get(bedset_id)
-            getattr(bedset, BEDFILES_REL_KEY).append(bed)
-            s.commit()
+    # def report_distance(
+    #     self,
+    #     bed_md5sum,
+    #     bed_label,
+    #     search_term,
+    #     score,
+    # ):
+    #     """
+    #     Report a search term - bedfile distance.
+    #
+    #     Inserts a distance of the bedfile to a search term
+    #
+    #     :param str bed_md5sum: bedfile MD5SUM
+    #     :param str bed_label: bedfile label
+    #     :param str search_term: search term
+    #     :param float score: associated score
+    #     :rasie ValueError: if none of the BED files match the provided md5sum
+    #     """
+    #     # TODO: This method should be removed and the next few lines added in the clients
+    #     BedORM = self.bed.get_orm(table_name=self.bed.namespace)
+    #     with self.bed.session as s:
+    #         bed = s.query(BedORM.id).filter(BedORM.md5sum == bed_md5sum).first()
+    #     if bed is None:
+    #         raise ValueError(
+    #             f"None of the files in the '{self.bed.namespace}' table "
+    #             f"match the md5sum: {bed_md5sum}"
+    #         )
+    #     values = dict(
+    #         bed_id=bed.id, bed_label=bed_label, search_term=search_term, score=score
+    #     )
+    #     self.dist.report(values=values, record_identifier=f"{bed_md5sum}_{search_term}")
+    #
+    # def report_relationship(self, bedset_id, bedfile_id):
+    #     """
+    #     Report a bedfile for bedset.
+    #
+    #     Inserts the ID pair into the relationship table, which allows to
+    #     manage many to many bedfile bedset relationships
+    #
+    #     :param int bedset_id: id of the bedset to report bedfile for
+    #     :param int bedfile_id: id of the bedfile to report
+    #     """
+    #
+    #     if not self._check_table_exists(
+    #         table_name=BEDFILE_BEDSET_ASSOCIATION_TABLE_KEY
+    #     ):
+    #         self._create_bedset_bedfiles_table()
+    #     table_name = self.bed.backend.get_table_name()
+    #     BedORM = self.bed.backend.get_orm(table_name)
+    #     table_name = self.bedset.backend.get_table_name()
+    #     BedsetORM = self.bedset.backend.get_orm(table_name)
+    #     with self.bed.backend.session as s:
+    #         bed = s.query(BedORM).get(bedfile_id)
+    #         bedset = s.query(BedsetORM).get(bedset_id)
+    #         getattr(bedset, BEDFILES_REL_KEY).append(bed)
+    #         s.commit()
 
     def remove_relationship(self, bedset_id, bedfile_ids=None):
         """
@@ -325,14 +318,14 @@ class BedBaseConf:
         filter_conditions: Optional[List[Tuple[str, str, Union[str, List[str]]]]] = [],
         json_filter_conditions: Optional[List[Tuple[str, str, str]]] = [],
         bedfile_cols: Optional[List[str]] = None,
-    ) -> List[Row]:
+    ) -> list:
         """
         Select bedfiles that are part of a bedset that matches the query
 
         :param List[str] filter_conditions:  table query to restrict the results with
         :param Union[List[str], str] bedfile_cols: bedfile columns to include in the
             result, if none specified all columns will be included
-        :return List[sqlalchemy.engine.row.Row]: matched bedfiles table contents
+        :return: matched bedfiles table contents
         """
 
         # BedORM = self.bed.get_orm(BED_TABLE)
@@ -347,8 +340,8 @@ class BedBaseConf:
             if bedfile_cols is not None
             else BedORM.__table__.columns
         )
-        with self.bed.backend.session as s:
-            statement = s.query(*cols).join(BedORM, BedsetORM.bedfiles)
+        with self.bed.backend.session as session:
+            statement = session.query(*cols).join(BedORM, BedsetORM.bedfiles)
             statement = dynamic_filter(
                 ORM=BedsetORM,
                 statement=statement,
