@@ -148,7 +148,7 @@ class BedBaseConf(dict):
         """
         return self[PIPESTATS_KEY][BEDSET_TABLE]
 
-    def _get_output_path(self, table_name, remote=False):
+    def _get_output_path(self, table_name, remote_key, remote=False):
         """
         Get path to the output of the selected pipeline
 
@@ -173,23 +173,23 @@ class BedBaseConf(dict):
             )
         return os.path.join(base, self.config[CFG_PATH_KEY][dir_key])
 
-    def get_bedbuncher_output_path(self, remote=False):
+    def get_bedbuncher_output_path(self, remote_key, remote=False):
         """
         Get path to the output of the bedbuncher pipeline
 
         :param bool remote: whether to use remote url base
         :return str: path to the bedbuncher pipeline output
         """
-        return self._get_output_path(table_name=BEDSET_TABLE, remote=remote)
+        return self._get_output_path(table_name=BEDSET_TABLE, remote_key = remote_key, remote=remote)
 
-    def get_bedstat_output_path(self, remote=False):
+    def get_bedstat_output_path(self, remote_key, remote=False):
         """
         Get path to the output of the bedstat pipeline
 
         :param bool remote: whether to use remote url base
         :return str: path to the bedstat pipeline output
         """
-        return self._get_output_path(table_name=BED_TABLE, remote=remote)
+        return self._get_output_path(table_name=BED_TABLE, remote_key = remote_key, remote=remote)
 
     def _create_bedset_bedfiles_table(self):
         """
