@@ -183,7 +183,9 @@ class BedBaseConf:
         :param bool remote: whether to use remote url base
         :return str: path to the bedbuncher pipeline output
         """
-        return self._get_output_path(table_name=BEDSET_TABLE, remote_key = remote_key, remote=remote)
+        return self._get_output_path(
+            table_name=BEDSET_TABLE, remote_key=remote_key, remote=remote
+        )
 
     def get_bedstat_output_path(self, remote_key, remote=False):
         """
@@ -192,7 +194,9 @@ class BedBaseConf:
         :param bool remote: whether to use remote url base
         :return str: path to the bedstat pipeline output
         """
-        return self._get_output_path(table_name=BED_TABLE, remote_key = remote_key, remote=remote)
+        return self._get_output_path(
+            table_name=BED_TABLE, remote_key=remote_key, remote=remote
+        )
 
     def _create_bedset_bedfiles_table(self):
         """
