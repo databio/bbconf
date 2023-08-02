@@ -2,6 +2,10 @@
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) and [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) format.
 
+## [0.3.2] - 2023-XX-XX
+### Change
+- bbconf to use pipestat v0.4.1 and SQLModel
+
 ## [0.3.0] - 2022-08-18
 ### Change
 - update select_bedfiles_for_distance

@@ -1,3 +1,4 @@
 logmuse
-yacman>=0.7.1
-pipestat>=0.3.0
+yacman>=0.9.1
+pipestat>=0.4.0
+sqlalchemy<2.0.0
