@@ -10,7 +10,7 @@ from sqlmodel import Session, SQLModel, create_engine
 from sqlmodel.main import default_registry
 
 
-DB_URL = "postgresql+psycopg2://postgres:pipestat-password@127.0.0.1:5432/pipestat-test"
+DB_URL = "postgresql+psycopg2://postgres:dockerpassword@127.0.0.1:5432/pipestat-test"
 
 
 class ContextManagerDBTesting:

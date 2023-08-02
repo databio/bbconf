@@ -20,7 +20,7 @@ jobs:
           image: postgres
           env:
             POSTGRES_USER: postgres
-            POSTGRES_PASSWORD: pipestat-password
+            POSTGRES_PASSWORD: dockerpassword
             POSTGRES_DB: pipestat-test
             POSTGRES_HOST: localhost
           ports:
