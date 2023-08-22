@@ -1,6 +1,6 @@
 import os
 from logging import getLogger
-from typing import List, Optional, Tuple, Union
+from typing import List, Optional, Tuple, Union, Dict, Any
 from textwrap import indent
 
 import yacman
@@ -16,10 +16,10 @@ from sqlalchemy import inspect
 from .const import (
     CFG_PATH_KEY,
     PKG_NAME,
-    CFG_PIPELINE_OUT_PTH_KEY,
-    CFG_BEDSTAT_DIR_KEY,
+    CFG_PATH_PIPELINE_OUTPUT_KEY,
+    CFG_PATH_BEDSTAT_DIR_KEY,
     DEFAULT_SECTION_VALUES,
-    CFG_BEDBUNCHER_DIR_KEY,
+    CFG_PATH_BEDBUNCHER_DIR_KEY,
     BED_TABLE,
     BED_TABLE_SCHEMA,
     BEDSET_TABLE,
@@ -56,32 +56,8 @@ class BedBaseConf:
         """
 
         cfg_path = get_bedbase_cfg(config_path)
-        self._config = yacman.YAMLConfigManager(filepath=cfg_path)
 
-        if CFG_PATH_KEY not in self._config:
-            raise_missing_key(CFG_PATH_KEY)
-
-        if not self._config[CFG_PATH_KEY]:
-            self._config[CFG_PATH_KEY] = {}
-
-        if CFG_PIPELINE_OUT_PTH_KEY not in self._config[CFG_PATH_KEY]:
-            raise_missing_key(CFG_PIPELINE_OUT_PTH_KEY)
-
-        if CFG_BEDSTAT_DIR_KEY not in self._config[CFG_PATH_KEY]:
-            raise_missing_key(CFG_BEDSTAT_DIR_KEY)
-
-        if CFG_BEDBUNCHER_DIR_KEY not in self._config[CFG_PATH_KEY]:
-            raise_missing_key(CFG_BEDBUNCHER_DIR_KEY)
-
-        for section, mapping in DEFAULT_SECTION_VALUES.items():
-            if section not in self._config:
-                self._config[section] = {}
-            for key, default in mapping.items():
-                if key not in self._config[section]:
-                    _LOGGER.debug(
-                        f"Config lacks '{section}.{key}' key. Setting to: {default}"
-                    )
-                    self._config[section][key] = default
+        self._config = self._read_config_file(cfg_path)
 
         # Create Pipestat objects and tables if they do not exist
         self.__pipestats = {
@@ -95,14 +71,48 @@ class BedBaseConf:
                 schema_path=BEDSET_TABLE_SCHEMA,
                 database_only=database_only,
             ),
-            # DIST_TABLE: pipestat.PipestatManager(
-            #     config_file=cfg_path,
-            #     schema_path=DIST_TABLE_SCHEMA,
-            #     database_only=database_only,
-            # ),
         }
 
         self._create_bedset_bedfiles_table()
+
+    def _read_config_file(self, config_path: str) -> yacman.YAMLConfigManager:
+        """
+        Read configuration file and insert default values if not set
+
+        :param config_path: configuration file path
+        :return: None
+        :raises: raise_missing_key (if config key is missing)
+        """
+        _config = yacman.YAMLConfigManager(filepath=config_path)
+
+        if CFG_PATH_KEY not in _config:
+            raise_missing_key(CFG_PATH_KEY)
+
+        if not _config[CFG_PATH_KEY]:
+            _config[CFG_PATH_KEY] = {}
+
+        if CFG_PATH_PIPELINE_OUTPUT_KEY not in _config[CFG_PATH_KEY]:
+            raise_missing_key(CFG_PATH_PIPELINE_OUTPUT_KEY)
+
+        if CFG_PATH_BEDSTAT_DIR_KEY not in _config[CFG_PATH_KEY]:
+            raise_missing_key(CFG_PATH_BEDSTAT_DIR_KEY)
+
+        if CFG_PATH_BEDBUNCHER_DIR_KEY not in _config[CFG_PATH_KEY]:
+            raise_missing_key(CFG_PATH_BEDBUNCHER_DIR_KEY)
+
+        # Setting default values if doesn't exist in config file
+        for section, mapping in DEFAULT_SECTION_VALUES.items():
+            if section not in _config:
+                _config[section] = {}
+            for key, default in mapping.items():
+                if key not in _config[section]:
+                    _LOGGER.debug(
+                        f"Config lacks '{section}.{key}' key. Setting to: {default}"
+                    )
+                    _config[section][key] = default
+
+
+        return _config
 
     def __str__(self):
         """
@@ -166,7 +176,9 @@ class BedBaseConf:
         with self.bed.backend.session as s:
             return inspect(s.bind).has_table(table_name=table_name)
 
-    def _get_output_path(self, table_name: str, remote_key: str, remote=False) -> str:
+    def _get_output_path(
+        self, table_name: str, remote_key: str, remote: bool = False
+    ) -> str:
         """
         Get path to the output of the selected pipeline
 
@@ -177,14 +189,14 @@ class BedBaseConf:
         :return str: path to the selected pipeline output
         """
         dir_key = (
-            CFG_BEDBUNCHER_DIR_KEY
+            CFG_PATH_BEDBUNCHER_DIR_KEY
             if table_name == BEDSET_TABLE
-            else CFG_BEDSTAT_DIR_KEY
+            else CFG_PATH_BEDSTAT_DIR_KEY
         )
         base = (
             self.config[CFG_REMOTE_KEY][remote_key]["prefix"]
             if remote
-            else self.config[CFG_PATH_KEY][CFG_PIPELINE_OUT_PTH_KEY]
+            else self.config[CFG_PATH_KEY][CFG_PATH_PIPELINE_OUTPUT_KEY]
         )
         if remote and not base:
             raise MissingConfigDataError(
