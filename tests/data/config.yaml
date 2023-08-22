@@ -11,9 +11,14 @@ path:
   bedstat_dir: bedstat_output
   bedbuncher_dir: bedbuncher_output
   remote_url_base: null
+  region2vec: "add/path/here"
 server:
   host: 0.0.0.0
   port: 8000
+qdrant:
+  host: test_localhost
+  port: 6333
+  collection: bedbase
 
 #project_name: test
 #sample_name: sample1

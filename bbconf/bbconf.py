@@ -1,6 +1,6 @@
 import os
 from logging import getLogger
-from typing import List, Optional, Tuple, Union, Dict, Any
+from typing import List, Optional, Tuple, Union
 from textwrap import indent
 
 import yacman
@@ -29,6 +29,7 @@ from .const import (
     CFG_REMOTE_KEY,
     BEDSETS_REL_KEY,
     BEDFILES_REL_KEY,
+    CFG_PATH_REGION2VEC_KEY,
 )
 from .exceptions import MissingConfigDataError, BedBaseConfError
 from bbconf.helpers import raise_missing_key, get_bedbase_cfg
@@ -111,6 +112,9 @@ class BedBaseConf:
                     )
                     _config[section][key] = default
 
+        if CFG_PATH_REGION2VEC_KEY not in _config[CFG_PATH_KEY]:
+            _LOGGER.warning(f"Region2vec config key is missing in configuration file")
+            _config[CFG_PATH_KEY][CFG_PATH_REGION2VEC_KEY] = None
 
         return _config
 
