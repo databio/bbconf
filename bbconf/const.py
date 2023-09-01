@@ -35,6 +35,7 @@ CFG_PATH_BEDSTAT_DIR_KEY = "bedstat_dir"
 CFG_PATH_BEDBUNCHER_DIR_KEY = "bedbuncher_dir"
 CFG_PATH_PIPELINE_OUTPUT_KEY = "pipeline_output_path"
 CFG_PATH_REGION2VEC_KEY = "region2vec"
+CFG_PATH_VEC2VEC_KEY = "vec2vec"
 
 
 CFG_DATABASE_KEY = "database"
@@ -91,3 +92,5 @@ DEFAULT_SECTION_VALUES = {
         CFG_QDRANT_API_KEY: DEFAULT_QDRANT_API_KEY,
     },
 }
+
+DEFAULT_HF_MODEL = "sentence-transformers/all-MiniLM-L12-v2"

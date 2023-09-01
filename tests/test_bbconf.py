@@ -40,10 +40,10 @@ class TestAll:
                 BedBaseConf(get_bedbase_cfg(cfg=invalid_cfg_pth))
 
     def test_tables_creation(self, cfg_pth):
-        with ContextManagerDBTesting(DB_URL):
-            bbc = BedBaseConf(get_bedbase_cfg(cfg=cfg_pth))
-            for table in ["bed", "bedset"]:
-                assert isinstance(getattr(bbc, table), PipestatManager)
+        # with ContextManagerDBTesting(DB_URL):
+        bbc = BedBaseConf(get_bedbase_cfg(cfg=cfg_pth))
+        for table in ["bed", "bedset"]:
+            assert isinstance(getattr(bbc, table), PipestatManager)
 
     def test_data_insert(self, cfg_pth, test_data_bed, test_data_bedset):
         with ContextManagerDBTesting(DB_URL):
@@ -131,3 +131,12 @@ class TestAll:
             ori_cnt = bbc.bedset.record_count
             bbc.bedset.remove(sample_name="bedset1")
             assert ori_cnt - 1 == bbc.bedset.record_count
+
+    def test_config_variables_are_set(self, cfg_pth, test_data_bed, test_data_bedset):
+        with ContextManagerDBTesting(DB_URL):
+            bbc = BedBaseConf(get_bedbase_cfg(cfg=cfg_pth))
+
+            print(bbc.config["qdrant"]["host"])
+            assert bbc.config["qdrant"]["host"] == "test_localhost"
+            assert bbc.config["path"]["region2vec"] is not None
+            assert bbc.config["database"]["host"] == "localhost"

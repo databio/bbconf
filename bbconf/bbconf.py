@@ -9,11 +9,12 @@ import pipestat
 from pipestat.helpers import dynamic_filter
 
 from sqlmodel import SQLModel, Field
+from qdrant_client import QdrantClient
 
 from sqlalchemy.orm import relationship
 from sqlalchemy import inspect
 
-from .const import (
+from bbconf.const import (
     CFG_PATH_KEY,
     PKG_NAME,
     CFG_PATH_PIPELINE_OUTPUT_KEY,
@@ -30,9 +31,21 @@ from .const import (
     BEDSETS_REL_KEY,
     BEDFILES_REL_KEY,
     CFG_PATH_REGION2VEC_KEY,
+    CFG_PATH_VEC2VEC_KEY,
+    CFG_QDRANT_KEY,
+    CFG_QDRANT_PORT_KEY,
+    CFG_QDRANT_API_KEY,
+    CFG_QDRANT_HOST_KEY,
+    CFG_QDRANT_COLLECTION_NAME_KEY,
+    DEFAULT_HF_MODEL,
 )
-from .exceptions import MissingConfigDataError, BedBaseConfError
+from bbconf.exceptions import MissingConfigDataError, BedBaseConfError
 from bbconf.helpers import raise_missing_key, get_bedbase_cfg
+# from bbconf.t2bsi import Text2BEDSearchInterface
+
+from geniml.text2bednn import text2bednn
+from sentence_transformers import SentenceTransformer
+
 
 _LOGGER = getLogger(PKG_NAME)
 
@@ -75,6 +88,8 @@ class BedBaseConf:
         }
 
         self._create_bedset_bedfiles_table()
+
+        self._t2bsi = self.create_t2bsi_object()
 
     def _read_config_file(self, config_path: str) -> yacman.YAMLConfigManager:
         """
@@ -374,6 +389,31 @@ class BedBaseConf:
         return: ORM of bedset table (SQLModelMetaclass)
         """
         return self.bedset.backend.get_orm("bedsets__sample")
+
+    @property
+    def t2bsi(self):
+        """
+        :return: object with search functions
+        """
+        return self._t2bsi
+
+    def create_t2bsi_object(self):
+        """
+        Create Text 2 BED search interface and return this object
+        :return: Text2BEDSearchInterface object
+        """
+        qdrant_obj = QdrantClient(host=self._config[CFG_QDRANT_KEY][CFG_QDRANT_HOST_KEY],
+                                  port=self._config[CFG_QDRANT_KEY][CFG_QDRANT_PORT_KEY],
+                                  api_key=self._config[CFG_QDRANT_KEY][CFG_QDRANT_API_KEY],)
+
+        return text2bednn.Text2BEDSearchInterface(
+            nl2vec_model=SentenceTransformer(os.getenv("HF_MODEL", DEFAULT_HF_MODEL)),
+            vec2vec_model=self._config[CFG_PATH_KEY][CFG_PATH_VEC2VEC_KEY],
+            search_backend=qdrant_obj,
+        )
+
+
+
 
     # def select_bedfiles_for_distance(
     #     self,

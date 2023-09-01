@@ -12,22 +12,12 @@ path:
   bedbuncher_dir: bedbuncher_output
   remote_url_base: null
   region2vec: "add/path/here"
+  vec2vec: "add/path/here"
 server:
   host: 0.0.0.0
   port: 8000
 qdrant:
   host: test_localhost
   port: 6333
+  api_key: default_api_key
   collection: bedbase
-
-#project_name: test
-#sample_name: sample1
-#schema_path: sample_output_schema.yaml
-#database:
-#  dialect: postgresql
-#  driver: psycopg2
-#  name: pipestat-test
-#  user: postgres
-#  password: pipestat-password
-#  host: 127.0.0.1
-#  port: 5432
