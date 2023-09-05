@@ -89,7 +89,7 @@ class BedBaseConf:
 
         self._create_bedset_bedfiles_table()
 
-        self._t2bsi = self.create_t2bsi_object()
+        self._t2bsi = self._create_t2bsi_object()
 
     def _read_config_file(self, config_path: str) -> yacman.YAMLConfigManager:
         """
@@ -397,7 +397,7 @@ class BedBaseConf:
         """
         return self._t2bsi
 
-    def create_t2bsi_object(self):
+    def _create_t2bsi_object(self):
         """
         Create Text 2 BED search interface and return this object
         :return: Text2BEDSearchInterface object
@@ -411,109 +411,3 @@ class BedBaseConf:
             vec2vec_model=self._config[CFG_PATH_KEY][CFG_PATH_VEC2VEC_KEY],
             search_backend=qdrant_obj,
         )
-
-
-
-
-    # def select_bedfiles_for_distance(
-    #     self,
-    #     terms,
-    #     genome,
-    #     bedfile_cols: Optional[List[str]] = None,
-    #     limit: Optional[int] = None,
-    # ):
-    #     """
-    #     Select bedfiles that are related to given search terms
-    #
-    #     :param List[str] terms:  search terms
-    #     :param str genome: genome assembly to search in
-    #     :param Union[List[str], str] bedfile_cols: bedfile columns to include in the
-    #         result, if none specified all columns will be included
-    #     :param int limit: max number of records to return
-    #     :return List[sqlalchemy.engine.row.Row]: matched bedfiles table contents
-    #     """
-    #     num_terms = len(terms)
-    #     if num_terms > 1:
-    #         for i in range(num_terms):
-    #             if i == 0:
-    #                 avg = f"coalesce(R{str(i)}.score, 0.5)"
-    #                 join = f"FROM distances R{str(i)}"
-    #                 where = f"WHERE R{str(i)}.search_term ILIKE '{terms[i]}'"
-    #             else:
-    #                 avg += f" + coalesce(R{str(i)}.score, 0.5)"
-    #                 join += (
-    #                     " INNER JOIN distances R"
-    #                     + str(i)
-    #                     + " ON R"
-    #                     + str(i - 1)
-    #                     + ".bed_id = R"
-    #                     + str(i)
-    #                     + ".bed_id"
-    #                 )
-    #                 where += f" OR R{str(i)}.search_term ILIKE '{terms[i]}'"
-    #
-    #             condition = (
-    #                 f"SELECT R0.bed_id AS bed_id, AVG({avg}) AS score "
-    #                 f"{join} {where} GROUP BY R0.bed_id ORDER BY score ASC"
-    #             )
-    #             if limit:
-    #                 condition += f" LIMIT {limit}"
-    #
-    #     else:
-    #         condition = (
-    #             f"SELECT bed_id, score FROM {DIST_TABLE} "
-    #             f"WHERE search_term ILIKE '{terms[0]}' ORDER BY score ASC"
-    #         )
-    #         if limit:
-    #             condition += f" LIMIT {limit}"
-    #
-    #     columns = [
-    #         "f." + c
-    #         for c in pipestat.helpers.mk_list_of_str(
-    #             bedfile_cols or list(self.bed.schema.keys())
-    #         )
-    #     ]
-    #     columns = ", ".join([c for c in columns])
-    #     statement_str = (
-    #         "SELECT {}, score FROM {} f INNER JOIN ({}) r ON r.bed_id = f.id "
-    #         "WHERE f.genome ->> 'alias' = '" + genome + "' ORDER BY score ASC"
-    #     )
-    #     with self.bed.backend.session as s:
-    #         res = s.execute(
-    #             text(statement_str.format(columns, BED_TABLE, condition)),
-    #         )
-    #     res = res.mappings().all()
-    #     _LOGGER.info(f"here: {res}")
-    #
-    #     return res
-    # def report_distance(
-    #     self,
-    #     bed_md5sum,
-    #     bed_label,
-    #     search_term,
-    #     score,
-    # ):
-    #     """
-    #     Report a search term - bedfile distance.
-    #
-    #     Inserts a distance of the bedfile to a search term
-    #
-    #     :param str bed_md5sum: bedfile MD5SUM
-    #     :param str bed_label: bedfile label
-    #     :param str search_term: search term
-    #     :param float score: associated score
-    #     :rasie ValueError: if none of the BED files match the provided md5sum
-    #     """
-    #     # TODO: This method should be removed and the next few lines added in the clients
-    #     BedORM = self.bed.get_orm(table_name=self.bed.namespace)
-    #     with self.bed.session as s:
-    #         bed = s.query(BedORM.id).filter(BedORM.md5sum == bed_md5sum).first()
-    #     if bed is None:
-    #         raise ValueError(
-    #             f"None of the files in the '{self.bed.namespace}' table "
-    #             f"match the md5sum: {bed_md5sum}"
-    #         )
-    #     values = dict(
-    #         bed_id=bed.id, bed_label=bed_label, search_term=search_term, score=score
-    #     )
-    #     self.dist.report(values=values, record_identifier=f"{bed_md5sum}_{search_term}")
