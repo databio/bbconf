@@ -9,7 +9,7 @@ import pipestat
 from pipestat.helpers import dynamic_filter
 
 from sqlmodel import SQLModel, Field
-from qdrant_client import QdrantClient
+import qdrant_client
 
 from sqlalchemy.orm import relationship
 from sqlalchemy import inspect
@@ -41,9 +41,9 @@ from bbconf.const import (
 )
 from bbconf.exceptions import MissingConfigDataError, BedBaseConfError
 from bbconf.helpers import raise_missing_key, get_bedbase_cfg
-# from bbconf.t2bsi import Text2BEDSearchInterface
 
 from geniml.text2bednn import text2bednn
+from geniml.search import QdrantBackend
 from sentence_transformers import SentenceTransformer
 
 
@@ -89,7 +89,11 @@ class BedBaseConf:
 
         self._create_bedset_bedfiles_table()
 
-        self._t2bsi = self._create_t2bsi_object()
+        try:
+            self._qdrant_client = self._init_qdrant_client()
+            self._t2bsi = self._create_t2bsi_object()
+        except qdrant_client.http.exceptions.ResponseHandlingException as err:
+            _LOGGER.error(f"error in Connection to qdrant! skipping... Error: {err}")
 
     def _read_config_file(self, config_path: str) -> yacman.YAMLConfigManager:
         """
@@ -391,23 +395,35 @@ class BedBaseConf:
         return self.bedset.backend.get_orm("bedsets__sample")
 
     @property
-    def t2bsi(self):
+    def t2bsi(self) -> text2bednn.Text2BEDSearchInterface:
         """
         :return: object with search functions
         """
         return self._t2bsi
+
+    @property
+    def qdrant_client(self) -> QdrantBackend:
+        return self._qdrant_client
+
+    def _init_qdrant_client(self) -> QdrantBackend:
+        """
+        Create qdrant client object using credentials provided in config file
+        :return: QdrantClient
+        """
+        return QdrantBackend(
+            collection=self._config[CFG_QDRANT_KEY][CFG_QDRANT_COLLECTION_NAME_KEY],
+            qdrant_host=self._config[CFG_QDRANT_KEY][CFG_QDRANT_HOST_KEY],
+            qdrant_port=self._config[CFG_QDRANT_KEY][CFG_QDRANT_PORT_KEY],
+        )
 
     def _create_t2bsi_object(self):
         """
         Create Text 2 BED search interface and return this object
         :return: Text2BEDSearchInterface object
         """
-        qdrant_obj = QdrantClient(host=self._config[CFG_QDRANT_KEY][CFG_QDRANT_HOST_KEY],
-                                  port=self._config[CFG_QDRANT_KEY][CFG_QDRANT_PORT_KEY],
-                                  api_key=self._config[CFG_QDRANT_KEY][CFG_QDRANT_API_KEY],)
 
         return text2bednn.Text2BEDSearchInterface(
             nl2vec_model=SentenceTransformer(os.getenv("HF_MODEL", DEFAULT_HF_MODEL)),
             vec2vec_model=self._config[CFG_PATH_KEY][CFG_PATH_VEC2VEC_KEY],
-            search_backend=qdrant_obj,
+            search_backend=self.qdrant_client,
         )
