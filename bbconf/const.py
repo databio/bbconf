@@ -13,8 +13,8 @@ DIST_TABLE_SCHEMA = os.path.join(SCHEMAS_PATH, "distance_schema.yaml")
 PKG_NAME = "bbconf"
 DOC_URL = "TBA"  # TODO: add documentation URL once it's established
 
-BED_TABLE = "bedfiles"
-BEDSET_TABLE = "bedsets"
+BED_TABLE = "bedfile__sample"
+BEDSET_TABLE = "bedsets__sample"
 
 BEDFILES_REL_KEY = "bedfiles"
 BEDSETS_REL_KEY = "bedsets"
