@@ -375,6 +375,20 @@ class BedBaseConf:
         """
         return self.bedset.backend.get_orm("bedsets__sample")
 
+    @property
+    def is_remote(self):
+        """
+        Return whether remotes are configured  with 'remotes' key,
+
+        :param BedBaseConf bbc: server config object
+        :return bool: whether remote data source is configured
+        """
+
+        if CFG_REMOTE_KEY in self.config and isinstance(self.config[CFG_REMOTE_KEY], dict):
+            return True
+        else:
+            return False
+
     def prefix(self, remote_class="http"):
         """ 
         Return URL prefix, modulated by whether remotes
