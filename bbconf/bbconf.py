@@ -375,6 +375,20 @@ class BedBaseConf:
         """
         return self.bedset.backend.get_orm("bedsets__sample")
 
+    def prefix(self, remote_class="http"):
+        """ 
+        Return URL prefix, modulated by whether remotes
+        are configured, and remote class requested.
+        """
+        if CFG_REMOTE_KEY in self.config:
+            return self.config[CFG_REMOTE_KEY][remote_class]["prefix"]
+        else:
+            return self.config[CFG_PATH_KEY][CFG_PIPELINE_OUT_PTH_KEY]
+
+
+    def get_prefixed_uri(self, postfix, remote_class="http"):
+        return os.path.join(self.prefix(remote_class), postfix)
+
     # def select_bedfiles_for_distance(
     #     self,
     #     terms,
