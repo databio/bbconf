@@ -45,6 +45,8 @@ from bbconf.helpers import raise_missing_key, get_bedbase_cfg
 from geniml.text2bednn import text2bednn
 from geniml.search import QdrantBackend
 from sentence_transformers import SentenceTransformer
+from geniml.region2vec import Region2VecExModel
+from geniml.io import RegionSet
 
 
 _LOGGER = getLogger(PKG_NAME)
@@ -91,7 +93,13 @@ class BedBaseConf:
 
         try:
             self._qdrant_client = self._init_qdrant_client()
-            self._t2bsi = self._create_t2bsi_object()
+            if self.config[CFG_PATH_KEY].get(CFG_PATH_REGION2VEC_KEY) and self.config[CFG_PATH_KEY].get(CFG_PATH_VEC2VEC_KEY):
+                self._t2bsi = self._create_t2bsi_object()
+            else:
+                if not self.config[CFG_PATH_KEY].get(CFG_PATH_REGION2VEC_KEY):
+                    _LOGGER.error(f"{CFG_PATH_REGION2VEC_KEY} was not provided in config file!")
+                if not self.config[CFG_PATH_KEY].get(CFG_PATH_VEC2VEC_KEY):
+                    _LOGGER.error(f"{CFG_PATH_VEC2VEC_KEY} was not provided in config file!")
         except qdrant_client.http.exceptions.ResponseHandlingException as err:
             _LOGGER.error(f"error in Connection to qdrant! skipping... Error: {err}")
 
@@ -427,3 +435,30 @@ class BedBaseConf:
             vec2vec_model=self._config[CFG_PATH_KEY][CFG_PATH_VEC2VEC_KEY],
             search_backend=self.qdrant_client,
         )
+
+    def add_bed_to_qdrant(
+        self,
+        bed_file_path: str,
+        sample_id: str,
+        labels: dict = None,
+    ) -> None:
+        """
+        Convert bed file to vector and add it to qdrant database
+
+        :param bed_file_path: path to the bed file
+        :param bbconf: bbconf object
+        :param sample_id: bed file id
+        :param labels: additional bed file lables
+        :return: None
+        """
+        _LOGGER.info(f"adding bed file to qdrant. Sample_id: {sample_id}")
+        # Convert bedfile to vector
+        bed_region_set = RegionSet(bed_file_path)
+        reg_2_vec_obj = Region2VecExModel("databio/r2v-ChIP-atlas-hg38")
+        bed_embedding = reg_2_vec_obj.encode(bed_region_set)
+
+        # Upload bed file vector to the database
+        self.qdrant_client.load(
+            embeddings=bed_embedding, labels=[{"id": sample_id, **labels}]
+        )
+        return None
