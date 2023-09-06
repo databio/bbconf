@@ -451,14 +451,16 @@ class BedBaseConf:
         :param labels: additional bed file lables
         :return: None
         """
+
         _LOGGER.info(f"adding bed file to qdrant. Sample_id: {sample_id}")
         # Convert bedfile to vector
         bed_region_set = RegionSet(bed_file_path)
         reg_2_vec_obj = Region2VecExModel("databio/r2v-ChIP-atlas-hg38")
-        bed_embedding = reg_2_vec_obj.encode(bed_region_set)
+        bed_embedding = reg_2_vec_obj.encode(bed_region_set, pool="mean", )
 
         # Upload bed file vector to the database
+        vec_dim = bed_embedding.shape[0]
         self.qdrant_client.load(
-            embeddings=bed_embedding, labels=[{"id": sample_id, **labels}]
+            embeddings=bed_embedding.reshape(1, vec_dim), labels=[{"id": sample_id, **labels}]
         )
         return None
