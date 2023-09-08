@@ -93,13 +93,19 @@ class BedBaseConf:
 
         try:
             self._qdrant_client = self._init_qdrant_client()
-            if self.config[CFG_PATH_KEY].get(CFG_PATH_REGION2VEC_KEY) and self.config[CFG_PATH_KEY].get(CFG_PATH_VEC2VEC_KEY):
+            if self.config[CFG_PATH_KEY].get(CFG_PATH_REGION2VEC_KEY) and self.config[
+                CFG_PATH_KEY
+            ].get(CFG_PATH_VEC2VEC_KEY):
                 self._t2bsi = self._create_t2bsi_object()
             else:
                 if not self.config[CFG_PATH_KEY].get(CFG_PATH_REGION2VEC_KEY):
-                    _LOGGER.error(f"{CFG_PATH_REGION2VEC_KEY} was not provided in config file!")
+                    _LOGGER.error(
+                        f"{CFG_PATH_REGION2VEC_KEY} was not provided in config file!"
+                    )
                 if not self.config[CFG_PATH_KEY].get(CFG_PATH_VEC2VEC_KEY):
-                    _LOGGER.error(f"{CFG_PATH_VEC2VEC_KEY} was not provided in config file!")
+                    _LOGGER.error(
+                        f"{CFG_PATH_VEC2VEC_KEY} was not provided in config file!"
+                    )
         except qdrant_client.http.exceptions.ResponseHandlingException as err:
             _LOGGER.error(f"error in Connection to qdrant! skipping... Error: {err}")
 
@@ -456,12 +462,16 @@ class BedBaseConf:
         # Convert bedfile to vector
         bed_region_set = RegionSet(bed_file_path)
         reg_2_vec_obj = Region2VecExModel("databio/r2v-ChIP-atlas-hg38")
-        bed_embedding = reg_2_vec_obj.encode(bed_region_set, pool="mean", )
+        bed_embedding = reg_2_vec_obj.encode(
+            bed_region_set,
+            pool="mean",
+        )
 
         # Upload bed file vector to the database
         vec_dim = bed_embedding.shape[0]
         self.qdrant_client.load(
-            embeddings=bed_embedding.reshape(1, vec_dim), labels=[{"id": sample_id, **labels}]
+            embeddings=bed_embedding.reshape(1, vec_dim),
+            labels=[{"id": sample_id, **labels}],
         )
         return None
 
@@ -473,13 +483,15 @@ class BedBaseConf:
         :return bool: whether remote data source is configured
         """
 
-        if CFG_REMOTE_KEY in self.config and isinstance(self.config[CFG_REMOTE_KEY], dict):
+        if CFG_REMOTE_KEY in self.config and isinstance(
+            self.config[CFG_REMOTE_KEY], dict
+        ):
             return True
         else:
             return False
 
     def prefix(self, remote_class="http"):
-        """ 
+        """
         Return URL prefix, modulated by whether remotes
         are configured, and remote class requested.
         """
@@ -488,7 +500,5 @@ class BedBaseConf:
         else:
             return self.config[CFG_PATH_KEY][CFG_PIPELINE_OUT_PTH_KEY]
 
-
     def get_prefixed_uri(self, postfix, remote_class="http"):
         return os.path.join(self.prefix(remote_class), postfix)
-
