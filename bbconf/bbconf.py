@@ -9,11 +9,12 @@ import pipestat
 from pipestat.helpers import dynamic_filter
 
 from sqlmodel import SQLModel, Field
+import qdrant_client
 
 from sqlalchemy.orm import relationship
 from sqlalchemy import inspect
 
-from .const import (
+from bbconf.const import (
     CFG_PATH_KEY,
     PKG_NAME,
     CFG_PATH_PIPELINE_OUTPUT_KEY,
@@ -30,9 +31,23 @@ from .const import (
     BEDSETS_REL_KEY,
     BEDFILES_REL_KEY,
     CFG_PATH_REGION2VEC_KEY,
+    CFG_PATH_VEC2VEC_KEY,
+    CFG_QDRANT_KEY,
+    CFG_QDRANT_PORT_KEY,
+    CFG_QDRANT_API_KEY,
+    CFG_QDRANT_HOST_KEY,
+    CFG_QDRANT_COLLECTION_NAME_KEY,
+    DEFAULT_HF_MODEL,
 )
-from .exceptions import MissingConfigDataError, BedBaseConfError
+from bbconf.exceptions import MissingConfigDataError, BedBaseConfError
 from bbconf.helpers import raise_missing_key, get_bedbase_cfg
+
+from geniml.text2bednn import text2bednn
+from geniml.search import QdrantBackend
+from sentence_transformers import SentenceTransformer
+from geniml.region2vec import Region2VecExModel
+from geniml.io import RegionSet
+
 
 _LOGGER = getLogger(PKG_NAME)
 
@@ -75,6 +90,24 @@ class BedBaseConf:
         }
 
         self._create_bedset_bedfiles_table()
+
+        try:
+            self._qdrant_client = self._init_qdrant_client()
+            if self.config[CFG_PATH_KEY].get(CFG_PATH_REGION2VEC_KEY) and self.config[
+                CFG_PATH_KEY
+            ].get(CFG_PATH_VEC2VEC_KEY):
+                self._t2bsi = self._create_t2bsi_object()
+            else:
+                if not self.config[CFG_PATH_KEY].get(CFG_PATH_REGION2VEC_KEY):
+                    _LOGGER.error(
+                        f"{CFG_PATH_REGION2VEC_KEY} was not provided in config file!"
+                    )
+                if not self.config[CFG_PATH_KEY].get(CFG_PATH_VEC2VEC_KEY):
+                    _LOGGER.error(
+                        f"{CFG_PATH_VEC2VEC_KEY} was not provided in config file!"
+                    )
+        except qdrant_client.http.exceptions.ResponseHandlingException as err:
+            _LOGGER.error(f"error in Connection to qdrant! skipping... Error: {err}")
 
     def _read_config_file(self, config_path: str) -> yacman.YAMLConfigManager:
         """
@@ -376,6 +409,72 @@ class BedBaseConf:
         return self.bedset.backend.get_orm("bedsets__sample")
 
     @property
+    def t2bsi(self) -> text2bednn.Text2BEDSearchInterface:
+        """
+        :return: object with search functions
+        """
+        return self._t2bsi
+
+    @property
+    def qdrant_client(self) -> QdrantBackend:
+        return self._qdrant_client
+
+    def _init_qdrant_client(self) -> QdrantBackend:
+        """
+        Create qdrant client object using credentials provided in config file
+        :return: QdrantClient
+        """
+        return QdrantBackend(
+            collection=self._config[CFG_QDRANT_KEY][CFG_QDRANT_COLLECTION_NAME_KEY],
+            qdrant_host=self._config[CFG_QDRANT_KEY][CFG_QDRANT_HOST_KEY],
+            qdrant_port=self._config[CFG_QDRANT_KEY][CFG_QDRANT_PORT_KEY],
+        )
+
+    def _create_t2bsi_object(self):
+        """
+        Create Text 2 BED search interface and return this object
+        :return: Text2BEDSearchInterface object
+        """
+
+        return text2bednn.Text2BEDSearchInterface(
+            nl2vec_model=SentenceTransformer(os.getenv("HF_MODEL", DEFAULT_HF_MODEL)),
+            vec2vec_model=self._config[CFG_PATH_KEY][CFG_PATH_VEC2VEC_KEY],
+            search_backend=self.qdrant_client,
+        )
+
+    def add_bed_to_qdrant(
+        self,
+        bed_file_path: str,
+        sample_id: str,
+        labels: dict = None,
+    ) -> None:
+        """
+        Convert bed file to vector and add it to qdrant database
+
+        :param bed_file_path: path to the bed file
+        :param bbconf: bbconf object
+        :param sample_id: bed file id
+        :param labels: additional bed file lables
+        :return: None
+        """
+
+        _LOGGER.info(f"adding bed file to qdrant. Sample_id: {sample_id}")
+        # Convert bedfile to vector
+        bed_region_set = RegionSet(bed_file_path)
+        reg_2_vec_obj = Region2VecExModel("databio/r2v-ChIP-atlas-hg38")
+        bed_embedding = reg_2_vec_obj.encode(
+            bed_region_set,
+            pool="mean",
+        )
+
+        # Upload bed file vector to the database
+        vec_dim = bed_embedding.shape[0]
+        self.qdrant_client.load(
+            embeddings=bed_embedding.reshape(1, vec_dim),
+            labels=[{"id": sample_id, **labels}],
+        )
+        return None
+
     def is_remote(self):
         """
         Return whether remotes are configured  with 'remotes' key,
@@ -384,13 +483,15 @@ class BedBaseConf:
         :return bool: whether remote data source is configured
         """
 
-        if CFG_REMOTE_KEY in self.config and isinstance(self.config[CFG_REMOTE_KEY], dict):
+        if CFG_REMOTE_KEY in self.config and isinstance(
+            self.config[CFG_REMOTE_KEY], dict
+        ):
             return True
         else:
             return False
 
     def prefix(self, remote_class="http"):
-        """ 
+        """
         Return URL prefix, modulated by whether remotes
         are configured, and remote class requested.
         """
@@ -399,109 +500,5 @@ class BedBaseConf:
         else:
             return self.config[CFG_PATH_KEY][CFG_PIPELINE_OUT_PTH_KEY]
 
-
     def get_prefixed_uri(self, postfix, remote_class="http"):
         return os.path.join(self.prefix(remote_class), postfix)
-
-    # def select_bedfiles_for_distance(
-    #     self,
-    #     terms,
-    #     genome,
-    #     bedfile_cols: Optional[List[str]] = None,
-    #     limit: Optional[int] = None,
-    # ):
-    #     """
-    #     Select bedfiles that are related to given search terms
-    #
-    #     :param List[str] terms:  search terms
-    #     :param str genome: genome assembly to search in
-    #     :param Union[List[str], str] bedfile_cols: bedfile columns to include in the
-    #         result, if none specified all columns will be included
-    #     :param int limit: max number of records to return
-    #     :return List[sqlalchemy.engine.row.Row]: matched bedfiles table contents
-    #     """
-    #     num_terms = len(terms)
-    #     if num_terms > 1:
-    #         for i in range(num_terms):
-    #             if i == 0:
-    #                 avg = f"coalesce(R{str(i)}.score, 0.5)"
-    #                 join = f"FROM distances R{str(i)}"
-    #                 where = f"WHERE R{str(i)}.search_term ILIKE '{terms[i]}'"
-    #             else:
-    #                 avg += f" + coalesce(R{str(i)}.score, 0.5)"
-    #                 join += (
-    #                     " INNER JOIN distances R"
-    #                     + str(i)
-    #                     + " ON R"
-    #                     + str(i - 1)
-    #                     + ".bed_id = R"
-    #                     + str(i)
-    #                     + ".bed_id"
-    #                 )
-    #                 where += f" OR R{str(i)}.search_term ILIKE '{terms[i]}'"
-    #
-    #             condition = (
-    #                 f"SELECT R0.bed_id AS bed_id, AVG({avg}) AS score "
-    #                 f"{join} {where} GROUP BY R0.bed_id ORDER BY score ASC"
-    #             )
-    #             if limit:
-    #                 condition += f" LIMIT {limit}"
-    #
-    #     else:
-    #         condition = (
-    #             f"SELECT bed_id, score FROM {DIST_TABLE} "
-    #             f"WHERE search_term ILIKE '{terms[0]}' ORDER BY score ASC"
-    #         )
-    #         if limit:
-    #             condition += f" LIMIT {limit}"
-    #
-    #     columns = [
-    #         "f." + c
-    #         for c in pipestat.helpers.mk_list_of_str(
-    #             bedfile_cols or list(self.bed.schema.keys())
-    #         )
-    #     ]
-    #     columns = ", ".join([c for c in columns])
-    #     statement_str = (
-    #         "SELECT {}, score FROM {} f INNER JOIN ({}) r ON r.bed_id = f.id "
-    #         "WHERE f.genome ->> 'alias' = '" + genome + "' ORDER BY score ASC"
-    #     )
-    #     with self.bed.backend.session as s:
-    #         res = s.execute(
-    #             text(statement_str.format(columns, BED_TABLE, condition)),
-    #         )
-    #     res = res.mappings().all()
-    #     _LOGGER.info(f"here: {res}")
-    #
-    #     return res
-    # def report_distance(
-    #     self,
-    #     bed_md5sum,
-    #     bed_label,
-    #     search_term,
-    #     score,
-    # ):
-    #     """
-    #     Report a search term - bedfile distance.
-    #
-    #     Inserts a distance of the bedfile to a search term
-    #
-    #     :param str bed_md5sum: bedfile MD5SUM
-    #     :param str bed_label: bedfile label
-    #     :param str search_term: search term
-    #     :param float score: associated score
-    #     :rasie ValueError: if none of the BED files match the provided md5sum
-    #     """
-    #     # TODO: This method should be removed and the next few lines added in the clients
-    #     BedORM = self.bed.get_orm(table_name=self.bed.namespace)
-    #     with self.bed.session as s:
-    #         bed = s.query(BedORM.id).filter(BedORM.md5sum == bed_md5sum).first()
-    #     if bed is None:
-    #         raise ValueError(
-    #             f"None of the files in the '{self.bed.namespace}' table "
-    #             f"match the md5sum: {bed_md5sum}"
-    #         )
-    #     values = dict(
-    #         bed_id=bed.id, bed_label=bed_label, search_term=search_term, score=score
-    #     )
-    #     self.dist.report(values=values, record_identifier=f"{bed_md5sum}_{search_term}")
