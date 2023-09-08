@@ -464,3 +464,31 @@ class BedBaseConf:
             embeddings=bed_embedding.reshape(1, vec_dim), labels=[{"id": sample_id, **labels}]
         )
         return None
+
+    def is_remote(self):
+        """
+        Return whether remotes are configured  with 'remotes' key,
+
+        :param BedBaseConf bbc: server config object
+        :return bool: whether remote data source is configured
+        """
+
+        if CFG_REMOTE_KEY in self.config and isinstance(self.config[CFG_REMOTE_KEY], dict):
+            return True
+        else:
+            return False
+
+    def prefix(self, remote_class="http"):
+        """ 
+        Return URL prefix, modulated by whether remotes
+        are configured, and remote class requested.
+        """
+        if CFG_REMOTE_KEY in self.config:
+            return self.config[CFG_REMOTE_KEY][remote_class]["prefix"]
+        else:
+            return self.config[CFG_PATH_KEY][CFG_PIPELINE_OUT_PTH_KEY]
+
+
+    def get_prefixed_uri(self, postfix, remote_class="http"):
+        return os.path.join(self.prefix(remote_class), postfix)
+
