@@ -48,9 +48,7 @@ from sentence_transformers import SentenceTransformer
 from geniml.region2vec import Region2VecExModel
 from geniml.io import RegionSet
 
-
 _LOGGER = getLogger(PKG_NAME)
-
 
 class BedBaseConf:
     """
@@ -76,6 +74,7 @@ class BedBaseConf:
         self._config = self._read_config_file(cfg_path)
 
         # Create Pipestat objects and tables if they do not exist
+        _LOGGER.debug("Creating pipestat objects...")
         self.__pipestats = {
             BED_TABLE: pipestat.PipestatManager(
                 config_file=cfg_path,
@@ -92,6 +91,7 @@ class BedBaseConf:
         self._create_bedset_bedfiles_table()
 
         try:
+            _LOGGER.debug("Setting up qdrant database connection...")
             self._qdrant_client = self._init_qdrant_client()
             if self.config[CFG_PATH_KEY].get(CFG_PATH_REGION2VEC_KEY) and self.config[
                 CFG_PATH_KEY
