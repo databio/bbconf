@@ -444,21 +444,20 @@ class BedBaseConf:
 
     def add_bed_to_qdrant(
         self,
+        bed_id: str,
         bed_file_path: str,
-        sample_id: str,
-        labels: dict = None,
+        payload: dict = None,
     ) -> None:
         """
         Convert bed file to vector and add it to qdrant database
 
+        :param bed_id: bed file id
         :param bed_file_path: path to the bed file
-        :param bbconf: bbconf object
-        :param sample_id: bed file id
-        :param labels: additional bed file lables
+        :param payloads: additional metadata to store alongside vectors
         :return: None
         """
 
-        _LOGGER.info(f"adding bed file to qdrant. Sample_id: {sample_id}")
+        _LOGGER.info(f"Adding bed file to qdrant. bed_id: {bed_id}")
         # Convert bedfile to vector
         bed_region_set = RegionSet(bed_file_path)
         reg_2_vec_obj = Region2VecExModel("databio/r2v-ChIP-atlas-hg38")
@@ -470,9 +469,9 @@ class BedBaseConf:
         # Upload bed file vector to the database
         vec_dim = bed_embedding.shape[0]
         self.qdrant_backend.load(
-            id=sample_id,
-            embeddings=bed_embedding.reshape(1, vec_dim),
-            labels=[{"id": sample_id, **labels}],
+            ids=[bed_id],
+            vectors=bed_embedding.reshape(1, vec_dim),
+            payloads=[{**payload}],
         )
         return None
 
