@@ -92,7 +92,7 @@ class BedBaseConf:
 
         try:
             _LOGGER.debug("Setting up qdrant database connection...")
-            self._qdrant_client = self._init_qdrant_client()
+            self._qdrant_backend = self._init_qdrant_backend()
             if self.config[CFG_PATH_KEY].get(CFG_PATH_REGION2VEC_KEY) and self.config[
                 CFG_PATH_KEY
             ].get(CFG_PATH_VEC2VEC_KEY):
@@ -416,10 +416,10 @@ class BedBaseConf:
         return self._t2bsi
 
     @property
-    def qdrant_client(self) -> QdrantBackend:
-        return self._qdrant_client
+    def qdrant_backend(self) -> QdrantBackend:
+        return self._qdrant_backend
 
-    def _init_qdrant_client(self) -> QdrantBackend:
+    def _init_qdrant_backend(self) -> QdrantBackend:
         """
         Create qdrant client object using credentials provided in config file
         :return: QdrantClient
@@ -439,7 +439,7 @@ class BedBaseConf:
         return text2bednn.Text2BEDSearchInterface(
             nl2vec_model=SentenceTransformer(os.getenv("HF_MODEL", DEFAULT_HF_MODEL)),
             vec2vec_model=self._config[CFG_PATH_KEY][CFG_PATH_VEC2VEC_KEY],
-            search_backend=self.qdrant_client,
+            search_backend=self.qdrant_backend,
         )
 
     def add_bed_to_qdrant(
@@ -469,7 +469,8 @@ class BedBaseConf:
 
         # Upload bed file vector to the database
         vec_dim = bed_embedding.shape[0]
-        self.qdrant_client.load(
+        self.qdrant_backend.load(
+            id=sample_id,
             embeddings=bed_embedding.reshape(1, vec_dim),
             labels=[{"id": sample_id, **labels}],
         )
