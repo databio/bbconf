@@ -1,6 +1,6 @@
 logmuse
 yacman>=0.9.1
-pipestat>=0.4.0
+pipestat>=0.5.4a1
 sqlalchemy<2.0.0
 qdrant_client
 # geniml
