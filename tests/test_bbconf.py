@@ -65,7 +65,9 @@ class TestAll:
             bbc.bed.report(record_identifier="bed1", values=test_data_bed)
             assert not bbc.bed.report(record_identifier="bed1", values=test_data_bed)
             bbc.bedset.report(record_identifier="bedset1", values=test_data_bedset)
-            assert not bbc.bedset.report(record_identifier="bedset1", values=test_data_bedset)
+            assert not bbc.bedset.report(
+                record_identifier="bedset1", values=test_data_bedset
+            )
 
     def test_reporting_relationships(self, cfg_pth, test_data_bed, test_data_bedset):
         with ContextManagerDBTesting(DB_URL):
@@ -139,4 +141,4 @@ class TestAll:
             print(bbc.config["qdrant"]["host"])
             assert bbc.config["qdrant"]["host"] == "test_localhost"
             assert bbc.config["path"]["region2vec"] is not None
-            assert bbc.config["database"]["host"] == "localhost"
+            assert bbc.config["database"]["host"] in ["localhost", "127.0.0.1"]

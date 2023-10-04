@@ -1,11 +1,8 @@
 pipeline_name: bedfile
 samples:
-  name:
+  bedfile_name:
     type: string
     description: BED file name
-  md5sum:
-    type: string
-    description: BED file checksum
   genome:
     type: object
     description: genome assembly of the BED files
