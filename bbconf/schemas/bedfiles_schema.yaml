@@ -83,7 +83,7 @@ samples:
     type: image
     label: GC_content
     description: GC content plot
-  paritions:
+  partitions:
     type: image
     label: Regions_dist_partitions
     description: Regions distribution over genomic partitions plot

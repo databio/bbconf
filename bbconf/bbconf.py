@@ -50,6 +50,7 @@ from geniml.io import RegionSet
 
 _LOGGER = getLogger(PKG_NAME)
 
+
 class BedBaseConf:
     """
     This class standardizes reporting of bedstat and bedbuncher results.
@@ -399,14 +400,14 @@ class BedBaseConf:
         """
         return: ORM of bedfile table (SQLModelMetaclass)
         """
-        return self.bed.backend.get_orm("bedfile__sample")
+        return self.bed.backend.get_model("bedfile__sample")
 
     @property
     def BedsetORM(self) -> SQLModel:
         """
         return: ORM of bedset table (SQLModelMetaclass)
         """
-        return self.bedset.backend.get_orm("bedsets__sample")
+        return self.bedset.backend.get_model("bedsets__sample")
 
     @property
     def t2bsi(self) -> text2bednn.Text2BEDSearchInterface:
