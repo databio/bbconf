@@ -41,7 +41,7 @@ from bbconf.const import (
 )
 from bbconf.exceptions import MissingConfigDataError, BedBaseConfError
 from bbconf.helpers import raise_missing_key, get_bedbase_cfg
-
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3" # to suppress verbose warnings tensorflow
 from geniml.text2bednn import text2bednn
 from geniml.search import QdrantBackend
 from sentence_transformers import SentenceTransformer
