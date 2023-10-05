@@ -1,6 +1,6 @@
 pipeline_name: bedsets
 samples:
-  bedset_name:
+  name:
     type: string
     description: BED set name
   genome:

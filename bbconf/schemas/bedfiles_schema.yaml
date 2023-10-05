@@ -1,6 +1,6 @@
 pipeline_name: bedfile
 samples:
-  bedfile_name:
+  name:
     type: string
     description: BED file name
   genome:
