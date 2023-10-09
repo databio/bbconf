@@ -455,7 +455,7 @@ class BedBaseConf:
 
         :param bed_id: bed file id
         :param bed_file_path: path to the bed file
-        :param payloads: additional metadata to store alongside vectors
+        :param payload: additional metadata to store alongside vectors
         :return: None
         """
 
@@ -496,11 +496,21 @@ class BedBaseConf:
         """
         Return URL prefix, modulated by whether remotes
         are configured, and remote class requested.
+
+        :param remote_class: remote class to use (schema. e.g. http, s3, etc.)
+        :return str: URL prefix (schema)
         """
         if CFG_REMOTE_KEY in self.config:
             return self.config[CFG_REMOTE_KEY][remote_class]["prefix"]
         else:
-            return self.config[CFG_PATH_KEY][CFG_PIPELINE_OUT_PTH_KEY]
+            return self.config[CFG_PATH_KEY][CFG_PATH_PIPELINE_OUTPUT_KEY]
 
-    def get_prefixed_uri(self, postfix, remote_class="http"):
+    def get_prefixed_uri(self, postfix: str, remote_class: str = "http") -> str:
+        """
+        Return uri with correct prefix (schema)
+
+        :param postfix: postfix of the uri (or everything after uri schema)
+        :param remote_class: schema of the uri
+        :return: full uri path
+        """
         return os.path.join(self.prefix(remote_class), postfix)
