@@ -20,7 +20,6 @@ BEDFILES_REL_KEY = "bedfiles"
 BEDSETS_REL_KEY = "bedsets"
 
 BEDFILE_BEDSET_ASSOCIATION_TABLE_KEY = "bedset_bedfiles"
-DIST_TABLE = "distances"
 
 CFG_ENV_VARS = ["BEDBASE"]
 

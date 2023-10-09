@@ -25,7 +25,6 @@ from bbconf.const import (
     BED_TABLE_SCHEMA,
     BEDSET_TABLE,
     BEDSET_TABLE_SCHEMA,
-    DIST_TABLE,
     BEDFILE_BEDSET_ASSOCIATION_TABLE_KEY,
     CFG_REMOTE_KEY,
     BEDSETS_REL_KEY,
@@ -170,7 +169,7 @@ class BedBaseConf:
         return res
 
     @property
-    def config(self):
+    def config(self) -> yacman.YAMLConfigManager:
         """
         Config used to initialize the object
 
@@ -179,7 +178,7 @@ class BedBaseConf:
         return self._config
 
     @property
-    def bed(self):
+    def bed(self) -> pipestat.PipestatManager:
         """
         PipestatManager of the bedfiles table
 
@@ -188,16 +187,7 @@ class BedBaseConf:
         return self.__pipestats[BED_TABLE]
 
     @property
-    def dist(self):
-        """
-        PipestatManager of the distances table
-
-        :return pipestat.PipestatManager: manager of the bedfiles table
-        """
-        return self.__pipestats[DIST_TABLE]
-
-    @property
-    def bedset(self):
+    def bedset(self) -> pipestat.PipestatManager:
         """
         PipestatManager of the bedsets table
 
@@ -243,7 +233,7 @@ class BedBaseConf:
             )
         return os.path.join(base, self.config[CFG_PATH_KEY][dir_key])
 
-    def get_bedbuncher_output_path(self, remote_key, remote=False):
+    def get_bedbuncher_output_path(self, remote_key, remote=False) -> str:
         """
         Get path to the output of the bedbuncher pipeline
 
@@ -254,7 +244,7 @@ class BedBaseConf:
             table_name=BEDSET_TABLE, remote_key=remote_key, remote=remote
         )
 
-    def get_bedstat_output_path(self, remote_key, remote=False):
+    def get_bedstat_output_path(self, remote_key, remote=False) -> str:
         """
         Get path to the output of the bedstat pipeline
 
@@ -379,12 +369,12 @@ class BedBaseConf:
 
         return bed_names
 
-    def select_unique(self, table_name, column=None):
+    def select_unique(self, table_name: str, column: str = None) -> list:
         """
         Select unique value in given column and table
 
         :param str table_name: table to query in
-        :param str col: column to include in the result
+        :param str column: column to include in the result
         :return list[psycopg2.extras.DictRow]: unique entries in the column
         """
 
@@ -394,6 +384,10 @@ class BedBaseConf:
         elif table_name == "bedsets__sample":
             with self.bedset.backend.session as s:
                 values = self.bedset.backend.select(columns=column)
+        else:
+            raise pipestat.exceptions.SchemaError(
+                f"Incorrect table name provided {table_name}"
+            )
         return [i for n, i in enumerate(values) if i not in values[n + 1 :]]
 
     @property
@@ -432,7 +426,7 @@ class BedBaseConf:
             qdrant_port=self._config[CFG_QDRANT_KEY][CFG_QDRANT_PORT_KEY],
         )
 
-    def _create_t2bsi_object(self):
+    def _create_t2bsi_object(self) -> text2bednn.Text2BEDSearchInterface:
         """
         Create Text 2 BED search interface and return this object
         :return: Text2BEDSearchInterface object
@@ -477,7 +471,7 @@ class BedBaseConf:
         )
         return None
 
-    def is_remote(self):
+    def is_remote(self) -> bool:
         """
         Return whether remotes are configured  with 'remotes' key,
 
@@ -492,7 +486,7 @@ class BedBaseConf:
         else:
             return False
 
-    def prefix(self, remote_class="http"):
+    def prefix(self, remote_class="http") -> str:
         """
         Return URL prefix, modulated by whether remotes
         are configured, and remote class requested.
