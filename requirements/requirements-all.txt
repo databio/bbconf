@@ -1,6 +1,7 @@
 logmuse
 yacman>=0.9.1
-pipestat>=0.6.0a1
+#pipestat>=0.6.0a1
+pipestat @ git+https://github.com/pepkit/pipestat@dev#egg=pipestat
 sqlalchemy<2.0.0
 qdrant_client
 # geniml

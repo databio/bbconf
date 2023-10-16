@@ -1,6 +1,6 @@
 import os
 from logging import getLogger
-from typing import List, Optional, Tuple, Union
+from typing import List, Optional, Tuple, Union, Dict
 from textwrap import indent
 
 import yacman
@@ -91,6 +91,8 @@ class BedBaseConf:
 
         self._create_bedset_bedfiles_table()
 
+        # setup t2bsi object
+        self._t2bsi = None
         try:
             _LOGGER.debug("Setting up qdrant database connection...")
             self._qdrant_backend = self._init_qdrant_backend()
@@ -151,6 +153,29 @@ class BedBaseConf:
             _config[CFG_PATH_KEY][CFG_PATH_REGION2VEC_KEY] = None
 
         return _config
+
+    def search_bed_by_text(
+        self, query: str
+    ) -> List[Dict[str, Union[int, float, Dict[str, str], List[float]]]]:
+        """
+        Search for bed files by text query in the qdrant database
+
+        :param query: strign query provided by user
+        :return: a list of dictionary that contains the search results in this format:
+        {
+            "id": <id>
+            "score": <score>
+            "payload": {
+                <information of the vector>
+            }
+            "vector": [<the vector>]
+        }
+        """
+        if self._t2bsi is None:
+            raise BedBaseConfError(
+                f"Can't perform search, qdrant_db credentials are not provided in config file"
+            )
+        return self._t2bsi.nl_vec_search(query)
 
     def __str__(self):
         """
