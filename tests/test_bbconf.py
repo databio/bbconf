@@ -6,11 +6,11 @@ from sqlalchemy.exc import IntegrityError
 
 from bbconf import BedBaseConf, get_bedbase_cfg
 from bbconf.exceptions import *
-from sqlmodel import Session, SQLModel, create_engine
+from sqlmodel import SQLModel, create_engine
 from sqlmodel.main import default_registry
 
 
-DB_URL = "postgresql+psycopg2://postgres:docker@127.0.0.1:5432/pep-db"
+DB_URL = "postgresql+psycopg2://postgres:dockerpassword@127.0.0.1:5432/pipestat-test"
 
 
 class ContextManagerDBTesting:

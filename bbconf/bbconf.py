@@ -37,6 +37,7 @@ from bbconf.const import (
     CFG_QDRANT_HOST_KEY,
     CFG_QDRANT_COLLECTION_NAME_KEY,
     DEFAULT_HF_MODEL,
+    DEFAULT_VEC2VEC_MODEL,
 )
 from bbconf.exceptions import MissingConfigDataError, BedBaseConfError
 from bbconf.helpers import raise_missing_key, get_bedbase_cfg
@@ -106,9 +107,10 @@ class BedBaseConf:
                         f"{CFG_PATH_REGION2VEC_KEY} was not provided in config file!"
                     )
                 if not self.config[CFG_PATH_KEY].get(CFG_PATH_VEC2VEC_KEY):
-                    _LOGGER.error(
-                        f"{CFG_PATH_VEC2VEC_KEY} was not provided in config file!"
-                    )
+                    self.config[CFG_PATH_KEY][
+                        CFG_PATH_VEC2VEC_KEY
+                    ] = DEFAULT_VEC2VEC_MODEL
+
         except qdrant_client.http.exceptions.ResponseHandlingException as err:
             _LOGGER.error(f"error in Connection to qdrant! skipping... Error: {err}")
 
@@ -156,7 +158,9 @@ class BedBaseConf:
 
     def search_bed_by_text(
         self, query: str
-    ) -> List[Dict[str, Union[int, float, Dict[str, str], List[float]]]]:
+    ) -> Tuple[
+        Union[List[int], List[List[int]]], Union[List[float], List[List[float]]]
+    ]:
         """
         Search for bed files by text query in the qdrant database
 

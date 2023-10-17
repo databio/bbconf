@@ -7,13 +7,13 @@ import pytest
 @pytest.fixture
 def test_data_bed():
     s = "test_string"
-    return {"bedfile_name": s, "bedfile": {"path": s, "title": s}, "regions_no": 1}
+    return {"name": s, "bedfile": {"path": s, "title": s}, "regions_no": 1}
 
 
 @pytest.fixture
 def test_data_bedset():
     s = "test_string"
-    return {"bedset_name": s, "bedset_tar_archive_path": {"path": s, "title": s}}
+    return {"name": s, "bedset_tar_archive_path": {"path": s, "title": s}}
 
 
 @pytest.fixture

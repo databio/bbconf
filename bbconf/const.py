@@ -93,3 +93,4 @@ DEFAULT_SECTION_VALUES = {
 }
 
 DEFAULT_HF_MODEL = "sentence-transformers/all-MiniLM-L12-v2"
+DEFAULT_VEC2VEC_MODEL = "databio/v2v-ChIP-atlas-hg38-ATAC"
