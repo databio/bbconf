@@ -6,7 +6,7 @@ from sqlalchemy.exc import IntegrityError
 
 from bbconf import BedBaseConf, get_bedbase_cfg
 from bbconf.exceptions import *
-from sqlmodel import SQLModel, create_engine
+from sqlmodel import Session, SQLModel, create_engine
 from sqlmodel.main import default_registry
 
 

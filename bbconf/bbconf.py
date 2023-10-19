@@ -38,6 +38,7 @@ from bbconf.const import (
     CFG_QDRANT_COLLECTION_NAME_KEY,
     DEFAULT_HF_MODEL,
     DEFAULT_VEC2VEC_MODEL,
+    DEFAULT_REGION2_VEC_MODEL,
 )
 from bbconf.exceptions import MissingConfigDataError, BedBaseConfError
 from bbconf.helpers import raise_missing_key, get_bedbase_cfg
@@ -103,13 +104,18 @@ class BedBaseConf:
                 self._t2bsi = self._create_t2bsi_object()
             else:
                 if not self.config[CFG_PATH_KEY].get(CFG_PATH_REGION2VEC_KEY):
-                    _LOGGER.error(
-                        f"{CFG_PATH_REGION2VEC_KEY} was not provided in config file!"
+                    _LOGGER.debug(
+                        f"{CFG_PATH_REGION2VEC_KEY} was not provided in config file! Using default.."
                     )
                 if not self.config[CFG_PATH_KEY].get(CFG_PATH_VEC2VEC_KEY):
                     self.config[CFG_PATH_KEY][
                         CFG_PATH_VEC2VEC_KEY
                     ] = DEFAULT_VEC2VEC_MODEL
+
+            if self.config[CFG_QDRANT_KEY].get(CFG_QDRANT_API_KEY, None):
+                os.environ["QDRANT_API_KEY"] = self.config[CFG_QDRANT_KEY].get(
+                    CFG_QDRANT_API_KEY
+                )
 
         except qdrant_client.http.exceptions.ResponseHandlingException as err:
             _LOGGER.error(f"error in Connection to qdrant! skipping... Error: {err}")
@@ -470,22 +476,34 @@ class BedBaseConf:
     def add_bed_to_qdrant(
         self,
         bed_id: str,
-        bed_file_path: str,
+        bed_file: Union[str, RegionSet],
         payload: dict = None,
+        region_to_vec: Region2VecExModel = None,
     ) -> None:
         """
         Convert bed file to vector and add it to qdrant database
 
         :param bed_id: bed file id
-        :param bed_file_path: path to the bed file
+        :param bed_file: path to the bed file, or RegionSet object
         :param payload: additional metadata to store alongside vectors
+        :param region_to_vec: initiated region to vector model. If None, new object will be created.
         :return: None
         """
 
         _LOGGER.info(f"Adding bed file to qdrant. bed_id: {bed_id}")
         # Convert bedfile to vector
-        bed_region_set = RegionSet(bed_file_path)
-        reg_2_vec_obj = Region2VecExModel("databio/r2v-ChIP-atlas-hg38")
+        if isinstance(bed_file, str):
+            bed_region_set = RegionSet(bed_file)
+        elif isinstance(bed_file, RegionSet):
+            bed_region_set = bed_file
+        else:
+            raise BedBaseConfError(
+                "Could not add add region to qdrant. Invalid type, or path. "
+            )
+        if not region_to_vec:
+            reg_2_vec_obj = Region2VecExModel(DEFAULT_REGION2_VEC_MODEL)
+        else:
+            reg_2_vec_obj = region_to_vec
         bed_embedding = reg_2_vec_obj.encode(
             bed_region_set,
             pool="mean",
