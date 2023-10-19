@@ -8,10 +8,12 @@ samples:
     description: genome assembly of the BED files
   bedfile:
     type: file
+    pipestat_type: file
     label: bed
     description: BED file
   bigbedfile:
     type: file
+    pipestat_type: file
     label: bigBed
     description: bigBed file
   regions_no:
@@ -70,38 +72,47 @@ samples:
     description: Promoter core percentage
   tssdist:
     type: image
+    pipestat_type: image
     label: TSS_distance
     description: Region-TSS distance plot
   chrombins:
     type: image
+    pipestat_type: image
     label: Chromosome_bins
     description: Regions distribution over chromosomes plot
   gccontent:
     type: image
+    pipestat_type: image
     label: GC_content
     description: GC content plot
   partitions:
     type: image
+    pipestat_type: image
     label: Regions_dist_partitions
     description: Regions distribution over genomic partitions plot
   expected_partitions:
     type: image
+    pipestat_type: image
     label: Expected_partitions
     description: Expected distribution over genomic partitions plot
   cumulative_partitions:
     type: image
+    pipestat_type: image
     label: Cumulative_partitions
     description: Cumulative distribution over genomic partitions plot
   widths_histogram:
     type: image
+    pipestat_type: image
     label: Widths_histogram
     description: Quantile-trimmed histogram of widths
   neighbor_distances:
     type: image
+    pipestat_type: image
     label: Neighbor_distance
     description: Distance between neighbor regions
   open_chromatin:
     type: image
+    pipestat_type: image
     label: Open_chromatin
     description: Cell specific enrichment for open chromatin plot
   added_to_qdrant:
