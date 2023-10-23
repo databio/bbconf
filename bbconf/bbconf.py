@@ -8,7 +8,7 @@ import yacman
 import pipestat
 from pipestat.helpers import dynamic_filter
 
-from sqlmodel import SQLModel, Field
+from sqlmodel import SQLModel, Field, select
 import qdrant_client
 
 from sqlalchemy.orm import relationship
@@ -312,6 +312,7 @@ class BedBaseConf:
 
         returned_model = BedFileBedSetAssociation.__table__
 
+        # this will create a relationship between bedfiles and bedsets, and will have mapping in both tables (bedfiles, bedsets)
         self.BedfileORM.__mapper__.add_property(
             BEDSETS_REL_KEY,
             relationship(
@@ -323,15 +324,17 @@ class BedBaseConf:
 
         SQLModel.metadata.create_all(bind=self.bed.backend.db_engine_key)
 
-    def report_relationship(self, bedset_id, bedfile_id):
+    def report_relationship(
+        self, bedset_record_id: str, bedfile_record_id: str
+    ) -> None:
         """
         Report a bedfile for bedset.
 
         Inserts the ID pair into the relationship table, which allows to
         manage many to many bedfile bedset relationships
 
-        :param int bedset_id: id of the bedset to report bedfile for
-        :param int bedfile_id: id of the bedfile to report
+        :param int bedset_record_id: record identifier of the bedset to report bedfile for
+        :param int bedfile_record_id: record identifier  of the bedfile to report
         """
 
         if not self._check_table_exists(
@@ -340,17 +343,36 @@ class BedBaseConf:
             self._create_bedset_bedfiles_table()
 
         with self.bed.backend.session as s:
-            bed = s.query(self.BedfileORM).get(bedfile_id)
-            bedset = s.query(self.BedsetORM).get(bedset_id)
-            getattr(bedset, BEDFILES_REL_KEY).append(bed)
+            bedset_statement = select(self.BedsetORM).where(
+                self.BedsetORM.record_identifier == bedset_record_id
+            )
+            bedset = s.exec(bedset_statement).one()
+
+            bedfile_statement = select(self.BedfileORM).where(
+                self.BedfileORM.record_identifier == bedfile_record_id
+            )
+            bedfile = s.exec(bedfile_statement).one()
+
+            if not bedfile:
+                raise BedBaseConfError(
+                    f"Bedfile with if: {bedfile_record_id} doesn't exists. Can't add bedfile to bedset"
+                )
+
+            # add relationship
+            bedset.bedfiles.append(bedfile)
+            s.add(bedfile)
             s.commit()
 
-    def remove_relationship(self, bedset_id, bedfile_ids=None):
+        return None
+
+    def remove_relationship(
+        self, bedset_record_id: str, bedfile_record_id: Union[str, List[str]] = None
+    ) -> None:
         """
         Remove entries from the relationships table
 
-        :param str bedset_id: id of the bedset to remove
-        :param list[str] bedfile_ids: ids of the bedfiles to remove for the
+        :param str bedset_record_id: id of the bedset to remove
+        :param list[str] bedfile_record_id: ids of the bedfiles to remove for the
             selected bedset. If none provided, all the relationsips for the
             selected bedset will be removed.
         """
@@ -361,48 +383,65 @@ class BedBaseConf:
             raise BedBaseConfError(
                 f"Can't remove a relationship, '{BEDFILE_BEDSET_ASSOCIATION_TABLE_KEY}' does not exist"
             )
+
         with self.bedset.backend.session as s:
-            bedset = s.query(self.BedsetORM).get(bedset_id)
-            if bedfile_ids is None:
-                getattr(bedset, BEDFILES_REL_KEY)[:] = []
+            bedset_statement = select(self.BedsetORM).where(
+                self.BedsetORM.record_identifier == bedset_record_id
+            )
+            bedset = s.exec(bedset_statement).one()
+
+            if bedfile_record_id is None:
+                list_of_bed = [bed for bed in bedset.bedfiles]
+
+                for bed in list_of_bed:
+                    bedset.bedfiles.remove(bed)
             else:
-                for bedfile_id in bedfile_ids:
-                    bedfile = s.query(self.BedfileORM).get(bedfile_id)
-                    getattr(bedset, BEDFILES_REL_KEY).remove(bedfile)
+                if isinstance(bedfile_record_id, str):
+                    bedfile_record_id = [bedset_record_id]
+
+                for bedfile_id in bedfile_record_id:
+                    bedfile_statement = select(self.BedfileORM).where(
+                        self.BedfileORM.record_identifier == bedfile_id
+                    )
+                    bedfile = s.exec(bedfile_statement).one()
+
+                    bedset.bedfiles.remove(bedfile)
+            s.add(bedset)
             s.commit()
 
-    def select_bedfiles_for_bedset(
-        self,
-        filter_conditions: Optional[List[Tuple[str, str, Union[str, List[str]]]]] = [],
-        json_filter_conditions: Optional[List[Tuple[str, str, str]]] = [],
-        bedfile_cols: Optional[List[str]] = None,
-    ) -> list:
-        """
-        Select bedfiles that are part of a bedset that matches the query
-
-        :param List[str] filter_conditions:  table query to restrict the results with
-        :param Union[List[str], str] bedfile_cols: bedfile columns to include in the
-            result, if none specified all columns will be included
-        :return: matched bedfiles table contents
-        """
-        cols = (
-            [getattr(self.BedfileORM, bedfile_col) for bedfile_col in bedfile_cols]
-            if bedfile_cols is not None
-            else self.BedfileORM.__table__.columns
-        )
-        with self.bed.backend.session as session:
-            statement = session.query(*cols).join(
-                self.BedfileORM, self.BedsetORM.bedfiles
-            )
-            statement = dynamic_filter(
-                ORM=self.BedsetORM,
-                statement=statement,
-                filter_conditions=filter_conditions,
-                json_filter_conditions=json_filter_conditions,
-            )
-            bed_names = statement.all()
-
-        return bed_names
+    # TODO: should this function be at this format? Do we want to get all the bedfiles for a bedset?
+    # def select_bedfiles_from_bedset(
+    #     self,
+    #     filter_conditions: Optional[List[Tuple[str, str, Union[str, List[str]]]]] = [],
+    #     json_filter_conditions: Optional[List[Tuple[str, str, str]]] = [],
+    #     bedfile_cols: Optional[List[str]] = None,
+    # ) -> list:
+    #     """
+    #     Select bedfiles that are part of a bedset that matches the query
+    #
+    #     :param List[str] filter_conditions:  table query to restrict the results with
+    #     :param Union[List[str], str] bedfile_cols: bedfile columns to include in the
+    #         result, if none specified all columns will be included
+    #     :return: matched bedfiles table contents
+    #     """
+    #     cols = (
+    #         [getattr(self.BedfileORM, bedfile_col) for bedfile_col in bedfile_cols]
+    #         if bedfile_cols is not None
+    #         else self.BedfileORM.__table__.columns
+    #     )
+    #     with self.bed.backend.session as session:
+    #         statement = session.query(*cols).join(
+    #             self.BedfileORM, self.BedsetORM.bedfiles
+    #         )
+    #         statement = dynamic_filter(
+    #             ORM=self.BedsetORM,
+    #             statement=statement,
+    #             filter_conditions=filter_conditions,
+    #             json_filter_conditions=json_filter_conditions,
+    #         )
+    #         bed_names = statement.all()
+    #
+    #     return bed_names
 
     def select_unique(self, table_name: str, column: str = None) -> list:
         """
