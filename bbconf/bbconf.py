@@ -43,14 +43,14 @@ from bbconf.const import (
 from bbconf.exceptions import MissingConfigDataError, BedBaseConfError
 from bbconf.helpers import raise_missing_key, get_bedbase_cfg
 
-os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"  # to suppress verbose warnings tensorflow
+# os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"  # to suppress verbose warnings tensorflow
 from geniml.text2bednn import text2bednn
 from geniml.search import QdrantBackend
 from sentence_transformers import SentenceTransformer
 from geniml.region2vec import Region2VecExModel
 from geniml.io import RegionSet
 
-_LOGGER = getLogger(PKG_NAME)
+_LOGGER = getLogger(__name__)
 
 DRS_ACCESS_URL = "{server_url}/objects/{object_id}/access/{access_id}"
 
