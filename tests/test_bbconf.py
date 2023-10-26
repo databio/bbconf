@@ -73,13 +73,8 @@ class TestAll:
         with ContextManagerDBTesting(DB_URL):
             bbc = BedBaseConf(get_bedbase_cfg(cfg=cfg_pth))
             bbc.bed.report(record_identifier="bed1", values=test_data_bed)
-            bed_id = bbc.bed.retrieve(record_identifier="bed1", result_identifier="id")
             bbc.bedset.report(record_identifier="bedset1", values=test_data_bedset)
-            bedset_id = bbc.bedset.retrieve(
-                record_identifier="bedset1", result_identifier="id"
-            )
-            bbc.report_relationship(bedfile_id=bed_id, bedset_id=bedset_id)
-            print("a")
+            bbc.report_relationship(bedfile_record_id="bed1", bedset_record_id="bedset1")
 
     def test_cant_remove_record_if_in_reltable(
         self, cfg_pth, test_data_bed, test_data_bedset
@@ -87,12 +82,8 @@ class TestAll:
         with ContextManagerDBTesting(DB_URL):
             bbc = BedBaseConf(get_bedbase_cfg(cfg=cfg_pth))
             bbc.bed.report(record_identifier="bed1", values=test_data_bed)
-            bed_id = bbc.bed.retrieve(record_identifier="bed1", result_identifier="id")
             bbc.bedset.report(record_identifier="bedset1", values=test_data_bedset)
-            bedset_id = bbc.bedset.retrieve(
-                record_identifier="bedset1", result_identifier="id"
-            )
-            bbc.report_relationship(bedfile_id=bed_id, bedset_id=bedset_id)
+            bbc.report_relationship(bedfile_record_id="bed1", bedset_record_id="bedset1")
             with pytest.raises(IntegrityError):
                 bbc.bed.remove(record_identifier="bed1")
             with pytest.raises(IntegrityError):
@@ -103,11 +94,7 @@ class TestAll:
             bbc = BedBaseConf(get_bedbase_cfg(cfg=cfg_pth))
             bbc.bed.report(record_identifier="bed1", values=test_data_bed)
             bbc.bedset.report(record_identifier="bedset1", values=test_data_bedset)
-            bedset_id = bbc.bedset.retrieve(
-                record_identifier="bedset1", result_identifier="id"
-            )
-            bed_id = bbc.bed.retrieve(record_identifier="bed1", result_identifier="id")
-            bbc.report_relationship(bedfile_id=bed_id, bedset_id=bedset_id)
+            bbc.report_relationship(bedfile_record_id="bed1", bedset_record_id="bedset1")
 
             unique_bedfiles = bbc.select_unique(table_name="bedfile__sample")
             assert unique_bedfiles[0].record_identifier == "bed1"
@@ -121,12 +108,8 @@ class TestAll:
             bbc = BedBaseConf(get_bedbase_cfg(cfg=cfg_pth))
             bbc.bed.report(record_identifier="bed1", values=test_data_bed)
             bbc.bedset.report(record_identifier="bedset1", values=test_data_bedset)
-            bedset_id = bbc.bedset.retrieve(
-                record_identifier="bedset1", result_identifier="id"
-            )
-            bed_id = bbc.bed.retrieve(record_identifier="bed1", result_identifier="id")
-            bbc.report_relationship(bedfile_id=bed_id, bedset_id=bedset_id)
-            bbc.remove_relationship(bedset_id=bedset_id, bedfile_ids=[bed_id])
+            bbc.report_relationship(bedfile_record_id="bed1", bedset_record_id="bedset1",)
+            bbc.remove_relationship(bedset_record_id="bedset1", bedfile_record_id=["bed1"])
             ori_cnt = bbc.bed.record_count
             bbc.bed.remove(record_identifier="bed1")
             assert ori_cnt - 1 == bbc.bed.record_count
@@ -139,6 +122,6 @@ class TestAll:
             bbc = BedBaseConf(get_bedbase_cfg(cfg=cfg_pth))
 
             print(bbc.config["qdrant"]["host"])
-            assert bbc.config["qdrant"]["host"] == "test_localhost"
+            assert bbc.config["qdrant"]["host"] == "localhost"
             assert bbc.config["path"]["region2vec"] is not None
             assert bbc.config["database"]["host"] in ["localhost", "127.0.0.1"]

@@ -13,7 +13,9 @@ def test_data_bed():
 @pytest.fixture
 def test_data_bedset():
     s = "test_string"
-    return {"name": s, "bedset_tar_archive_path": {"path": s, "title": s}}
+    return {"name": s, "bedset_means": {
+  "exon_frequency": 271,
+  "exon_percentage": 0.081,}}
 
 
 @pytest.fixture
