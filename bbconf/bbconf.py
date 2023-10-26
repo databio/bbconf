@@ -101,6 +101,7 @@ class BedBaseConf:
                 os.environ["QDRANT_API_KEY"] = self.config[CFG_QDRANT_KEY].get(
                     CFG_QDRANT_API_KEY
                 )
+            self._qdrant_backend = self._init_qdrant_backend()
             if self.config[CFG_PATH_KEY].get(CFG_PATH_REGION2VEC_KEY) and self.config[
                 CFG_PATH_KEY
             ].get(CFG_PATH_VEC2VEC_KEY):
@@ -114,8 +115,6 @@ class BedBaseConf:
                     self.config[CFG_PATH_KEY][
                         CFG_PATH_VEC2VEC_KEY
                     ] = DEFAULT_VEC2VEC_MODEL
-
-            self._qdrant_backend = self._init_qdrant_backend()
 
         except qdrant_client.http.exceptions.ResponseHandlingException as err:
             _LOGGER.error(f"error in Connection to qdrant! skipping... Error: {err}")
