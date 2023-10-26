@@ -127,7 +127,7 @@ class BedBaseConf:
         :return: None
         :raises: raise_missing_key (if config key is missing)
         """
-        _config = yacman.YAMLConfigManager(filepath=config_path)
+        _config = yacman.YAMLConfigManager(filepath=config_path).exp
 
         if CFG_PATH_KEY not in _config:
             raise_missing_key(CFG_PATH_KEY)
