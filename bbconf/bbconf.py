@@ -53,6 +53,8 @@ from geniml.io import RegionSet
 _LOGGER = getLogger(PKG_NAME)
 
 DRS_ACCESS_URL = "{server_url}/objects/{object_id}/access/{access_id}"
+
+
 class BedBaseConf:
     """
     This class standardizes reporting of bedstat and bedbuncher results.
@@ -602,25 +604,29 @@ class BedBaseConf:
             "size": bed_metadata["file_size"],
             "created_time": bed_metadata["created_time"],
             "checksums": object_id,
-            "access_methods": []
+            "access_methods": [],
         }
         # add access method for each remote class
         for access_id in keys(self.config[CFG_REMOTE_KEY]):
             access_dict = {
-                    "type": "https",
-                    "access_id": access_id,
-                    "access_url": DRS_ACCESS_URL.format(
-                        server_url=self.config["access_methods"][access_id]["server_url"],
-                        object_id=object_id,
-                        access_id=access_id)
-                }
-            access_dict["region"] = self.config["access_methods"][access_id]["region"] or None
+                "type": "https",
+                "access_id": access_id,
+                "access_url": DRS_ACCESS_URL.format(
+                    server_url=self.config["access_methods"][access_id]["server_url"],
+                    object_id=object_id,
+                    access_id=access_id,
+                ),
+            }
+            access_dict["region"] = (
+                self.config["access_methods"][access_id]["region"] or None
+            )
             drs_dict["access_methods"].append(access_dict)
         return drs_dict
-    
+
     def get_bed_url(object_id: str, access_id: str) -> str:
         access_url = DRS_ACCESS_URL.format(
             server_url=self.config["access_methods"][access_id]["server_url"],
             object_id=object_id,
-            access_id=access_id)
+            access_id=access_id,
+        )
         return access_url

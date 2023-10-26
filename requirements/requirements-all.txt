@@ -1,4 +1,3 @@
-logmuse
 yacman>=0.9.1
 pipestat>=0.6.0a2
 #pipestat @ git+https://github.com/pepkit/pipestat@dev#egg=pipestat
