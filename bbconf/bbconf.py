@@ -6,7 +6,7 @@ from textwrap import indent
 import yacman
 
 import pipestat
-from pipestat.helpers import dynamic_filter
+
 
 from sqlmodel import SQLModel, Field, select
 import qdrant_client
