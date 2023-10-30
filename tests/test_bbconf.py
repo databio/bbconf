@@ -3,14 +3,28 @@
 import pytest
 from pipestat import PipestatManager
 from sqlalchemy.exc import IntegrityError
+from sqlmodel import SQLModel, create_engine
+from sqlmodel.main import default_registry
+import os
+import warnings
 
 from bbconf import BedBaseConf, get_bedbase_cfg
 from bbconf.exceptions import *
-from sqlmodel import SQLModel, create_engine
-from sqlmodel.main import default_registry
 
 
 DB_URL = "postgresql+psycopg2://postgres:dockerpassword@127.0.0.1:5432/pipestat-test"
+DATA_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
+pytest_db_skip_reason = "Database is not set up... To run this test, set up the database. Go to test/README.md for more information."
+
+
+def db_setup():
+    # Check if the database is setup
+    try:
+        BedBaseConf(os.path.join(DATA_PATH, "config.yaml"))
+    except Exception as err:
+        warnings.warn(UserWarning(f"{pytest_db_skip_reason}"))
+        return False
+    return True
 
 
 class ContextManagerDBTesting:
@@ -33,6 +47,10 @@ class ContextManagerDBTesting:
         self.connection.close()
 
 
+@pytest.mark.skipif(
+    not db_setup(),
+    reason=pytest_db_skip_reason,
+)
 class TestAll:
     def test_invalid_config(self, invalid_cfg_pth):
         with ContextManagerDBTesting(DB_URL):
