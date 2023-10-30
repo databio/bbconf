@@ -95,3 +95,5 @@ DEFAULT_SECTION_VALUES = {
 DEFAULT_HF_MODEL = "sentence-transformers/all-MiniLM-L12-v2"
 DEFAULT_VEC2VEC_MODEL = "databio/v2v-ChIP-atlas-hg38-ATAC"
 DEFAULT_REGION2_VEC_MODEL = "databio/r2v-ChIP-atlas-hg38"
+
+DRS_ACCESS_URL = "{server_url}/objects/{object_id}/access/{access_id}"

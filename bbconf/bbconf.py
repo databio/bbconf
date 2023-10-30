@@ -39,6 +39,7 @@ from bbconf.const import (
     DEFAULT_HF_MODEL,
     DEFAULT_VEC2VEC_MODEL,
     DEFAULT_REGION2_VEC_MODEL,
+    DRS_ACCESS_URL,
 )
 from bbconf.exceptions import MissingConfigDataError, BedBaseConfError
 from bbconf.helpers import raise_missing_key, get_bedbase_cfg
@@ -51,8 +52,6 @@ from geniml.region2vec import Region2VecExModel
 from geniml.io import RegionSet
 
 _LOGGER = getLogger(__name__)
-
-DRS_ACCESS_URL = "{server_url}/objects/{object_id}/access/{access_id}"
 
 
 class BedBaseConf:
@@ -596,7 +595,13 @@ class BedBaseConf:
         """
         return os.path.join(self.prefix(remote_class), postfix)
 
-    def get_bed_drs_metadata(object_id: str) -> dict:
+    def get_bed_drs_metadata(self, object_id: str) -> dict:
+        """
+
+
+        :param object_id:
+        :return:
+        """
         bed_metadata = self.bed.retrieve(object_id)
         drs_dict = {
             "id": object_id,
@@ -606,7 +611,7 @@ class BedBaseConf:
             "access_methods": [],
         }
         # add access method for each remote class
-        for access_id in keys(self.config[CFG_REMOTE_KEY]):
+        for access_id in self.config[CFG_REMOTE_KEY].keys():
             access_dict = {
                 "type": "https",
                 "access_id": access_id,
@@ -622,7 +627,14 @@ class BedBaseConf:
             drs_dict["access_methods"].append(access_dict)
         return drs_dict
 
-    def get_bed_url(object_id: str, access_id: str) -> str:
+    def get_bed_url(self, object_id: str, access_id: str) -> str:
+        """
+
+
+        :param object_id:
+        :param access_id:
+        :return:
+        """
         access_url = DRS_ACCESS_URL.format(
             server_url=self.config["access_methods"][access_id]["server_url"],
             object_id=object_id,
