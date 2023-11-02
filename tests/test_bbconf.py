@@ -9,7 +9,7 @@ import os
 import warnings
 
 from bbconf import BedBaseConf, get_bedbase_cfg
-from bbconf.exceptions import *
+from bbconf.exceptions import MissingConfigDataError
 
 
 DB_URL = "postgresql+psycopg2://postgres:dockerpassword@127.0.0.1:5432/pipestat-test"
@@ -21,7 +21,7 @@ def db_setup():
     # Check if the database is setup
     try:
         BedBaseConf(os.path.join(DATA_PATH, "config.yaml"))
-    except Exception as err:
+    except Exception:
         warnings.warn(UserWarning(f"{pytest_db_skip_reason}"))
         return False
     return True

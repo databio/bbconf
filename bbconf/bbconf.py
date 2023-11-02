@@ -1,12 +1,10 @@
 import os
 from logging import getLogger
-from typing import List, Optional, Tuple, Union, Dict
+from typing import List, Optional, Tuple, Union
 from textwrap import indent
 
 import yacman
-
 import pipestat
-
 
 from sqlmodel import SQLModel, Field, select
 import qdrant_client
@@ -16,7 +14,6 @@ from sqlalchemy import inspect
 
 from bbconf.const import (
     CFG_PATH_KEY,
-    PKG_NAME,
     CFG_PATH_PIPELINE_OUTPUT_KEY,
     CFG_PATH_BEDSTAT_DIR_KEY,
     DEFAULT_SECTION_VALUES,
@@ -157,7 +154,7 @@ class BedBaseConf:
                     _config[section][key] = default
 
         if CFG_PATH_REGION2VEC_KEY not in _config[CFG_PATH_KEY]:
-            _LOGGER.warning(f"Region2vec config key is missing in configuration file")
+            _LOGGER.warning("Region2vec config key is missing in configuration file")
             _config[CFG_PATH_KEY][CFG_PATH_REGION2VEC_KEY] = None
 
         return _config
@@ -183,7 +180,7 @@ class BedBaseConf:
         """
         if self._t2bsi is None:
             raise BedBaseConfError(
-                f"Can't perform search, qdrant_db credentials are not provided in config file"
+                "Can't perform search, qdrant_db credentials are not provided in config file"
             )
         return self._t2bsi.nl_vec_search(query)
 
@@ -199,7 +196,7 @@ class BedBaseConf:
         res += f"{indent(str(self.bed), '  ')}"
         res += f"\n{BEDSET_TABLE}:\n"
         res += f"{indent(str(self.bedset), '  ')}"
-        res += f"\nconfig:\n"
+        res += "\nconfig:\n"
         res += f"{indent(str(self.config), '  ')}"
         return res
 
@@ -453,10 +450,10 @@ class BedBaseConf:
         """
 
         if table_name == "bedfile__sample":
-            with self.bed.backend.session as s:
+            with self.bed.backend.session:
                 values = self.bed.backend.select(columns=column)
         elif table_name == "bedsets__sample":
-            with self.bedset.backend.session as s:
+            with self.bedset.backend.session:
                 values = self.bedset.backend.select(columns=column)
         else:
             raise pipestat.exceptions.SchemaError(
