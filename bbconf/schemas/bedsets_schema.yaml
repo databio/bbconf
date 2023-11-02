@@ -3,6 +3,12 @@ samples:
   name:
     type: string
     description: BED set name
+  description:
+    type: string
+    description: description of the BED set
+  md5sum:
+    type: string
+    description: digest of the BED set
   genome:
     type: object
     description: genome assembly of the BED sets
@@ -20,5 +26,3 @@ samples:
     type: boolean
     label: BED_set_status
     description: whether the BED set stats/plot are completed
-
-
