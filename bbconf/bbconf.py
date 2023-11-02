@@ -37,9 +37,11 @@ from bbconf.const import (
     DEFAULT_VEC2VEC_MODEL,
     DEFAULT_REGION2_VEC_MODEL,
     DRS_ACCESS_URL,
+    CFG_ACCESS_METHOD_KEY,
 )
 from bbconf.exceptions import MissingConfigDataError, BedBaseConfError
 from bbconf.helpers import raise_missing_key, get_bedbase_cfg
+from bbconf.models import DRSModel, AccessMethod, AccessURL
 
 # os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"  # to suppress verbose warnings tensorflow
 from geniml.text2bednn import text2bednn
@@ -592,49 +594,50 @@ class BedBaseConf:
         """
         return os.path.join(self.prefix(remote_class), postfix)
 
-    def get_bed_drs_metadata(self, object_id: str) -> dict:
+    # TODO: fix it - url is incorrect
+    def get_bed_url(self, object_id: str, access_id: str = "https") -> str:
         """
+        Build bed file url using drs standard
 
+        :param object_id: digest of the bed file
+        :param access_id: https or s3
+        :return: bed file url
+        """
+        # access_url = DRS_ACCESS_URL.format(
+        #     server_url=self.config[CFG_ACCESS_METHOD_KEY][access_id]["server_url"],
+        #     object_id=object_id,
+        #     access_id=access_id,
+        # )
+        # return access_url
+        return os.path.join(self.config[CFG_ACCESS_METHOD_KEY][access_id]["server_url"], self.bed.retrieve(object_id)["bedfile"]["path"])
 
-        :param object_id:
-        :return:
+    def get_bed_drs_metadata(self, object_id: str) -> DRSModel:
+        """
+        Get DRS metadata for a bed file
+
+        :param object_id: record identifier
+        :return: DRS metadata
         """
         bed_metadata = self.bed.retrieve(object_id)
-        drs_dict = {
-            "id": object_id,
-            "size": bed_metadata["file_size"],
-            "created_time": bed_metadata["created_time"],
-            "checksums": object_id,
-            "access_methods": [],
-        }
-        # add access method for each remote class
-        for access_id in self.config[CFG_REMOTE_KEY].keys():
-            access_dict = {
-                "type": "https",
-                "access_id": access_id,
-                "access_url": DRS_ACCESS_URL.format(
-                    server_url=self.config["access_methods"][access_id]["server_url"],
-                    object_id=object_id,
-                    access_id=access_id,
+        access_methods = []
+        for access_id in self.config[CFG_ACCESS_METHOD_KEY].keys():
+            access_dict = AccessMethod(
+                type=access_id,
+                access_id=access_id,
+                access_url=AccessURL(url=self.get_bed_url(object_id, access_id)),
+                region=self.config[CFG_ACCESS_METHOD_KEY][access_id].get(
+                    "region", None
                 ),
-            }
-            access_dict["region"] = (
-                self.config["access_methods"][access_id]["region"] or None
             )
-            drs_dict["access_methods"].append(access_dict)
-        return drs_dict
+            access_methods.append(access_dict)
 
-    def get_bed_url(self, object_id: str, access_id: str) -> str:
-        """
-
-
-        :param object_id:
-        :param access_id:
-        :return:
-        """
-        access_url = DRS_ACCESS_URL.format(
-            server_url=self.config["access_methods"][access_id]["server_url"],
-            object_id=object_id,
-            access_id=access_id,
+        drs_dict = DRSModel(
+            id=object_id,
+            size=bed_metadata["bedfile"]["size"],
+            created_time=bed_metadata["pipestat_created_time"],
+            updated_time=bed_metadata["pipestat_modified_time"],
+            checksums=object_id,
+            access_methods=access_methods,
         )
-        return access_url
+
+        return drs_dict
