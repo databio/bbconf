@@ -557,78 +557,46 @@ class BedBaseConf:
         )
         return None
 
-    def is_remote(self) -> bool:
-        """
-        Return whether remotes are configured  with 'remotes' key,
 
-        :param BedBaseConf bbc: server config object
-        :return bool: whether remote data source is configured
-        """
-
-        if CFG_REMOTE_KEY in self.config and isinstance(
-            self.config[CFG_REMOTE_KEY], dict
-        ):
-            return True
-        else:
-            return False
-
-    def prefix(self, remote_class="http") -> str:
-        """
-        Return URL prefix, modulated by whether remotes
-        are configured, and remote class requested.
-
-        :param remote_class: remote class to use (schema. e.g. http, s3, etc.)
-        :return str: URL prefix (schema)
-        """
-        if CFG_REMOTE_KEY in self.config:
-            return self.config[CFG_REMOTE_KEY][remote_class]["prefix"]
-        else:
-            return self.config[CFG_PATH_KEY][CFG_PATH_PIPELINE_OUTPUT_KEY]
-
-    def get_prefixed_uri(self, postfix: str, remote_class: str = "http") -> str:
+    def get_prefixed_uri(self, postfix: str, access_id: str) -> str:
         """
         Return uri with correct prefix (schema)
 
         :param postfix: postfix of the uri (or everything after uri schema)
-        :param remote_class: schema of the uri
+        :param access_id: access method name
         :return: full uri path
         """
-        return os.path.join(self.prefix(remote_class), postfix)
+        prefix = self.config[CFG_ACCESS_METHOD_KEY][access_id]["prefix"]
+        return os.path.join(prefix, postfix)
 
-    # TODO: fix it - url is incorrect
-    def get_bed_url(self, object_id: str, access_id: str = "https") -> str:
-        """
-        Build bed file url using drs standard
+    def get_object_uri(
+        record_type: str,
+        record_id: str,
+        result_id: str,
+        access_id: str
+    ):
+        if record_type == "bed":
+            result = bbc.bed.retrieve_one(record_id, result_id)
+        elif record_type == "bedset":
+            result = bbc.bedset.retrieve_one(record_id, result_id)
+        return self.get_prefixed_uri(result["path"], access_id)
 
-        :param object_id: digest of the bed file
-        :param access_id: https or s3
-        :return: bed file url
-        """
-        # access_url = DRS_ACCESS_URL.format(
-        #     server_url=self.config[CFG_ACCESS_METHOD_KEY][access_id]["server_url"],
-        #     object_id=object_id,
-        #     access_id=access_id,
-        # )
-        # return access_url
-        return os.path.join(
-            self.config[CFG_ACCESS_METHOD_KEY][access_id]["server_url"],
-            self.bed.retrieve(object_id)["bedfile"]["path"],
-        )
-
-    def get_bed_drs_metadata(self, object_id: str, base_uri: str) -> DRSModel:
+    
+    def get_drs_metadata(self, record_id: str, result_id: str, base_uri: str) -> DRSModel:
         """
         Get DRS metadata for a bed file
 
         :param object_id: record identifier
         :return: DRS metadata
         """
-        bed_metadata = self.bed.retrieve(object_id)
+
+        bed_metadata = self.bed.retrieve_one(record_id)
         access_methods = []
         for access_id in self.config[CFG_ACCESS_METHOD_KEY].keys():
             access_dict = AccessMethod(
                 type=access_id,
                 access_id=access_id,
-                access_url=AccessURL(url=self.get_bed_url(object_id, access_id)),
+                access_url=AccessURL(url=self.get_object_uri(record_type="bed", record_id, result_id, access_id)),
                 region=self.config[CFG_ACCESS_METHOD_KEY][access_id].get(
                     "region", None
                 ),
@@ -638,7 +606,7 @@ class BedBaseConf:
         drs_dict = DRSModel(
             id=object_id,
             self_uri=f"drs://{base_uri}/{object_id}",
-            size=bed_metadata["bedfile"]["size"],
+            size=bed_metadata[result_id]["size"],
             created_time=bed_metadata["pipestat_created_time"],
             updated_time=bed_metadata["pipestat_modified_time"],
             checksums=object_id,
