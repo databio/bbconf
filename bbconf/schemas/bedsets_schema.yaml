@@ -1,28 +1,51 @@
-pipeline_name: bedsets
-samples:
-  name:
-    type: string
-    description: BED set name
-  description:
-    type: string
-    description: description of the BED set
-  md5sum:
-    type: string
-    description: digest of the BED set
-  genome:
+title: bedset_output_schema
+description: An output schema for bedset results.
+type: object
+properties:
+  pipeline_name: bedsets
+  samples:
     type: object
-    description: genome assembly of the BED sets
-  bedset_means:
+    properties:
+      name:
+        type: string
+        description: BED set name
+      description:
+        type: string
+        description: description of the BED set
+      md5sum:
+        type: string
+        description: digest of the BED set
+      genome:
+        type: object
+        description: genome assembly of the BED sets
+      bedset_means:
+        type: object
+        description: Mean statistics of the BED files in this BED set
+      bedset_standard_deviation:
+        type: object
+        description: Standard deviations of statistics of the BED files in this BED set
+      region_commonality:
+        $ref: "#/$defs/image"
+        label: Region_commonality
+        description: Region commonality plot
+      processed:
+        type: boolean
+        label: BED_set_status
+        description: whether the BED set stats/plot are completed
+
+
+$defs:
+  image:
     type: object
-    description: Mean statistics of the BED files in this BED set
-  bedset_standard_deviation:
-    type: object
-    description: Standard deviations of statistics of the BED files in this BED set
-  region_commonality:
-    type: image
-    label: Region_commonality
-    description: Region commonality plot
-  processed:
-    type: boolean
-    label: BED_set_status
-    description: whether the BED set stats/plot are completed
+    object_type: image
+    properties:
+      path:
+        type: string
+      thumbnail_path:
+        type: string
+      title:
+        type: string
+    required:
+      - path
+      - thumbnail_path
+      - title

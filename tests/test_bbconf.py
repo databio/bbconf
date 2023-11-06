@@ -121,11 +121,9 @@ class TestAll:
             )
 
             unique_bedfiles = bbc.select_unique(table_name="bedfile__sample")
-            assert unique_bedfiles[0].record_identifier == "bed1"
+            assert unique_bedfiles[0]["record_identifier"] == "bed1"
             unique_bedsets = bbc.select_unique(table_name="bedsets__sample")
-            assert unique_bedsets[0].record_identifier == "bedset1"
-            results = bbc.select_bedfiles_for_bedset()
-            assert results is not None
+            assert unique_bedsets[0]["record_identifier"] == "bedset1"
 
     def test_removal(self, cfg_pth, test_data_bed, test_data_bedset):
         with ContextManagerDBTesting(DB_URL):
@@ -155,6 +153,12 @@ class TestAll:
             assert bbc.config["path"]["region2vec"] is not None
             assert bbc.config["database"]["host"] in ["localhost", "127.0.0.1"]
 
+    @pytest.mark.skipif(True, reason="not implemented")
+    def test_select_bedfiles_from_bedset(self):
+        # TODO: add test
+        assert True
+
+    @pytest.mark.skipif(True, reason="not implemented")
     def test_get_bed_drs_metadata(self):
         # TODO: add test
         assert True

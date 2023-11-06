@@ -1,7 +1,7 @@
 database:
-  name: postgres
+  name: pipestat-test
   user: postgres
-  password: bedbasepassword
+  password: dockerpassword
   host: localhost
   dialect: postgresql
   driver: psycopg2
@@ -21,9 +21,17 @@ qdrant:
   api_key: None
   collection: bedbase
 remotes:
-  http:
+  https:
     prefix: https://data2.bedbase.org/
     description: HTTP compatible path
   s3:
     prefix: s3://data2.bedbase.org/
+    description: S3 compatible path
+
+access_methods:
+  https:
+    server_url: https://data2.bedbase.org/
+    description: HTTP compatible path
+  s3:
+    server_url: s3://data2.bedbase.org/
     description: S3 compatible path
