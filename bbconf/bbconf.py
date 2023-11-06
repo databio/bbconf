@@ -609,7 +609,10 @@ class BedBaseConf:
         #     access_id=access_id,
         # )
         # return access_url
-        return os.path.join(self.config[CFG_ACCESS_METHOD_KEY][access_id]["server_url"], self.bed.retrieve(object_id)["bedfile"]["path"])
+        return os.path.join(
+            self.config[CFG_ACCESS_METHOD_KEY][access_id]["server_url"],
+            self.bed.retrieve(object_id)["bedfile"]["path"],
+        )
 
     def get_bed_drs_metadata(self, object_id: str) -> DRSModel:
         """
