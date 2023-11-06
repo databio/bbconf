@@ -611,7 +611,7 @@ class BedBaseConf:
         # return access_url
         return os.path.join(self.config[CFG_ACCESS_METHOD_KEY][access_id]["server_url"], self.bed.retrieve(object_id)["bedfile"]["path"])
 
-    def get_bed_drs_metadata(self, object_id: str) -> DRSModel:
+    def get_bed_drs_metadata(self, object_id: str, base_uri: str) -> DRSModel:
         """
         Get DRS metadata for a bed file
 
@@ -633,6 +633,7 @@ class BedBaseConf:
 
         drs_dict = DRSModel(
             id=object_id,
+            self_uri=f"drs://{base_uri}/{object_id}",
             size=bed_metadata["bedfile"]["size"],
             created_time=bed_metadata["pipestat_created_time"],
             updated_time=bed_metadata["pipestat_modified_time"],
