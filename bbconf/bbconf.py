@@ -462,7 +462,7 @@ class BedBaseConf:
                 f"Incorrect table name provided {table_name}"
             )
 
-        return [i for n, i in enumerate(values) if i not in values[n + 1:]]
+        return [i for n, i in enumerate(values) if i not in values[n + 1 :]]
 
     @property
     def BedfileORM(self) -> SQLModel:
