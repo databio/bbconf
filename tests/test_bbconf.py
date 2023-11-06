@@ -155,6 +155,13 @@ class TestAll:
             assert bbc.config["path"]["region2vec"] is not None
             assert bbc.config["database"]["host"] in ["localhost", "127.0.0.1"]
 
+    @pytest.mark.skipif(True, reason="not implemented")
+    def test_select_bedfiles_from_bedset(self):
+        # TODO: add test
+        assert True
+
+
+    @pytest.mark.skipif(True, reason="not implemented")
     def test_get_bed_drs_metadata(self):
         # TODO: add test
         assert True

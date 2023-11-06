@@ -1,6 +1,5 @@
 yacman>=0.9.1
-pipestat>=0.6.0a2
-#pipestat @ git+https://github.com/pepkit/pipestat@dev#egg=pipestat
+pipestat>=0.6.0a3
 sqlalchemy<2.0.0
 qdrant_client
 # geniml

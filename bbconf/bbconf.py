@@ -298,12 +298,12 @@ class BedBaseConf:
             __tablename__ = BEDFILE_BEDSET_ASSOCIATION_TABLE_KEY
             bedfile_id: Optional[int] = Field(
                 default=None,
-                foreign_key=f"{self.bed.pipeline_name}__sample.id",
+                foreign_key=f"{self.bed.cfg['pipeline_name']}__sample.id",
                 primary_key=True,
             )
             bedset_id: Optional[int] = Field(
                 default=None,
-                foreign_key=f"{self.bedset.pipeline_name}__sample.id",
+                foreign_key=f"{self.bedset.cfg['pipeline_name']}__sample.id",
                 primary_key=True,
             )
 
@@ -442,26 +442,27 @@ class BedBaseConf:
     #
     #     return bed_names
 
-    def select_unique(self, table_name: str, column: str = None) -> list:
+    def select_unique(self, table_name: str, column: str = None) -> List[dict]:
         """
         Select unique value in given column and table
 
         :param str table_name: table to query in
         :param str column: column to include in the result
-        :return list[psycopg2.extras.DictRow]: unique entries in the column
+        :return list[dict]: unique entries in the column
         """
 
         if table_name == "bedfile__sample":
             with self.bed.backend.session:
-                values = self.bed.backend.select(columns=column)
+                values = self.bed.backend.select_records(columns=column)["records"]
         elif table_name == "bedsets__sample":
             with self.bedset.backend.session:
-                values = self.bedset.backend.select(columns=column)
+                values = self.bedset.backend.select_records(columns=column)["records"]
         else:
             raise pipestat.exceptions.SchemaError(
                 f"Incorrect table name provided {table_name}"
             )
-        return [i for n, i in enumerate(values) if i not in values[n + 1 :]]
+
+        return [i for n, i in enumerate(values) if i not in values[n + 1:]]
 
     @property
     def BedfileORM(self) -> SQLModel:
