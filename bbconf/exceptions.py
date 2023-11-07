@@ -4,10 +4,11 @@ from .const import DOC_URL
 
 class BedBaseConfError(Exception):
     """Base exception type for this package"""
-
     __metaclass__ = abc.ABCMeta
 
-
+class IncorrectAccessMethodError(BedBaseConfError):
+    """Access ID is not well defined"""
+    pass
 class MissingConfigDataError(BedBaseConfError):
     """Exception for invalid config file."""
 
@@ -16,8 +17,10 @@ class MissingConfigDataError(BedBaseConfError):
         suggest = "For config format documentation please see: " + DOC_URL
         super(MissingConfigDataError, self).__init__(msg + spacing + suggest)
 
-
 class BedBaseConnectionError(BedBaseConfError):
     """Error type for DB connection problems"""
+    pass
 
+class MissingThumbnailError(BedBaseConfError):
+    """Error type for missing thumbnail"""
     pass

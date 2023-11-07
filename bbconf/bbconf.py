@@ -39,7 +39,7 @@ from bbconf.const import (
     DRS_ACCESS_URL,
     CFG_ACCESS_METHOD_KEY,
 )
-from bbconf.exceptions import MissingConfigDataError, BedBaseConfError
+from bbconf.exceptions import *
 from bbconf.helpers import raise_missing_key, get_bedbase_cfg
 from bbconf.models import DRSModel, AccessMethod, AccessURL
 
@@ -566,49 +566,92 @@ class BedBaseConf:
         :param access_id: access method name
         :return: full uri path
         """
-        prefix = self.config[CFG_ACCESS_METHOD_KEY][access_id]["prefix"]
-        return os.path.join(prefix, postfix)
+        
+        try: 
+            prefix = self.config[CFG_ACCESS_METHOD_KEY][access_id]["prefix"]
+            return os.path.join(prefix, postfix)
+        except KeyError:
+            _LOGGER.error(f"Access method {access_id} is not defined.")
+            raise IncorrectAccessMethodError(
+                f"Access method {access_id} is not defined."
+            )
 
-    def get_object_uri(
+    def get_thumbnail_uri(
+        self,
         record_type: str,
         record_id: str,
         result_id: str,
         access_id: str
     ):
+        try:
+            result = self.get_result(record_type, record_id, result_id)
+            return self.get_prefixed_uri(result["thumbnail_path"], "http")
+        except KeyError:
+            _LOGGER.error(f"Thumbnail for {record_type} {record_id} {result_id} is not defined.")
+            raise MissingThumbnailError(
+                f"Thumbnail for {record_type} {record_id} {result_id} is not defined."
+            )
+
+
+    def get_result(self, record_type: str, record_id: str, result_id: str):
         if record_type == "bed":
-            result = bbc.bed.retrieve_one(record_id, result_id)
+            result = self.bed.retrieve_one(record_id, result_id)
+            # schema = self.bed.schema.original_schema
+            schema = self.bed.schema._sample_level_data[result_id]
         elif record_type == "bedset":
-            result = bbc.bedset.retrieve_one(record_id, result_id)
+            result = self.bedset.retrieve_one(record_id, result_id)
+        
+        result_type = schema.get("object_type", schema["type"])
+        _LOGGER.info(f"Getting uri for {record_type} {record_id} {result_id}")
+        _LOGGER.info(f"Result type: {result_type}")
+        _LOGGER.info(f"Result: {result}")
+        return result
+
+    def get_object_uri(
+        self,
+        record_type: str,
+        record_id: str,
+        result_id: str,
+        access_id: str
+    ):
+        result = self.get_result(record_type, record_id, result_id)
         return self.get_prefixed_uri(result["path"], access_id)
 
     
-    def get_drs_metadata(self, record_id: str, result_id: str, base_uri: str) -> DRSModel:
+    def get_drs_metadata(self, record_type: str, record_id: str, result_id: str, base_uri: str) -> DRSModel:
         """
-        Get DRS metadata for a bed file
+        Get DRS metadata for a bed- or bedset-associated file
 
-        :param object_id: record identifier
+        :param record_type: bed or bedset
+        :param record_id: record identifier
+        :param result_id: name of the result file to get metadata for
+        :param base_uri: base uri to use for the self_uri field (server hostname of DRS broker)
         :return: DRS metadata
         """
 
-        bed_metadata = self.bed.retrieve_one(record_id)
+        if record_type == "bed":
+            record_metadata = self.bed.retrieve_one(record_id)
+        elif record_type == "bedset":
+            record_metadata = self.bedset.retrieve_one(record_id)
+        _LOGGER.info(f"DRS Metadata for {record_type} {record_id} {result_id}: {record_metadata}")
         access_methods = []
+        object_id = f"{record_type}.{record_id}.{result_id}"
         for access_id in self.config[CFG_ACCESS_METHOD_KEY].keys():
             access_dict = AccessMethod(
                 type=access_id,
                 access_id=access_id,
-                access_url=AccessURL(url=self.get_object_uri(record_type="bed", record_id, result_id, access_id)),
+                access_url=AccessURL(url=self.get_object_uri(record_type, record_id, result_id, access_id)),
                 region=self.config[CFG_ACCESS_METHOD_KEY][access_id].get(
                     "region", None
                 ),
             )
             access_methods.append(access_dict)
-
         drs_dict = DRSModel(
             id=object_id,
             self_uri=f"drs://{base_uri}/{object_id}",
-            size=bed_metadata[result_id]["size"],
-            created_time=bed_metadata["pipestat_created_time"],
-            updated_time=bed_metadata["pipestat_modified_time"],
+            size=record_metadata[result_id].get("size", "unknown"),
+            created_time=record_metadata["pipestat_created_time"],
+            updated_time=record_metadata["pipestat_modified_time"],
             checksums=object_id,
             access_methods=access_methods,
         )
