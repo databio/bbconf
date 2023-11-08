@@ -6,7 +6,7 @@ class BedBaseConfError(Exception):
     """Base exception type for this package"""
     __metaclass__ = abc.ABCMeta
 
-class IncorrectAccessMethodError(BedBaseConfError):
+class BadAccessMethodError(BedBaseConfError):
     """Access ID is not well defined"""
     pass
 class MissingConfigDataError(BedBaseConfError):
@@ -23,4 +23,8 @@ class BedBaseConnectionError(BedBaseConfError):
 
 class MissingThumbnailError(BedBaseConfError):
     """Error type for missing thumbnail"""
+    pass
+
+class MissingObjectError(BedBaseConfError):
+    """Error type for missing object"""
     pass
