@@ -557,7 +557,6 @@ class BedBaseConf:
         )
         return None
 
-
     def get_prefixed_uri(self, postfix: str, access_id: str) -> str:
         """
         Return uri with correct prefix (schema)
@@ -566,28 +565,24 @@ class BedBaseConf:
         :param access_id: access method name
         :return: full uri path
         """
-        
-        try: 
+
+        try:
             prefix = self.config[CFG_ACCESS_METHOD_KEY][access_id]["prefix"]
             return os.path.join(prefix, postfix)
         except KeyError:
             _LOGGER.error(f"Access method {access_id} is not defined.")
-            raise BadAccessMethodError(
-                f"Access method {access_id} is not defined."
-            )
+            raise BadAccessMethodError(f"Access method {access_id} is not defined.")
 
     def get_thumbnail_uri(
-        self,
-        record_type: str,
-        record_id: str,
-        result_id: str,
-        access_id: str
+        self, record_type: str, record_id: str, result_id: str, access_id: str
     ):
         try:
             result = self.get_result(record_type, record_id, result_id)
             return self.get_prefixed_uri(result["thumbnail_path"], "http")
         except KeyError:
-            _LOGGER.error(f"Thumbnail for {record_type} {record_id} {result_id} is not defined.")
+            _LOGGER.error(
+                f"Thumbnail for {record_type} {record_id} {result_id} is not defined."
+            )
             raise MissingThumbnailError(
                 f"Thumbnail for {record_type} {record_id} {result_id} is not defined."
             )
@@ -601,7 +596,7 @@ class BedBaseConf:
     ):
         result = self.get_result(record_type, record_id, result_id)
         return self.get_prefixed_uri(result["path"], access_id)
-    
+
     def get_result(self, record_type: str, record_id: str, result_id: str):
         """
         Generic getter that can return a result from either bed or bedset
@@ -612,14 +607,16 @@ class BedBaseConf:
             # schema = self.bed.schema._sample_level_data[result_id]
         elif record_type == "bedset":
             result = self.bedset.retrieve_one(record_id, result_id)
-        
+
         # result_type = schema.get("object_type", schema["type"])
         _LOGGER.info(f"Getting uri for {record_type} {record_id} {result_id}")
         # _LOGGER.info(f"Result type: {result_type}")
         _LOGGER.info(f"Result: {result}")
         return result
-   
-    def get_drs_metadata(self, record_type: str, record_id: str, result_id: str, base_uri: str) -> DRSModel:
+
+    def get_drs_metadata(
+        self, record_type: str, record_id: str, result_id: str, base_uri: str
+    ) -> DRSModel:
         """
         Get DRS metadata for a bed- or bedset-associated file
 
@@ -632,11 +629,16 @@ class BedBaseConf:
         access_methods = []
         object_id = f"{record_type}.{record_id}.{result_id}"
         result_ids = [result_id, "pipestat_created_time", "pipestat_modified_time"]
-        record_metadata = self.get_result(record_type, record_id, result_ids)  # only get result once
+        record_metadata = self.get_result(
+            record_type, record_id, result_ids
+        )  # only get result once
         if record_metadata == None:
             raise RecordNotFoundError("This record does not exist")
-        
-        if record_metadata[result_id] == None or record_metadata[result_id]["path"] == None:
+
+        if (
+            record_metadata[result_id] == None
+            or record_metadata[result_id]["path"] == None
+        ):
             raise MissingObjectError("This object does not exist")
 
         path = record_metadata[result_id]["path"]
