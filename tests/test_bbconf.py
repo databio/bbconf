@@ -7,6 +7,7 @@ from sqlmodel import SQLModel, create_engine
 from sqlmodel.main import default_registry
 import os
 import warnings
+import sqlalchemy
 
 from bbconf import BedBaseConf, get_bedbase_cfg
 from bbconf.exceptions import MissingConfigDataError
@@ -21,7 +22,7 @@ def db_setup():
     # Check if the database is setup
     try:
         BedBaseConf(os.path.join(DATA_PATH, "config.yaml"))
-    except Exception:
+    except sqlalchemy.exc.OperationalError:
         warnings.warn(UserWarning(f"{pytest_db_skip_reason}"))
         return False
     return True
@@ -153,10 +154,33 @@ class TestAll:
             assert bbc.config["path"]["region2vec"] is not None
             assert bbc.config["database"]["host"] in ["localhost", "127.0.0.1"]
 
-    @pytest.mark.skipif(True, reason="not implemented")
-    def test_select_bedfiles_from_bedset(self):
-        # TODO: add test
-        assert True
+    def test_select_bedfiles_from_bedset(
+        self, cfg_pth, test_data_bed, test_data_bedset
+    ):
+        with ContextManagerDBTesting(DB_URL):
+            bbc = BedBaseConf(get_bedbase_cfg(cfg=cfg_pth))
+            bbc.bed.report(record_identifier="bed1", values=test_data_bed)
+            bbc.bedset.report(record_identifier="bedset1", values=test_data_bedset)
+            bbc.report_relationship(
+                bedfile_record_id="bed1", bedset_record_id="bedset1"
+            )
+            result = bbc.select_bedfiles_from_bedset(bedset_record_id="bedset1")
+        assert result[0]["record_identifier"] == "bed1"
+
+    def test_select_bedfiles_from_bedset_with_metadata(
+        self, cfg_pth, test_data_bed, test_data_bedset
+    ):
+        with ContextManagerDBTesting(DB_URL):
+            bbc = BedBaseConf(get_bedbase_cfg(cfg=cfg_pth))
+            bbc.bed.report(record_identifier="bed1", values=test_data_bed)
+            bbc.bedset.report(record_identifier="bedset1", values=test_data_bedset)
+            bbc.report_relationship(
+                bedfile_record_id="bed1", bedset_record_id="bedset1"
+            )
+            result = bbc.select_bedfiles_from_bedset(
+                bedset_record_id="bedset1", metadata=True
+            )
+        assert result[0]["name"] == "test_string"
 
     @pytest.mark.skipif(True, reason="not implemented")
     def test_get_bed_drs_metadata(self):

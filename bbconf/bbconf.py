@@ -1,10 +1,11 @@
 import os
 from logging import getLogger
-from typing import List, Optional, Tuple, Union
+from typing import List, Optional, Tuple, Union, Literal
 from textwrap import indent
 
 import yacman
 import pipestat
+from pipestat.exceptions import RecordNotFoundError
 
 from sqlmodel import SQLModel, Field, select
 import qdrant_client
@@ -36,10 +37,15 @@ from bbconf.const import (
     DEFAULT_HF_MODEL,
     DEFAULT_VEC2VEC_MODEL,
     DEFAULT_REGION2_VEC_MODEL,
-    DRS_ACCESS_URL,
     CFG_ACCESS_METHOD_KEY,
 )
-from bbconf.exceptions import *
+from bbconf.exceptions import (
+    BedBaseConfError,
+    MissingConfigDataError,
+    MissingThumbnailError,
+    MissingObjectError,
+    BadAccessMethodError,
+)
 from bbconf.helpers import raise_missing_key, get_bedbase_cfg
 from bbconf.models import DRSModel, AccessMethod, AccessURL
 
@@ -408,39 +414,35 @@ class BedBaseConf:
             s.add(bedset)
             s.commit()
 
-    # TODO: should this function be at this format? Do we want to get all the bedfiles for a bedset?
-    # def select_bedfiles_from_bedset(
-    #     self,
-    #     filter_conditions: Optional[List[Tuple[str, str, Union[str, List[str]]]]] = [],
-    #     json_filter_conditions: Optional[List[Tuple[str, str, str]]] = [],
-    #     bedfile_cols: Optional[List[str]] = None,
-    # ) -> list:
-    #     """
-    #     Select bedfiles that are part of a bedset that matches the query
-    #
-    #     :param List[str] filter_conditions:  table query to restrict the results with
-    #     :param Union[List[str], str] bedfile_cols: bedfile columns to include in the
-    #         result, if none specified all columns will be included
-    #     :return: matched bedfiles table contents
-    #     """
-    #     cols = (
-    #         [getattr(self.BedfileORM, bedfile_col) for bedfile_col in bedfile_cols]
-    #         if bedfile_cols is not None
-    #         else self.BedfileORM.__table__.columns
-    #     )
-    #     with self.bed.backend.session as session:
-    #         statement = session.query(*cols).join(
-    #             self.BedfileORM, self.BedsetORM.bedfiles
-    #         )
-    #         statement = dynamic_filter(
-    #             ORM=self.BedsetORM,
-    #             statement=statement,
-    #             filter_conditions=filter_conditions,
-    #             json_filter_conditions=json_filter_conditions,
-    #         )
-    #         bed_names = statement.all()
-    #
-    #     return bed_names
+    def select_bedfiles_from_bedset(
+        self,
+        bedset_record_id: str,
+        metadata: bool = False,
+    ) -> List[dict]:
+        """
+        Select bedfiles that are part of a bedset that matches the query
+
+        :param: bedset_record_id: record identifier of the bedset to query
+        :param: metadata: whether to include metadata in the result
+        :return: matched bedfiles table contents
+        """
+        if metadata:
+            with self.bed.backend.session as session:
+                statement = select(self.BedsetORM).where(
+                    self.BedsetORM.record_identifier == bedset_record_id
+                )
+                results = session.exec(statement).one().bedfiles
+            bedfile_list = [bedfile.dict() for bedfile in results]
+        else:
+            with self.bed.backend.session as session:
+                statement = select(self.BedfileORM.record_identifier).where(
+                    self.BedsetORM.record_identifier == bedset_record_id
+                )
+                bedfile_list = session.exec(statement).all()
+            bedfile_list = [
+                {"record_identifier": bedset_id} for bedset_id in bedfile_list
+            ]
+        return bedfile_list
 
     def select_unique(self, table_name: str, column: str = None) -> List[dict]:
         """
@@ -500,7 +502,7 @@ class BedBaseConf:
             qdrant_port=self._config[CFG_QDRANT_KEY][CFG_QDRANT_PORT_KEY],
         )
 
-    def _create_t2bsi_object(self) -> text2bednn.Text2BEDSearchInterface:
+    def _create_t2bsi_object(self) -> Union[text2bednn.Text2BEDSearchInterface, None]:
         """
         Create Text 2 BED search interface and return this object
         :return: Text2BEDSearchInterface object
@@ -508,7 +510,9 @@ class BedBaseConf:
 
         try:
             return text2bednn.Text2BEDSearchInterface(
-                nl2vec_model=SentenceTransformer(os.getenv("HF_MODEL", DEFAULT_HF_MODEL)),
+                nl2vec_model=SentenceTransformer(
+                    os.getenv("HF_MODEL", DEFAULT_HF_MODEL)
+                ),
                 vec2vec_model=self._config[CFG_PATH_KEY][CFG_PATH_VEC2VEC_KEY],
                 search_backend=self.qdrant_backend,
             )
@@ -578,8 +582,20 @@ class BedBaseConf:
             raise BadAccessMethodError(f"Access method {access_id} is not defined.")
 
     def get_thumbnail_uri(
-        self, record_type: str, record_id: str, result_id: str, access_id: str
-    ):
+        self,
+        record_type: Literal["bed", "bedset"],
+        record_id: str,
+        result_id: str,
+    ) -> str:
+        """
+        Create URL to access a bed- or bedset-associated thumbnail
+
+        :param record_type: table_name ["bed", "bedset"]
+        :param record_id: record identifier
+        :param result_id: column name (result name)
+        :return: string with thumbnail
+        """
+
         try:
             result = self.get_result(record_type, record_id, result_id)
             return self.get_prefixed_uri(result["thumbnail_path"], "http")
@@ -593,28 +609,47 @@ class BedBaseConf:
 
     def get_object_uri(
         self,
-        record_type: str,
+        record_type: Literal["bed", "bedset"],
         record_id: str,
         result_id: str,
         access_id: str,
-    ):
+    ) -> str:
+        """
+        Create URL to access a bed- or bedset-associated file
+
+        :param record_type: table_name ["bed", "bedset"]
+        :param record_id: record identifier
+        :param result_id: column name (result name)
+        :param access_id: access id (e.g. http, s3, etc.)
+        :return:
+        """
         result = self.get_result(record_type, record_id, result_id)
         return self.get_prefixed_uri(result["path"], access_id)
 
-    def get_result(self, record_type: str, record_id: str, result_id: str):
+    def get_result(
+        self,
+        record_type: Literal["bed", "bedset"],
+        record_id: str,
+        result_id: Union[str, List[str]],
+    ) -> dict:
         """
         Generic getter that can return a result from either bed or bedset
+
+        :param record_type: table_name ["bed", "bedset"]
+        :param record_id: record identifier
+        :param result_id: column name (result name)
+        :return: pipestat result
         """
         if record_type == "bed":
             result = self.bed.retrieve_one(record_id, result_id)
-            # schema = self.bed.schema.original_schema
-            # schema = self.bed.schema._sample_level_data[result_id]
         elif record_type == "bedset":
             result = self.bedset.retrieve_one(record_id, result_id)
+        else:
+            raise BedBaseConfError(
+                f"Record type {record_type} is not supported. Only bed and bedset are supported."
+            )
 
-        # result_type = schema.get("object_type", schema["type"])
         _LOGGER.info(f"Getting uri for {record_type} {record_id} {result_id}")
-        # _LOGGER.info(f"Result type: {result_type}")
         _LOGGER.info(f"Result: {result}")
         return result
 
@@ -630,19 +665,17 @@ class BedBaseConf:
         :param base_uri: base uri to use for the self_uri field (server hostname of DRS broker)
         :return: DRS metadata
         """
+
         access_methods = []
         object_id = f"{record_type}.{record_id}.{result_id}"
         result_ids = [result_id, "pipestat_created_time", "pipestat_modified_time"]
         record_metadata = self.get_result(
             record_type, record_id, result_ids
         )  # only get result once
-        if record_metadata == None:
+        if not record_metadata:
             raise RecordNotFoundError("This record does not exist")
 
-        if (
-            record_metadata[result_id] == None
-            or record_metadata[result_id]["path"] == None
-        ):
+        if not record_metadata[result_id] or not record_metadata[result_id]["path"]:
             raise MissingObjectError("This object does not exist")
 
         path = record_metadata[result_id]["path"]
