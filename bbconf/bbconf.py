@@ -182,7 +182,7 @@ class BedBaseConf:
         """
         if self._t2bsi is None:
             raise BedBaseConfError(
-                "Can't perform search, qdrant_db credentials are not provided in config file"
+                "Can't perform search, ensure qdrant_db credentials in config file"
             )
         return self._t2bsi.nl_vec_search(query)
 
@@ -506,11 +506,15 @@ class BedBaseConf:
         :return: Text2BEDSearchInterface object
         """
 
-        return text2bednn.Text2BEDSearchInterface(
-            nl2vec_model=SentenceTransformer(os.getenv("HF_MODEL", DEFAULT_HF_MODEL)),
-            vec2vec_model=self._config[CFG_PATH_KEY][CFG_PATH_VEC2VEC_KEY],
-            search_backend=self.qdrant_backend,
-        )
+        try:
+            return text2bednn.Text2BEDSearchInterface(
+                nl2vec_model=SentenceTransformer(os.getenv("HF_MODEL", DEFAULT_HF_MODEL)),
+                vec2vec_model=self._config[CFG_PATH_KEY][CFG_PATH_VEC2VEC_KEY],
+                search_backend=self.qdrant_backend,
+            )
+        except Exception as e:
+            _LOGGER.error("Error in creating Text2BEDSearchInterface object: " + str(e))
+            return None
 
     def add_bed_to_qdrant(
         self,
