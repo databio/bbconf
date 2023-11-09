@@ -1,5 +1,6 @@
 yacman>=0.9.1
-pipestat[db-backend]>=0.6.0a3
+pipestat>=0.6.0a5
+sqlmodel  # can be removed when pipestat[dbbackend] works
 sqlalchemy<2.0.0
 qdrant_client
 # geniml
