@@ -52,7 +52,7 @@ from bbconf.models import DRSModel, AccessMethod, AccessURL
 # os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"  # to suppress verbose warnings tensorflow
 from geniml.text2bednn import text2bednn
 from geniml.search import QdrantBackend
-from sentence_transformers import SentenceTransformer
+from fastembed.embedding import FlagEmbedding
 from geniml.region2vec import Region2VecExModel
 from geniml.io import RegionSet
 
@@ -510,8 +510,8 @@ class BedBaseConf:
 
         try:
             return text2bednn.Text2BEDSearchInterface(
-                nl2vec_model=SentenceTransformer(
-                    os.getenv("HF_MODEL", DEFAULT_HF_MODEL)
+                nl2vec_model=FlagEmbedding(
+                    model_name=os.getenv("HF_MODEL", DEFAULT_HF_MODEL)
                 ),
                 vec2vec_model=self._config[CFG_PATH_KEY][CFG_PATH_VEC2VEC_KEY],
                 search_backend=self.qdrant_backend,
