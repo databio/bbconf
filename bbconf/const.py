@@ -35,6 +35,7 @@ CFG_PATH_BEDBUNCHER_DIR_KEY = "bedbuncher_dir"
 CFG_PATH_PIPELINE_OUTPUT_KEY = "pipeline_output_path"
 CFG_PATH_REGION2VEC_KEY = "region2vec"
 CFG_PATH_VEC2VEC_KEY = "vec2vec"
+CFG_PATH_SENTENCE2VEC_KEY = "sentence2vec"
 
 
 CFG_DATABASE_KEY = "database"
@@ -94,7 +95,7 @@ DEFAULT_SECTION_VALUES = {
     },
 }
 
-DEFAULT_HF_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
+DEFAULT_SENTENCE2VEC_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 DEFAULT_VEC2VEC_MODEL = "databio/v2v-MiniLM-v2-ATAC-hg38"
 DEFAULT_REGION2_VEC_MODEL = "databio/r2v-ChIP-atlas-hg38"
 

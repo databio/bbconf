@@ -4,8 +4,8 @@ from typing import List, Optional, Tuple, Union, Literal
 from textwrap import indent
 
 import yacman
-import pipestat
-from pipestat.exceptions import RecordNotFoundError
+from pipestat import PipestatManager
+from pipestat.exceptions import RecordNotFoundError, SchemaError
 
 from sqlmodel import SQLModel, Field, select
 import qdrant_client
@@ -17,6 +17,7 @@ from bbconf.const import (
     CFG_PATH_KEY,
     CFG_PATH_PIPELINE_OUTPUT_KEY,
     CFG_PATH_BEDSTAT_DIR_KEY,
+    CFG_PATH_SENTENCE2VEC_KEY,
     DEFAULT_SECTION_VALUES,
     CFG_PATH_BEDBUNCHER_DIR_KEY,
     BED_TABLE,
@@ -34,7 +35,7 @@ from bbconf.const import (
     CFG_QDRANT_API_KEY,
     CFG_QDRANT_HOST_KEY,
     CFG_QDRANT_COLLECTION_NAME_KEY,
-    DEFAULT_HF_MODEL,
+    DEFAULT_SENTENCE2VEC_MODEL,
     DEFAULT_VEC2VEC_MODEL,
     DEFAULT_REGION2_VEC_MODEL,
     CFG_ACCESS_METHOD_KEY,
@@ -49,7 +50,6 @@ from bbconf.exceptions import (
 from bbconf.helpers import raise_missing_key, get_bedbase_cfg
 from bbconf.models import DRSModel, AccessMethod, AccessURL
 
-# os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"  # to suppress verbose warnings tensorflow
 from geniml.text2bednn import text2bednn
 from geniml.search import QdrantBackend
 from fastembed.embedding import FlagEmbedding
@@ -85,12 +85,12 @@ class BedBaseConf:
         # Create Pipestat objects and tables if they do not exist
         _LOGGER.debug("Creating pipestat objects...")
         self.__pipestats = {
-            BED_TABLE: pipestat.PipestatManager(
+            BED_TABLE: PipestatManager(
                 config_file=cfg_path,
                 schema_path=BED_TABLE_SCHEMA,
                 database_only=database_only,
             ),
-            BEDSET_TABLE: pipestat.PipestatManager(
+            BEDSET_TABLE: PipestatManager(
                 config_file=cfg_path,
                 schema_path=BEDSET_TABLE_SCHEMA,
                 database_only=database_only,
@@ -102,6 +102,9 @@ class BedBaseConf:
         # setup t2bsi object
         self._t2bsi = None
         try:
+            self._senta2vec_hg_model_name = self.config[CFG_PATH_KEY].get(
+                CFG_PATH_SENTENCE2VEC_KEY, DEFAULT_SENTENCE2VEC_MODEL
+            )
             _LOGGER.debug("Setting up qdrant database connection...")
             if self.config[CFG_QDRANT_KEY].get(CFG_QDRANT_API_KEY, None):
                 os.environ["QDRANT_API_KEY"] = self.config[CFG_QDRANT_KEY].get(
@@ -125,7 +128,7 @@ class BedBaseConf:
         except qdrant_client.http.exceptions.ResponseHandlingException as err:
             _LOGGER.error(f"error in Connection to qdrant! skipping... Error: {err}")
 
-    def _read_config_file(self, config_path: str) -> yacman.YAMLConfigManager:
+    def _read_config_file(self, config_path: str) -> dict:
         """
         Read configuration file and insert default values if not set
 
@@ -218,7 +221,7 @@ class BedBaseConf:
         return self._config
 
     @property
-    def bed(self) -> pipestat.PipestatManager:
+    def bed(self) -> PipestatManager:
         """
         PipestatManager of the bedfiles table
 
@@ -227,7 +230,7 @@ class BedBaseConf:
         return self.__pipestats[BED_TABLE]
 
     @property
-    def bedset(self) -> pipestat.PipestatManager:
+    def bedset(self) -> PipestatManager:
         """
         PipestatManager of the bedsets table
 
@@ -460,9 +463,7 @@ class BedBaseConf:
             with self.bedset.backend.session:
                 values = self.bedset.backend.select_records(columns=column)["records"]
         else:
-            raise pipestat.exceptions.SchemaError(
-                f"Incorrect table name provided {table_name}"
-            )
+            raise SchemaError(f"Incorrect table name provided {table_name}")
 
         return [i for n, i in enumerate(values) if i not in values[n + 1 :]]
 
@@ -510,9 +511,7 @@ class BedBaseConf:
 
         try:
             return text2bednn.Text2BEDSearchInterface(
-                nl2vec_model=FlagEmbedding(
-                    model_name=os.getenv("HF_MODEL", DEFAULT_HF_MODEL)
-                ),
+                nl2vec_model=FlagEmbedding(model_name=self._senta2vec_hg_model_name),
                 vec2vec_model=self._config[CFG_PATH_KEY][CFG_PATH_VEC2VEC_KEY],
                 search_backend=self.qdrant_backend,
             )
@@ -654,7 +653,11 @@ class BedBaseConf:
         return result
 
     def get_drs_metadata(
-        self, record_type: str, record_id: str, result_id: str, base_uri: str
+        self,
+        record_type: Literal["bed", "bedset"],
+        record_id: str,
+        result_id: str,
+        base_uri: str,
     ) -> DRSModel:
         """
         Get DRS metadata for a bed- or bedset-associated file
@@ -700,4 +703,3 @@ class BedBaseConf:
         )
 
         return drs_dict
-        
