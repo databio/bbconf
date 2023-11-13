@@ -17,7 +17,7 @@ from bbconf.const import (
     CFG_PATH_KEY,
     CFG_PATH_PIPELINE_OUTPUT_KEY,
     CFG_PATH_BEDSTAT_DIR_KEY,
-    CFG_PATH_SENTENCE2VEC_KEY,
+    CFG_PATH_TEXT2VEC_KEY,
     DEFAULT_SECTION_VALUES,
     CFG_PATH_BEDBUNCHER_DIR_KEY,
     BED_TABLE,
@@ -35,7 +35,7 @@ from bbconf.const import (
     CFG_QDRANT_API_KEY,
     CFG_QDRANT_HOST_KEY,
     CFG_QDRANT_COLLECTION_NAME_KEY,
-    DEFAULT_SENTENCE2VEC_MODEL,
+    DEFAULT_TEXT2VEC_MODEL,
     DEFAULT_VEC2VEC_MODEL,
     DEFAULT_REGION2_VEC_MODEL,
     CFG_ACCESS_METHOD_KEY,
@@ -103,7 +103,7 @@ class BedBaseConf:
         self._t2bsi = None
         try:
             self._senta2vec_hg_model_name = self.config[CFG_PATH_KEY].get(
-                CFG_PATH_SENTENCE2VEC_KEY, DEFAULT_SENTENCE2VEC_MODEL
+                CFG_PATH_TEXT2VEC_KEY, DEFAULT_TEXT2VEC_MODEL
             )
             _LOGGER.debug("Setting up qdrant database connection...")
             if self.config[CFG_QDRANT_KEY].get(CFG_QDRANT_API_KEY, None):
