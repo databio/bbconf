@@ -585,6 +585,7 @@ class BedBaseConf:
         record_type: Literal["bed", "bedset"],
         record_id: str,
         result_id: str,
+        access_id: str = "http"
     ) -> str:
         """
         Create URL to access a bed- or bedset-associated thumbnail
@@ -597,7 +598,7 @@ class BedBaseConf:
 
         try:
             result = self.get_result(record_type, record_id, result_id)
-            return self.get_prefixed_uri(result["thumbnail_path"], "http")
+            return self.get_prefixed_uri(result["thumbnail_path"], access_id)
         except KeyError:
             _LOGGER.error(
                 f"Thumbnail for {record_type} {record_id} {result_id} is not defined."
