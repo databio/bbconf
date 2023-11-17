@@ -552,7 +552,7 @@ class BedBaseConf:
             reg_2_vec_obj = region_to_vec
         bed_embedding = reg_2_vec_obj.encode(
             bed_region_set,
-            pool="mean",
+            pooling="mean",
         )
 
         # Upload bed file vector to the database
@@ -585,7 +585,7 @@ class BedBaseConf:
         record_type: Literal["bed", "bedset"],
         record_id: str,
         result_id: str,
-        access_id: str = "http"
+        access_id: str = "http",
     ) -> str:
         """
         Create URL to access a bed- or bedset-associated thumbnail
