@@ -19,7 +19,7 @@ BEDSET_TABLE = "bedsets__sample"
 BEDFILES_REL_KEY = "bedfiles"
 BEDSETS_REL_KEY = "bedsets"
 
-BEDFILE_BEDSET_ASSOCIATION_TABLE_KEY = "bedset_bedfiles"
+BEDFILE_BEDSET_ASSOCIATION_TABLE_KEY = "bedset_bedfiles_new"
 
 CFG_ENV_VARS = ["BEDBASE"]
 
