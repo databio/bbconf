@@ -318,6 +318,7 @@ class BedBaseConf:
 
             __table_args__ = {"extend_existing": True}
 
+        self.rel_table = BedFileBedSetAssociation
         returned_model = BedFileBedSetAssociation.__table__
 
         # this will create a relationship between bedfiles and bedsets, and will have mapping in both tables (bedfiles, bedsets)
@@ -437,14 +438,22 @@ class BedBaseConf:
                 results = session.exec(statement).one().bedfiles
             bedfile_list = [bedfile.dict() for bedfile in results]
         else:
+            # Probably we can do it in more simple way
             with self.bed.backend.session as session:
                 statement = select(self.BedfileORM.record_identifier).where(
-                    self.BedsetORM.record_identifier == bedset_record_id
+                    self.BedfileORM.id.in_(
+                        select(self.rel_table.bedfile_id).where(
+                            self.rel_table.bedset_id
+                            == select(self.BedsetORM.id).where(
+                                self.BedsetORM.record_identifier == bedset_record_id
+                            )
+                        )
+                    )
                 )
                 bedfile_list = session.exec(statement).all()
-            bedfile_list = [
-                {"record_identifier": bedset_id} for bedset_id in bedfile_list
-            ]
+                bedfile_list = [
+                    {"record_identifier": bedset_id} for bedset_id in bedfile_list
+                ]
         return bedfile_list
 
     def select_unique(self, table_name: str, column: str = None) -> List[dict]:
