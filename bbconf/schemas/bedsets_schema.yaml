@@ -32,6 +32,9 @@ properties:
         type: boolean
         label: BED_set_status
         description: whether the BED set stats/plot are completed
+      pephub_path:
+        type: string
+        description: PEPhub registry path
 
 
 $defs:
