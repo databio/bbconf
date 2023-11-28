@@ -106,11 +106,8 @@ class BedBaseConf:
                 CFG_PATH_TEXT2VEC_KEY, DEFAULT_TEXT2VEC_MODEL
             )
             _LOGGER.debug("Setting up qdrant database connection...")
-            if self.config[CFG_QDRANT_KEY].get(CFG_QDRANT_API_KEY, None):
-                os.environ["QDRANT_API_KEY"] = self.config[CFG_QDRANT_KEY].get(
-                    CFG_QDRANT_API_KEY
-                )
             self._qdrant_backend = self._init_qdrant_backend()
+
             if self.config[CFG_PATH_KEY].get(CFG_PATH_REGION2VEC_KEY) and self.config[
                 CFG_PATH_KEY
             ].get(CFG_PATH_VEC2VEC_KEY):
@@ -221,11 +218,11 @@ class BedBaseConf:
         return res
 
     @property
-    def config(self) -> yacman.YAMLConfigManager:
+    def config(self) -> dict:
         """
         Config used to initialize the object
 
-        :return yacman.YAMLConfigManager: bedbase configuration file contents
+        :return dict: bedbase configuration file contents
         """
         return self._config
 
@@ -519,6 +516,7 @@ class BedBaseConf:
             collection=self._config[CFG_QDRANT_KEY][CFG_QDRANT_COLLECTION_NAME_KEY],
             qdrant_host=self._config[CFG_QDRANT_KEY][CFG_QDRANT_HOST_KEY],
             qdrant_port=self._config[CFG_QDRANT_KEY][CFG_QDRANT_PORT_KEY],
+            qdrant_api_key=self._config[CFG_QDRANT_KEY][CFG_QDRANT_API_KEY],
         )
 
     def _create_t2bsi_object(self) -> Union[text2bednn.Text2BEDSearchInterface, None]:
