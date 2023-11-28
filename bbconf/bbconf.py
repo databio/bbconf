@@ -566,6 +566,7 @@ class BedBaseConf:
             )
         if not region_to_vec or isinstance(self.region2vec_model, str):
             reg_2_vec_obj = Region2VecExModel(self.region2vec_model)
+        else:
             reg_2_vec_obj = region_to_vec
         bed_embedding = reg_2_vec_obj.encode(
             bed_region_set,
