@@ -4,7 +4,7 @@ database:
   password: dockerpassword
   host: localhost
   dialect: postgresql
-  driver: psycopg2
+  driver: psycopg
   port: 5432
 path:
   pipeline_output_path: $BEDBASE_DATA_PATH/outputs
