@@ -1,6 +1,6 @@
 import logging
 
-from yacman.yacman1 import select_config
+from yacman import select_config
 
 from .const import CFG_ENV_VARS
 from .exceptions import MissingConfigDataError, BedBaseConnectionError
