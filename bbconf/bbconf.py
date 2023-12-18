@@ -607,6 +607,7 @@ class BedBaseConf:
         :param record_type: table_name ["bed", "bedset"]
         :param record_id: record identifier
         :param result_id: column name (result name)
+        :param access_id: access id (e.g. http, s3, etc.)
         :return: string with thumbnail
         """
 

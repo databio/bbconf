@@ -4,7 +4,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [0.4.0] - 2023-12-18
 ### Change
-- bbconf to use pipestat v0.4.1 and SQLModel
+- bbconf to use pipestat v0.6.0 and SQLModel
 - Fixed tests
 
 ### Added

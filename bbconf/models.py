@@ -18,11 +18,11 @@ class AccessMethod(BaseModel):
 
 class DRSModel(BaseModel):
     id: str
-    name: Optional[str]
+    name: Optional[str] = None
     self_uri: str
     size: str
-    created_time: Optional[datetime.datetime]
-    updated_time: Optional[datetime.datetime]
+    created_time: Optional[datetime.datetime] = None
+    updated_time: Optional[datetime.datetime] = None
     checksums: str
     access_methods: List[AccessMethod]
     description: Optional[str] = None
