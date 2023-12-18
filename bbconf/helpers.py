@@ -2,13 +2,14 @@ import logging
 
 from yacman import select_config
 
-from .const import *
-from .exceptions import *
+from .const import CFG_ENV_VARS
+from .exceptions import MissingConfigDataError, BedBaseConnectionError
+from typing import NoReturn
 
 _LOGGER = logging.getLogger(__name__)
 
 
-def get_bedbase_cfg(cfg=None):
+def get_bedbase_cfg(cfg: str = None) -> str:
     """
     Determine path to the bedbase configuration file
 
@@ -17,7 +18,7 @@ def get_bedbase_cfg(cfg=None):
 
     :param str cfg: path to the config file.
         Optional, the $BEDBASE config env var will be used if not provided
-    :return str: configuration file path
+    :return str: absolute configuration file path
     """
     selected_cfg = select_config(config_filepath=cfg, config_env_vars=CFG_ENV_VARS)
     if not selected_cfg:
@@ -26,3 +27,11 @@ def get_bedbase_cfg(cfg=None):
             f"{'or '.join(CFG_ENV_VARS)} environment variable"
         )
     return selected_cfg
+
+
+def raise_missing_key(key: str) -> NoReturn:
+    """
+    Raise missing key with message
+    """
+
+    raise MissingConfigDataError(f"Config lacks '{key}' key")

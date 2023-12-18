@@ -2,6 +2,15 @@
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) and [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) format.
 
+## [0.4.0] - 2023-12-18
+### Change
+- bbconf to use pipestat v0.6.0 and SQLModel
+- Fixed tests
+
+### Added
+- `qdrant` search, insert and update functionality
+- functions that return results in the DRS format for both bed and bedhost. [DRS](https://ga4gh.github.io/data-repository-service-schemas/preview/release/drs-1.2.0/docs/)
+
 ## [0.3.0] - 2022-08-18
 ### Change
 - update select_bedfiles_for_distance

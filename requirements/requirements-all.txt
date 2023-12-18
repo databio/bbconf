@@ -1,3 +1,4 @@
-logmuse
-yacman>=0.7.1
-pipestat>=0.3.0
+yacman>=0.9.1
+pipestat[db-backend]>=0.6.0a10
+geniml>=0.0.1
+psycopg>=3.1.15
