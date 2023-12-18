@@ -1,6 +1,6 @@
 import os
 from logging import getLogger
-from typing import List, Optional, Tuple, Union, Literal
+from typing import List, Optional, Dict, Union, Literal
 from textwrap import indent
 
 import yacman
@@ -178,9 +178,7 @@ class BedBaseConf:
 
     def search_bed_by_text(
         self, query: str
-    ) -> Tuple[
-        Union[List[int], List[List[int]]], Union[List[float], List[List[float]]]
-    ]:
+    ) -> List[Dict[str, Union[int, float, Dict[str, str], List[float]]]]:
         """
         Search for bed files by text query in the qdrant database
 
