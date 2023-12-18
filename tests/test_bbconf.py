@@ -13,7 +13,7 @@ from bbconf import BedBaseConf, get_bedbase_cfg
 from bbconf.exceptions import MissingConfigDataError
 
 
-DB_URL = "postgresql+psycopg2://postgres:dockerpassword@127.0.0.1:5432/pipestat-test"
+DB_URL = "postgresql+psycopg://postgres:dockerpassword@127.0.0.1:5432/pipestat-test"
 DATA_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 pytest_db_skip_reason = "Database is not set up... To run this test, set up the database. Go to test/README.md for more information."
 
