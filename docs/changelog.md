@@ -5,8 +5,11 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 ## [0.4.0] - 2023-10-17
 ### Change
 - bbconf to use pipestat v0.4.1 and SQLModel
-- Added qdrant search, and insert methods
 - Fixed tests
+
+### Added
+- `qdrant` search, insert and update functionality
+- functions that return results in the DRS format for both bed and bedhost. [DRS](https://ga4gh.github.io/data-repository-service-schemas/preview/release/drs-1.2.0/docs/)
 
 ## [0.3.0] - 2022-08-18
 ### Change
