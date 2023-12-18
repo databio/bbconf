@@ -1,3 +1,3 @@
 yacman>=0.9.1
-pipestat[db-backend]==0.6.0a8
-# geniml>=0.0.1-dev2
+pipestat[db-backend]==0.6.0a9
+geniml>=0.0.1
