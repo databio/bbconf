@@ -1,4 +1,4 @@
 yacman>=0.9.1
-pipestat[db-backend]>=0.6.0a10
-geniml>=0.0.1
+pipestat[dbbackend]>=0.8.0
+geniml>=0.1.0
 psycopg>=3.1.15
