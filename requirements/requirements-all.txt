@@ -2,3 +2,4 @@ yacman>=0.9.1
 pipestat[dbbackend]>=0.8.0
 geniml>=0.1.0
 psycopg>=3.1.15
+colorlogs

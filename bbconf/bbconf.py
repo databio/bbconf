@@ -39,6 +39,7 @@ from bbconf.const import (
     DEFAULT_VEC2VEC_MODEL,
     DEFAULT_REGION2_VEC_MODEL,
     CFG_ACCESS_METHOD_KEY,
+    PKG_NAME,
 )
 from bbconf.exceptions import (
     BedBaseConfError,
@@ -56,7 +57,7 @@ from fastembed.embedding import FlagEmbedding
 from geniml.region2vec import Region2VecExModel
 from geniml.io import RegionSet
 
-_LOGGER = getLogger(__name__)
+_LOGGER = getLogger(PKG_NAME)
 
 
 class BedBaseConf:
