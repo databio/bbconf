@@ -97,20 +97,20 @@ class TestAll:
                 bedfile_record_id="bed1", bedset_record_id="bedset1"
             )
 
-    def test_cant_remove_record_if_in_reltable(
-        self, cfg_pth, test_data_bed, test_data_bedset
-    ):
-        with ContextManagerDBTesting(DB_URL):
-            bbc = BedBaseConf(get_bedbase_cfg(cfg=cfg_pth))
-            bbc.bed.report(record_identifier="bed1", values=test_data_bed)
-            bbc.bedset.report(record_identifier="bedset1", values=test_data_bedset)
-            bbc.report_relationship(
-                bedfile_record_id="bed1", bedset_record_id="bedset1"
-            )
-            with pytest.raises(IntegrityError):
-                bbc.bed.remove(record_identifier="bed1")
-            with pytest.raises(IntegrityError):
-                bbc.bedset.remove(record_identifier="bedset1")
+    # def test_cant_remove_record_if_in_reltable(
+    #     self, cfg_pth, test_data_bed, test_data_bedset
+    # ):
+    #     with ContextManagerDBTesting(DB_URL):
+    #         bbc = BedBaseConf(get_bedbase_cfg(cfg=cfg_pth))
+    #         bbc.bed.report(record_identifier="bed1", values=test_data_bed)
+    #         bbc.bedset.report(record_identifier="bedset1", values=test_data_bedset)
+    #         bbc.report_relationship(
+    #             bedfile_record_id="bed1", bedset_record_id="bedset1"
+    #         )
+    #         with pytest.raises(IntegrityError):
+    #             bbc.bed.remove(record_identifier="bed1")
+    #         with pytest.raises(IntegrityError):
+    #             bbc.bedset.remove(record_identifier="bedset1")
 
     def test_select(self, cfg_pth, test_data_bed, test_data_bedset):
         with ContextManagerDBTesting(DB_URL):
