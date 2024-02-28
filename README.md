@@ -1,8 +1,8 @@
 <h1 align="center">bbconf</h1>
 
 ![Run pytests](https://github.com/databio/bbconf/workflows/Run%20pytests/badge.svg)
-[![pypi-badge](https://img.shields.io/pypi/v/bbconf?color=%2334D058)](https://pypi.org/batabio/bbconf)
-[![pypi-version](https://img.shields.io/pypi/pyversions/bbconf.svg?color=%2334D058)](https://pypi.org/databio/bbconf)
+[![pypi-badge](https://img.shields.io/pypi/v/bbconf?color=%2334D058)](https://pypi.org/project/bbconf/)
+[![pypi-version](https://img.shields.io/pypi/pyversions/bbconf.svg?color=%2334D058)](https://pypi.org/project/bbconf)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![Github badge](https://img.shields.io/badge/source-github-354a75?logo=github)](https://github.com/databio/bbconf)
 [![coverage](https://coverage-badge.samuelcolvin.workers.dev/databio/bbconf.svg)](https://coverage-badge.samuelcolvin.workers.dev/redirect/databio/bbconf)
