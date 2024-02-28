@@ -12,6 +12,12 @@ properties:
       genome:
         type: object
         description: genome assembly of the BED files
+      bed_type:
+        type: string
+        description: type of BED file, eg. "bed3", "bed6+4"
+      bed_format:
+        type: string
+        description: format type of BED file, narrowpeak, broadpeak, or bed
       bedfile:
         $ref: "#/$defs/file"
         label: bedfile

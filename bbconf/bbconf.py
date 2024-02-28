@@ -39,6 +39,7 @@ from bbconf.const import (
     DEFAULT_VEC2VEC_MODEL,
     DEFAULT_REGION2_VEC_MODEL,
     CFG_ACCESS_METHOD_KEY,
+    PKG_NAME,
 )
 from bbconf.exceptions import (
     BedBaseConfError,
@@ -56,7 +57,7 @@ from fastembed.embedding import FlagEmbedding
 from geniml.region2vec import Region2VecExModel
 from geniml.io import RegionSet
 
-_LOGGER = getLogger(__name__)
+_LOGGER = getLogger(PKG_NAME)
 
 
 class BedBaseConf:
@@ -440,7 +441,7 @@ class BedBaseConf:
                     self.BedsetORM.record_identifier == bedset_record_id
                 )
                 results = session.exec(statement).one().bedfiles
-            bedfile_list = [bedfile.dict() for bedfile in results]
+            bedfile_list = [bedfile.model_dump() for bedfile in results]
         else:
             # Probably we can do it in more simple way
             with self.bed.backend.session as session:
@@ -448,9 +449,9 @@ class BedBaseConf:
                     self.BedfileORM.id.in_(
                         select(self.rel_table.bedfile_id).where(
                             self.rel_table.bedset_id
-                            == select(self.BedsetORM.id).where(
-                                self.BedsetORM.record_identifier == bedset_record_id
-                            )
+                            == select(self.BedsetORM.id)
+                            .where(self.BedsetORM.record_identifier == bedset_record_id)
+                            .scalar_subquery()
                         )
                     )
                 )

@@ -1,25 +1,36 @@
-# bbconf
+<h1 align="center">bbconf</h1>
 
 ![Run pytests](https://github.com/databio/bbconf/workflows/Run%20pytests/badge.svg)
-[![codecov](https://codecov.io/gh/databio/bbconf/branch/master/graph/badge.svg)](https://codecov.io/gh/databio/bbconf)
+[![pypi-badge](https://img.shields.io/pypi/v/bbconf?color=%2334D058)](https://pypi.org/batabio/bbconf)
+[![pypi-version](https://img.shields.io/pypi/pyversions/bbconf.svg?color=%2334D058)](https://pypi.org/databio/bbconf)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![Github badge](https://img.shields.io/badge/source-github-354a75?logo=github)](https://github.com/databio/bbconf)
+[![coverage](https://coverage-badge.samuelcolvin.workers.dev/databio/bbconf.svg)](https://coverage-badge.samuelcolvin.workers.dev/redirect/databio/bbconf)
 
 
-*BEDBASE* project configuration package
+*BEDBASE* project configuration package (agent)
 
 ## What is this?
 
-`bbconf` standardizes reporting of [bedstat](https://github.com/databio/bedstat) and [bedbuncher](https://github.com/databio/bedsbuncher) results. It formalizes a way for these pipelines and downstream tools to communicate -- the produced results can easily and reliably become an
-input for the server ([bedhost](https://github.com/databio/bedhost)). The object exposes API for interacting with the results and is backed by a [PostgreSQL](https://www.postgresql.org/) database.
+`bbconf` is a configuration and management tool for BEDbase, facilitating the reading of configuration files, 
+setting up connections to PostgreSQL and Qdrant databases, managing file paths, and storing transformer models. 
+It formalizes communication pathways for pipelines and downstream tools, ensuring seamless interaction."
+
+---
+
+**Documentation**: <a href="https://docs.bedbase.org/bedboss" target="_blank">https://docs.bedbase.org/bedboss</a>
+
+**Source Code**: <a href="https://github.com/databio/bbconf" target="_blank">https://github.com/databio/bbconf</a>
+
+---
 
 ## Installation
-
-Install from [GitHub releases](https://github.com/databio/bbconf/releases) or from PyPI using `pip`:
+To install `bbclient` use this command: 
 ```
-pip install --user bbconf
+pip install bbclient
+```
+or install the latest version from the GitHub repository:
+```
+pip install git+https://github.com/databio/bbconf.git
 ```
 
-## Documentation
-- [Bedbase configuration file](docs/config.ipynb)
-- [Usage demonstration](docs/demo.ipynb)
-- [Python API](docs/bbc_api.md)
