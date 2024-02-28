@@ -449,9 +449,9 @@ class BedBaseConf:
                     self.BedfileORM.id.in_(
                         select(self.rel_table.bedfile_id).where(
                             self.rel_table.bedset_id
-                            == select(self.BedsetORM.id).where(
-                                self.BedsetORM.record_identifier == bedset_record_id
-                            ).scalar_subquery()
+                            == select(self.BedsetORM.id)
+                            .where(self.BedsetORM.record_identifier == bedset_record_id)
+                            .scalar_subquery()
                         )
                     )
                 )
