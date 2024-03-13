@@ -116,10 +116,6 @@ properties:
         $ref: "#/$defs/image"
         label: Open_chromatin
         description: Cell specific enrichment for open chromatin plot
-      added_to_qdrant:
-        type: boolean
-        label: Qdrant_status
-        description: whether the BED file is added to Qdrant
       other:
         type: object
         description: Other, not categorized BED file metadata
