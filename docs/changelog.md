@@ -2,6 +2,12 @@
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) and [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) format.
 
+# [0.5.0] - 2024-XX-XX
+### Added 
+
+- pydantic schema for bedfile and bedset table
+
+
 ## [0.4.2] - 2024-03-12
 ### Change
 - Updated logger

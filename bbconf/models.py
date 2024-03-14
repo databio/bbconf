@@ -1,7 +1,11 @@
 import datetime
 from typing import Optional, List
+import os
+import pathlib
 
 from pydantic import BaseModel
+
+from bbconf.model_parser import yaml_to_pydantic
 
 
 class AccessURL(BaseModel):
@@ -26,3 +30,17 @@ class DRSModel(BaseModel):
     checksums: str
     access_methods: List[AccessMethod]
     description: Optional[str] = None
+
+
+BedFileTableModel = yaml_to_pydantic(
+    "BedFile",
+    os.path.join(
+        pathlib.Path(__file__).parent.resolve(), "schemas", "bedfiles_schema.yaml"
+    ),
+)
+BedSetTableModel = yaml_to_pydantic(
+    "BedSet",
+    os.path.join(
+        pathlib.Path(__file__).parent.resolve(), "schemas", "bedsets_schema.yaml"
+    ),
+)

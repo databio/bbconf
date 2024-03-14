@@ -116,9 +116,6 @@ properties:
         $ref: "#/$defs/image"
         label: Open_chromatin
         description: Cell specific enrichment for open chromatin plot
-      other:
-        type: object
-        description: Other, not categorized BED file metadata
       upload_status:
         type: object
         description: "Status of the upload to the databases: Dict[s3, qdrant, pephub]"
