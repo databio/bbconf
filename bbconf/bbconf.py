@@ -12,6 +12,7 @@ import qdrant_client
 
 from sqlalchemy.orm import relationship
 from sqlalchemy import inspect
+import  numpy as np
 
 from bbconf.const import (
     CFG_PATH_KEY,
@@ -565,10 +566,7 @@ class BedBaseConf:
             reg_2_vec_obj = Region2VecExModel(self.region2vec_model)
         else:
             reg_2_vec_obj = region_to_vec
-        bed_embedding = reg_2_vec_obj.encode(
-            bed_region_set,
-            pooling="mean",
-        )
+        bed_embedding = np.mean(reg_2_vec_obj.encode(bed_region_set), axis=0)
 
         # Upload bed file vector to the database
         vec_dim = bed_embedding.shape[0]
