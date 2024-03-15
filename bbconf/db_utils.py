@@ -35,6 +35,11 @@ _LOGGER = logging.getLogger(PKG_NAME)
 POSTGRES_DIALECT = "postgresql+psycopg"
 
 
+class SchemaError(Exception):
+    def __init__(self):
+        super().__init__("""PEP_db connection error! The schema of connected db is incorrect""")
+
+
 class BIGSERIAL(BigInteger):
     pass
 
@@ -63,30 +68,204 @@ def receive_after_create(target, connection, tables, **kw):
     else:
         _LOGGER.info("A table was not created")
 
+
 def deliver_update_date(context):
     return datetime.datetime.now(datetime.timezone.utc)
 
 
-class Bedfiles(Base):
+class BedFiles(Base):
 
     __tablename__ = "bedfiles"
 
-    id: Mapped[int] = mapped_column(primary_key=True)
+    id: Mapped[int] = mapped_column(primary_key=True, )
     name: Mapped[str] = Mapped[Optional[str]]
     genome_alias: Mapped[Optional[str]]
     genome_digest: Mapped[Optional[str]]
     bed_type: Mapped[str] = mapped_column(default="bed3")
     bed_format: Mapped[str] = mapped_column(default="bed")
-    indexed: Mapped[bool] = mapped_column(default=False, description="Whether sample was added to qdrant")
-    pephub: Mapped[bool] = mapped_column(default=False, description="Whether sample was added to pephub")
+    indexed: Mapped[bool] = mapped_column(default=False, comment="Whether sample was added to qdrant")
+    pephub: Mapped[bool] = mapped_column(default=False, comment="Whether sample was added to pephub")
+
     submission_date: Mapped[datetime.datetime]
     last_update_date: Mapped[Optional[datetime.datetime]] = mapped_column(
         default=deliver_update_date,  # onupdate=deliver_update_date, # This field should not be updated, while we are adding project to favorites
     )
 
+    # statistics:
+    number_of_regions: Mapped[Optional[int]]
+    gc_content: Mapped[Optional[int]]
+    median_tss_dist: Mapped[Optional[int]]
+    mean_region_width: Mapped[Optional[int]]
+    exon_frequency: Mapped[Optional[int]]
+    intron_frequency: Mapped[Optional[int]]
+    promoterprox_frequency: Mapped[Optional[int]]
+    intergenic_frequency: Mapped[Optional[int]]
+    promotercore_frequency: Mapped[Optional[int]]
+    fiveutr_frequency: Mapped[Optional[int]]
+    threeutr_frequency: Mapped[Optional[int]]
+    fiveutr_percentage: Mapped[Optional[int]]
+    threeutr_percentage: Mapped[Optional[int]]
+    promoterprox_percentage: Mapped[Optional[int]]
+    exon_percentage: Mapped[Optional[int]]
+    intron_percentage: Mapped[Optional[int]]
+    intergenic_percentage: Mapped[Optional[int]]
+    promotercore_percentage: Mapped[Optional[int]]
+    tssdist: Mapped[Optional[int]]
+
+    # relations:
+    plots: Mapped[List["Plots"]] = relationship("Plots", back_populates="bedfile")
+    files: Mapped[List["Files"]] = relationship("Files", back_populates="bedfile")
+
+    bedsets: Mapped[List["BedFileBedSetRelation"]] = relationship("BedFileBedSetRelation", back_populates="bedfile")
+
+
 class Files(Base):
     __tablename__ = "files"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    name: Mapped[str] = mapped_column(nullable=False, description="Name of the file, e.g. bed, bigBed")
+    name: Mapped[str] = mapped_column(nullable=False, comment="Name of the file, e.g. bed, bigBed")
     path: Mapped[str]
+    description: Mapped[Optional[str]]
+
+    bedfile_id: Mapped[int] = mapped_column(ForeignKey("bedfiles.id"), nullable=True)
+    bedset_id: Mapped[int] = mapped_column(ForeignKey("bedsets.id"), nullable=True)
+
+    bedfile: Mapped["BedFiles"] = relationship("BedFiles", back_populates="files")
+    bedset: Mapped["BedSets"] = relationship("BedSets", back_populates="files")
+
+
+class Plots(Base):
+    __tablename__ = "plots"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(nullable=False, comment="Name of the plot")
+    description: Mapped[Optional[str]] = mapped_column(comment="Description of the plot")
+    path: Mapped[str] = mapped_column(comment="Path to the plot file")
+    path_thumbnail: Mapped[str] = mapped_column(nullable=True, comment="Path to the thumbnail of the plot file")
+
+    bedfile_id: Mapped[int] = mapped_column(ForeignKey("bedfiles.id"), nullable=True)
+    bedset_id: Mapped[int] = mapped_column(ForeignKey("bedsets.id"), nullable=True)
+
+    bedfile: Mapped["BedFiles"] = relationship("BedFiles", back_populates="plots")
+    bedset: Mapped["BedSets"] = relationship("BedSets", back_populates="plots")
+
+
+class BedFileBedSetRelation(Base):
+    __tablename__ = "bedfile_bedset_relation"
+    bedset_id: Mapped[int] = mapped_column(ForeignKey("bedsets.id"), primary_key=True)
+    bedfile_id: Mapped[int] = mapped_column(ForeignKey("bedfiles.id"), primary_key=True)
+
+    bedset: Mapped["BedSets"] = relationship("BedSets", back_populates="bedfiles")
+    bedfile: Mapped["BedFiles"] = relationship("BedFiles", back_populates="bedsets")
+
+
+class BedSets(Base):
+    __tablename__ = "bedsets"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(nullable=False, comment="Name of the bedset")
+    description: Mapped[Optional[str]] = mapped_column(comment="Description of the bedset")
+    submission_date: Mapped[datetime.datetime]
+    last_update_date: Mapped[Optional[datetime.datetime]] = mapped_column(
+        default=deliver_update_date,
+    )
+
+    bedfiles: Mapped[List["BedFileBedSetRelation"]] = relationship("BedFileBedSetRelation", back_populates="bedset")
+    plots: Mapped[List["Plots"]] = relationship("Plots", back_populates="bedset")
+    files: Mapped[List["Files"]] = relationship("Files", back_populates="bedset")
+
+
+class BaseEngine:
+    """
+    A class with base methods, that are used in several classes.
+    """
+
+    def __init__(
+        self,
+        *,
+        host: str = "localhost",
+        port: int = 5432,
+        database: str = "bedbase",
+        user: str = None,
+        password: str = None,
+        drivername: str = POSTGRES_DIALECT,
+        dsn: str = None,
+        echo: bool = False,
+    ):
+        """
+        Initialize connection to the pep_db database. You can use The basic connection parameters
+        or libpq connection string.
+        :param host: database server address e.g., localhost or an IP address.
+        :param port: the port number that defaults to 5432 if it is not provided.
+        :param database: the name of the database that you want to connect.
+        :param user: the username used to authenticate.
+        :param password: password used to authenticate.
+        :param drivername: driver used in
+        :param dsn: libpq connection string using the dsn parameter
+        (e.g. 'postgresql://user_name:password@host_name:port/db_name')
+        """
+        if not dsn:
+            dsn = URL.create(
+                host=host,
+                port=port,
+                database=database,
+                username=user,
+                password=password,
+                drivername=drivername,
+            )
+
+        self._engine = create_engine(dsn, echo=echo)
+        self.create_schema(self._engine)
+        self.check_db_connection()
+
+    def create_schema(self, engine=None):
+        """
+        Create sql schema in the database.
+
+        :param engine: sqlalchemy engine [Default: None]
+        :return: None
+        """
+        if not engine:
+            engine = self._engine
+        Base.metadata.create_all(engine)
+        return None
+
+    def session_execute(self, statement: Select) -> Result:
+        """
+        Execute statement using sqlalchemy statement
+
+        :param statement: SQL query or a SQL expression that is constructed using
+            SQLAlchemy's SQL expression language
+        :return: query result represented with declarative base
+        """
+        _LOGGER.debug(f"Executing statement: {statement}")
+        with Session(self._engine) as session:
+            query_result = session.execute(statement)
+
+        return query_result
+
+    @property
+    def session(self):
+        """
+        :return: started sqlalchemy session
+        """
+        return self._start_session()
+
+    @property
+    def engine(self):
+        return self._engine
+
+    def _start_session(self):
+        session = Session(self.engine)
+        try:
+            session.execute(select(BedFiles).limit(1))
+        except ProgrammingError:
+            raise SchemaError()
+
+        return session
+
+    def check_db_connection(self):
+        try:
+            self.session_execute(select(BedFiles).limit(1))
+        except ProgrammingError:
+            raise SchemaError()

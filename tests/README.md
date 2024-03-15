@@ -3,9 +3,9 @@
 ### To create a test database for testing :
 
 ```
-docker run --rm -it --name pipestat-test \
+docker run --rm -it --name bedbase-test \
   -e POSTGRES_USER=postgres \
-  -e POSTGRES_PASSWORD=dockerpassword \
-  -e POSTGRES_DB=pipestat-test \
+  -e POSTGRES_PASSWORD=docker\
+  -e POSTGRES_DB=bedbase \
   -p 5432:5432 postgres
 ```
