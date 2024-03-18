@@ -2,3 +2,5 @@ include README.md
 include LICENSE.txt
 include requirements/*
 include bbconf/schemas/*
+include bbconf/modules/*
+include bbconf/config_parser/*

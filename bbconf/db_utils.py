@@ -15,7 +15,7 @@ from sqlalchemy import (
     UniqueConstraint,
 )
 from sqlalchemy.dialects.postgresql import JSON
-from sqlalchemy.engine import URL, create_engine
+from sqlalchemy.engine import URL, create_engine, Engine
 from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.orm import (
@@ -37,7 +37,7 @@ POSTGRES_DIALECT = "postgresql+psycopg"
 
 class SchemaError(Exception):
     def __init__(self):
-        super().__init__("""PEP_db connection error! The schema of connected db is incorrect""")
+        super().__init__("""PEP_db connection error! The schema of connected db is incorrect!""")
 
 
 class BIGSERIAL(BigInteger):
@@ -73,11 +73,11 @@ def deliver_update_date(context):
     return datetime.datetime.now(datetime.timezone.utc)
 
 
-class BedFiles(Base):
+class Bed(Base):
 
-    __tablename__ = "bedfiles"
+    __tablename__ = "bed"
 
-    id: Mapped[int] = mapped_column(primary_key=True, )
+    id: Mapped[str] = mapped_column(primary_key=True, )
     name: Mapped[str] = Mapped[Optional[str]]
     genome_alias: Mapped[Optional[str]]
     genome_digest: Mapped[Optional[str]]
@@ -86,9 +86,9 @@ class BedFiles(Base):
     indexed: Mapped[bool] = mapped_column(default=False, comment="Whether sample was added to qdrant")
     pephub: Mapped[bool] = mapped_column(default=False, comment="Whether sample was added to pephub")
 
-    submission_date: Mapped[datetime.datetime]
+    submission_date: Mapped[datetime.datetime] = mapped_column(default=deliver_update_date)
     last_update_date: Mapped[Optional[datetime.datetime]] = mapped_column(
-        default=deliver_update_date,  # onupdate=deliver_update_date, # This field should not be updated, while we are adding project to favorites
+        default=deliver_update_date, onupdate=deliver_update_date,
     )
 
     # statistics:
@@ -127,10 +127,10 @@ class Files(Base):
     path: Mapped[str]
     description: Mapped[Optional[str]]
 
-    bedfile_id: Mapped[int] = mapped_column(ForeignKey("bedfiles.id"), nullable=True)
+    bedfile_id: Mapped[int] = mapped_column(ForeignKey("bed.id"), nullable=True)
     bedset_id: Mapped[int] = mapped_column(ForeignKey("bedsets.id"), nullable=True)
 
-    bedfile: Mapped["BedFiles"] = relationship("BedFiles", back_populates="files")
+    bedfile: Mapped["Bed"] = relationship("Bed", back_populates="files")
     bedset: Mapped["BedSets"] = relationship("BedSets", back_populates="files")
 
 
@@ -143,32 +143,37 @@ class Plots(Base):
     path: Mapped[str] = mapped_column(comment="Path to the plot file")
     path_thumbnail: Mapped[str] = mapped_column(nullable=True, comment="Path to the thumbnail of the plot file")
 
-    bedfile_id: Mapped[int] = mapped_column(ForeignKey("bedfiles.id"), nullable=True)
+    bedfile_id: Mapped[int] = mapped_column(ForeignKey("bed.id"), nullable=True)
     bedset_id: Mapped[int] = mapped_column(ForeignKey("bedsets.id"), nullable=True)
 
-    bedfile: Mapped["BedFiles"] = relationship("BedFiles", back_populates="plots")
+    bedfile: Mapped["Bed"] = relationship("Bed", back_populates="plots")
     bedset: Mapped["BedSets"] = relationship("BedSets", back_populates="plots")
 
 
 class BedFileBedSetRelation(Base):
     __tablename__ = "bedfile_bedset_relation"
     bedset_id: Mapped[int] = mapped_column(ForeignKey("bedsets.id"), primary_key=True)
-    bedfile_id: Mapped[int] = mapped_column(ForeignKey("bedfiles.id"), primary_key=True)
+    bedfile_id: Mapped[int] = mapped_column(ForeignKey("bed.id"), primary_key=True)
 
     bedset: Mapped["BedSets"] = relationship("BedSets", back_populates="bedfiles")
-    bedfile: Mapped["BedFiles"] = relationship("BedFiles", back_populates="bedsets")
+    bedfile: Mapped["Bed"] = relationship("Bed", back_populates="bedsets")
 
 
 class BedSets(Base):
     __tablename__ = "bedsets"
 
-    id: Mapped[int] = mapped_column(primary_key=True)
+    id: Mapped[str] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(nullable=False, comment="Name of the bedset")
     description: Mapped[Optional[str]] = mapped_column(comment="Description of the bedset")
-    submission_date: Mapped[datetime.datetime]
+    submission_date: Mapped[datetime.datetime] = mapped_column(default=deliver_update_date)
     last_update_date: Mapped[Optional[datetime.datetime]] = mapped_column(
-        default=deliver_update_date,
+        default=deliver_update_date, onupdate=deliver_update_date,
     )
+    md5sum: Mapped[Optional[str]] = mapped_column(comment="MD5 sum of the bedset")
+
+    bedset_means: Mapped[Optional[dict]] = mapped_column(JSON, comment="Mean values of the bedset")
+    bedset_standard_deviation: Mapped[Optional[dict]] = mapped_column(JSON, comment="Median values of the bedset")
+
 
     bedfiles: Mapped[List["BedFileBedSetRelation"]] = relationship("BedFileBedSetRelation", back_populates="bedset")
     plots: Mapped[List["Plots"]] = relationship("Plots", back_populates="bedset")
@@ -193,8 +198,9 @@ class BaseEngine:
         echo: bool = False,
     ):
         """
-        Initialize connection to the pep_db database. You can use The basic connection parameters
+        Initialize connection to the bedbase database. You can use The basic connection parameters
         or libpq connection string.
+
         :param host: database server address e.g., localhost or an IP address.
         :param port: the port number that defaults to 5432 if it is not provided.
         :param database: the name of the database that you want to connect.
@@ -252,13 +258,16 @@ class BaseEngine:
         return self._start_session()
 
     @property
-    def engine(self):
+    def engine(self) -> Engine:
+        """
+        :return: sqlalchemy engine
+        """
         return self._engine
 
     def _start_session(self):
         session = Session(self.engine)
         try:
-            session.execute(select(BedFiles).limit(1))
+            session.execute(select(Bed).limit(1))
         except ProgrammingError:
             raise SchemaError()
 
@@ -266,6 +275,6 @@ class BaseEngine:
 
     def check_db_connection(self):
         try:
-            self.session_execute(select(BedFiles).limit(1))
+            self.session_execute(select(Bed).limit(1))
         except ProgrammingError:
             raise SchemaError()

@@ -1,13 +1,16 @@
 import datetime
-from typing import Optional, List
+from typing import Optional, List, Union
 import os
 import pathlib
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from bbconf.model_parser import yaml_to_pydantic
 
+from bbconf.const_new import DEFAULT_VEC2VEC_MODEL, DEFAULT_TEXT2VEC_MODEL, DEFAULT_REGION2_VEC_MODEL
 
+
+# DRS Models
 class AccessURL(BaseModel):
     url: str
     headers: Optional[dict] = None

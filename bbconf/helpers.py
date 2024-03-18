@@ -34,4 +34,4 @@ def raise_missing_key(key: str) -> NoReturn:
     Raise missing key with message
     """
 
-    raise MissingConfigDataError(f"Config lacks '{key}' key")
+    raise MissingConfigDataError(f"BedBaseConfig lacks '{key}' key")
