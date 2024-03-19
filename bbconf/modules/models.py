@@ -14,7 +14,7 @@ from bbconf.const_new import (
 )
 
 
-class Plot(BaseModel):
+class PlotModel(BaseModel):
     name: str = Field(alias="title")
     path: str
     path_thumbnail: Optional[Union[str, None]] = Field(None, alias="thumbnail_path")
@@ -24,17 +24,17 @@ class Plot(BaseModel):
 
 
 class BedPlots(BaseModel):
-    chrombins: Plot = None
-    gccontent: Plot = None
-    partitions: Plot = None
-    expected_partitions: Plot = None
-    cumulative_partitions: Plot = None
-    widths_histogram: Plot = None
-    neighbor_distances: Plot = None
-    open_chromatin: Plot = None
+    chrombins: PlotModel = None
+    gccontent: PlotModel = None
+    partitions: PlotModel = None
+    expected_partitions: PlotModel = None
+    cumulative_partitions: PlotModel = None
+    widths_histogram: PlotModel = None
+    neighbor_distances: PlotModel = None
+    open_chromatin: PlotModel = None
 
 
-class Files(BaseModel):
+class FileModel(BaseModel):
     name: str = Field(alias="title")
     path: str
     description: Optional[str] = None
@@ -44,8 +44,8 @@ class Files(BaseModel):
 
 
 class BedFiles(BaseModel):
-    bed_file: Files = Field(None, alias="bedfile")
-    bigbed_file: Files = Field(None, alias="bigbedfile")
+    bed_file: FileModel = Field(None, alias="bedfile")
+    bigbed_file: FileModel = Field(None, alias="bigbedfile")
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -62,6 +62,7 @@ class BedClassification(BaseModel):
     )
     bed_format: str = None
 
+    model_config = ConfigDict(extra="ignore")
 
 class BedStats(BaseModel):
     number_of_regions: Optional[float] = None
@@ -83,6 +84,8 @@ class BedStats(BaseModel):
     intergenic_percentage: Optional[float] = None
     promotercore_percentage: Optional[float] = None
 
+    model_config = ConfigDict(extra="ignore")
+
 
 class BedMetadata(BaseModel):
     id: str
@@ -96,7 +99,7 @@ class BedMetadata(BaseModel):
     files: BedFiles = None
 
 
-class BedMetadata(BaseModel):
+class BedPEPHub(BaseModel):
     sample_name: str
     genome: str
     organism: str = ""

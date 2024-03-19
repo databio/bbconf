@@ -24,5 +24,11 @@ def db_setup():
     return True
 
 
-def test_pepdbagent():
+def test_bb_database():
     assert db_setup()
+
+def test_get():
+    agent = BedBaseAgent(config=config)
+    ff = agent.bed.get("91b2754c8ff01769bacfc80e6923c46e")
+    print(ff)
+    assert ff != None

@@ -17,16 +17,17 @@ from bbconf.const import (
 from bbconf.modules.models import (
     BedMetadata,
     BedFiles,
-    Files,
+    FileModel,
     BedPlots,
     BedClassification,
     BedStats,
-    Plot,
+    PlotModel,
+    BedPEPHub,
 )
 from bbconf.exceptions import (
     BedBaseConfError,
 )
-from bbconf.db_utils import BaseEngine, Bed
+from bbconf.db_utils import BaseEngine, Bed, Plots, Files
 from bbconf.config_parser.bedbaseconfig import BedBaseConfig
 
 _LOGGER = getLogger(PKG_NAME)
@@ -63,8 +64,41 @@ class BedAgentBedFile:
         """
         statement = select(Bed).where(Bed.id == identifier)
 
+        bed_plots = BedPlots()
+        bed_files = BedFiles()
+
         with Session(self._sa_engine) as session:
             bed_object = session.scalar(statement)
+
+            for result in bed_object.plots:
+                setattr(bed_plots, result.name, PlotModel(
+                    name=result.name,
+                    path=result.path,
+                    path_thumbnail=result.path_thumbnail,
+                    description=result.description
+                ))
+
+            for result in bed_object.files:
+                setattr(bed_files, result.name, FileModel(
+                    name=result.name,
+                    path=result.path,
+                    description=result.description
+                ))
+
+            bed_stats = BedStats(**bed_object.__dict__)
+            bed_classification = BedClassification(**bed_object.__dict__)
+
+        return BedMetadata(
+            id=bed_object.id,
+            name=bed_object.name,
+            stats=bed_stats,
+            classification=bed_classification,
+            plots=bed_plots,
+            files=bed_files,
+            description="",
+            submission_date=bed_object.submission_date,
+            last_update_date=bed_object.last_update_date
+        )
 
     def get_stats(self, identifier: str) -> dict:
         """
@@ -143,10 +177,12 @@ class BedAgentBedFile:
         """
         _LOGGER.info(f"Adding bed file to database. bed_id: {identifier}")
 
+
         stats = BedStats(**stats)
+        # TODO: we should not check for specific keys, of the plots!
         plots = BedPlots(**plots)
         files = BedFiles(**files)
-        metadata = BedMetadata(**metadata)
+        metadata = BedPEPHub(**metadata)
         classification = BedClassification(**classification)
 
         if upload_pephub:
@@ -169,18 +205,37 @@ class BedAgentBedFile:
                     identifier, output_path=local_path, plots=plots
                 )
 
-        new_bed = Bed(
-            id=identifier,
-            **stats.model_dump(),
-            **classification.model_dump(),
-        )
-
-        # TODO: add plots to the file
         with Session(self._sa_engine) as session:
+            new_bed = Bed(
+                id=identifier,
+                **stats.model_dump(),
+                **classification.model_dump(),
+            )
             session.add(new_bed)
+            if upload_s3:
+                for k, v in files:
+                    if v:
+                        new_file = Files(
+                            name=k,
+                            path=v.path,
+                            description=v.description,
+                            bedfile_id=identifier,
+                        )
+                        session.add(new_file)
+                for k, v in plots:
+                    if v:
+                        new_plot = Plots(
+                            name=k,
+                            path=v.path,
+                            path_thumbnail=v.path_thumbnail,
+                            description=v.description,
+                            bedfile_id=identifier,
+                        )
+                        session.add(new_plot)
+
             session.commit()
 
-        print(new_bed)
+        return None
 
     def delete(self, identifier: str) -> None:
         """
@@ -269,7 +324,7 @@ class BedAgentBedFile:
                 setattr(
                     plots_output,
                     key,
-                    Plot(
+                    PlotModel(
                         name=value.name,
                         path=file_s3_path,
                         path_thumbnail=file_s3_path_thumbnail,

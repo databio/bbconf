@@ -82,9 +82,10 @@ class Bed(Base):
     id: Mapped[str] = mapped_column(
         primary_key=True,
     )
-    name: Mapped[str] = Mapped[Optional[str]]
+    name: Mapped[Optional[str]]
     genome_alias: Mapped[Optional[str]]
     genome_digest: Mapped[Optional[str]]
+    description: Mapped[Optional[str]]
     bed_type: Mapped[str] = mapped_column(default="bed3")
     bed_format: Mapped[str] = mapped_column(default="bed")
     indexed: Mapped[bool] = mapped_column(
