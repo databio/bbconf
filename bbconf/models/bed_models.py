@@ -12,6 +12,7 @@ from pydantic import BaseModel, ConfigDict, Field
 #
 #     model_config = ConfigDict(populate_by_name=True)
 
+
 class FileModel(BaseModel):
     name: str = Field(alias="title")
     path: str
@@ -114,4 +115,3 @@ class BedMetadata(BaseModel):
     plots: BedPlots = None
     files: BedFiles = None
     raw_metadata: Optional[BedPEPHub] = None
-

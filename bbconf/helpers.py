@@ -1,12 +1,13 @@
 import logging
-
+from typing import NoReturn
 from yacman import select_config
 
-from .const import CFG_ENV_VARS
-from .exceptions import MissingConfigDataError, BedBaseConnectionError
-from typing import NoReturn
+from bbconf.exceptions import BedBaseConnectionError
 
 _LOGGER = logging.getLogger(__name__)
+
+
+CFG_ENV_VARS = ["BEDBASE"]
 
 
 def get_bedbase_cfg(cfg: str = None) -> str:
@@ -27,11 +28,3 @@ def get_bedbase_cfg(cfg: str = None) -> str:
             f"{'or '.join(CFG_ENV_VARS)} environment variable"
         )
     return selected_cfg
-
-
-def raise_missing_key(key: str) -> NoReturn:
-    """
-    Raise missing key with message
-    """
-
-    raise MissingConfigDataError(f"BedBaseConfig lacks '{key}' key")

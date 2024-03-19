@@ -24,7 +24,7 @@ class BBObjects:
 
     def __init__(self, config: BedBaseConfig):
         """
-        :param db_engine: pepdbengine object with sa engine
+        :param config: config object
         """
         self.config = config
         self.bed = BedAgentBedFile(self.config)
@@ -46,11 +46,11 @@ class BBObjects:
             raise BadAccessMethodError(f"Access method {access_id} is not defined.")
 
     def get_thumbnail_uri(
-            self,
-            record_type: Literal["bed", "bedset"],
-            record_id: str,
-            result_id: str,
-            access_id: str = "http",
+        self,
+        record_type: Literal["bed", "bedset"],
+        record_id: str,
+        result_id: str,
+        access_id: str = "http",
     ) -> str:
         """
         Create URL to access a bed- or bedset-associated thumbnail
@@ -74,11 +74,11 @@ class BBObjects:
             )
 
     def get_object_uri(
-            self,
-            record_type: Literal["bed", "bedset"],
-            record_id: str,
-            result_id: str,
-            access_id: str,
+        self,
+        record_type: Literal["bed", "bedset"],
+        record_id: str,
+        result_id: str,
+        access_id: str,
     ) -> str:
         """
         Create URL to access a bed- or bedset-associated file
@@ -93,10 +93,10 @@ class BBObjects:
         return self._get_prefixed_uri(result.path, access_id)
 
     def _get_result(
-            self,
-            record_type: Literal["bed", "bedset"],
-            record_id: str,
-            result_id: Union[str, List[str]],
+        self,
+        record_type: Literal["bed", "bedset"],
+        record_id: str,
+        result_id: Union[str, List[str]],
     ) -> FileModel:
         """
         Generic getter that can return a result from either bed or bedset
@@ -111,7 +111,7 @@ class BBObjects:
         elif record_type == "bedset":
             # result = self.bedset.retrieve_one(record_id, result_id)
             _LOGGER.error("Not implemented")
-            return {}
+            raise BedBaseConfError("ERROR NOT IMPLEMENTED YET")
 
         else:
             raise BedBaseConfError(
@@ -123,11 +123,11 @@ class BBObjects:
         return result
 
     def get_drs_metadata(
-            self,
-            record_type: Literal["bed", "bedset"],
-            record_id: str,
-            result_id: str,
-            base_uri: str,
+        self,
+        record_type: Literal["bed", "bedset"],
+        record_id: str,
+        result_id: str,
+        base_uri: str,
     ) -> DRSModel:
         """
         Get DRS metadata for a bed- or bedset-associated file
@@ -144,7 +144,9 @@ class BBObjects:
         bed_result = self.bed.get(record_id)
         created_time = bed_result.submission_date
         modified_time = bed_result.last_update_date
-        record_metadata = self._get_result(record_type, record_id, result_id)  # only get result once
+        record_metadata = self._get_result(
+            record_type, record_id, result_id
+        )  # only get result once
         if not record_metadata:
             raise BedBaseConfError(f"Record not found")
 
@@ -152,7 +154,9 @@ class BBObjects:
             access_dict = AccessMethod(
                 type=access_id,
                 access_id=access_id,
-                access_url=AccessURL(url=self._get_prefixed_uri(record_metadata.path, access_id)),
+                access_url=AccessURL(
+                    url=self._get_prefixed_uri(record_metadata.path, access_id)
+                ),
                 region=self.config.config.access_methods.model_dump()[access_id].get(
                     "region", None
                 ),

@@ -72,23 +72,33 @@ class BedAgentBedFile:
             for result in bed_object.files:
                 # PLOTS
                 if result.name in BedPlots.model_fields:
-                    setattr(bed_plots, result.name, FileModel(
-                        name=result.name,
-                        path=result.path,
-                        size=result.size,
-                        path_thumbnail=result.path_thumbnail,
-                        description=result.description
-                    ))
+                    setattr(
+                        bed_plots,
+                        result.name,
+                        FileModel(
+                            name=result.name,
+                            path=result.path,
+                            size=result.size,
+                            path_thumbnail=result.path_thumbnail,
+                            description=result.description,
+                        ),
+                    )
                 # FILES
                 elif result.name in BedFiles.model_fields:
-                    setattr(bed_files, result.name, FileModel(
-                        name=result.name,
-                        path=result.path,
-                        size=result.size,
-                        description=result.description
-                    ))
+                    setattr(
+                        bed_files,
+                        result.name,
+                        FileModel(
+                            name=result.name,
+                            path=result.path,
+                            size=result.size,
+                            description=result.description,
+                        ),
+                    )
                 else:
-                    _LOGGER.error(f"Unknown file type: {result.name}. And is not in the model fields. Skipping..")
+                    _LOGGER.error(
+                        f"Unknown file type: {result.name}. And is not in the model fields. Skipping.."
+                    )
 
             bed_stats = BedStats(**bed_object.__dict__)
             bed_classification = BedClassification(**bed_object.__dict__)
@@ -147,12 +157,16 @@ class BedAgentBedFile:
             bed_plots = BedPlots()
             for result in bed_object.files:
                 if result.name in BedPlots.model_fields:
-                    setattr(bed_plots, result.name, FileModel(
-                        name=result.name,
-                        path=result.path,
-                        path_thumbnail=result.path_thumbnail,
-                        description=result.description
-                    ))
+                    setattr(
+                        bed_plots,
+                        result.name,
+                        FileModel(
+                            name=result.name,
+                            path=result.path,
+                            path_thumbnail=result.path_thumbnail,
+                            description=result.description,
+                        ),
+                    )
         return bed_plots
 
     def get_files(self, identifier: str) -> BedFiles:
@@ -169,11 +183,15 @@ class BedAgentBedFile:
             bed_files = BedFiles()
             for result in bed_object.files:
                 if result.name in BedFiles.model_fields:
-                    setattr(bed_files, result.name, FileModel(
-                        name=result.name,
-                        path=result.path,
-                        description=result.description
-                    ))
+                    setattr(
+                        bed_files,
+                        result.name,
+                        FileModel(
+                            name=result.name,
+                            path=result.path,
+                            description=result.description,
+                        ),
+                    )
         return bed_files
 
     def get_raw_metadata(self, identifier: str) -> BedPEPHub:
@@ -227,7 +245,6 @@ class BedAgentBedFile:
 
         return return_dict
 
-
     def add(
         self,
         identifier: str,
@@ -259,7 +276,6 @@ class BedAgentBedFile:
         :return: None
         """
         _LOGGER.info(f"Adding bed file to database. bed_id: {identifier}")
-
 
         stats = BedStats(**stats)
         # TODO: we should not check for specific keys, of the plots!
@@ -315,7 +331,7 @@ class BedAgentBedFile:
                             path_thumbnail=v.path_thumbnail,
                             description=v.description,
                             bedfile_id=identifier,
-                            type="plot"
+                            type="plot",
                         )
                         session.add(new_plot)
 

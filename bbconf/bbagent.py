@@ -3,7 +3,6 @@ from typing import Union, List
 
 from bbconf.config_parser.bedbaseconfig import BedBaseConfig
 
-from bbconf.db_utils import POSTGRES_DIALECT, BaseEngine
 from bbconf.modules.bedfiles import BedAgentBedFile
 from bbconf.modules.bedsets import BedAgentBedSet
 from bbconf.modules.objects import BBObjects
@@ -42,4 +41,3 @@ class BedBaseAgent(object):
     @property
     def objects(self):
         return self.__objects
-

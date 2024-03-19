@@ -10,13 +10,11 @@ from geniml.region2vec import Region2VecExModel
 from geniml.io import RegionSet
 
 from pephubclient import PEPHubClient
-from bbconf import BedBaseConf
 import boto3
 
 
 from bbconf.db_utils import BaseEngine
-from bbconf.const_new import (
-    CFG_PATH_KEY,
+from bbconf.const import (
     PKG_NAME,
 )
 from bbconf.helpers import get_bedbase_cfg

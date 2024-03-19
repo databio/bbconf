@@ -26,4 +26,3 @@ class DRSModel(BaseModel):
     checksums: str
     access_methods: List[AccessMethod]
     description: Optional[str] = None
-

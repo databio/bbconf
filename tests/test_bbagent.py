@@ -32,9 +32,7 @@ class Test_BedFile_Agent:
 
     def test_upload(self):
         agent = BedBaseAgent(config=config)
-        agent.bed.add(
-
-        )
+        agent.bed.add()
 
     def test_get_all(self):
         agent = BedBaseAgent(config=config)
@@ -86,25 +84,33 @@ class Test_BedFile_Agent:
         pass
 
 
-class TestObjects():
+class TestObjects:
     def test_object_path(self):
         agent = BedBaseAgent(config=config)
-        ff = agent.objects.get_object_uri("bed", "91b2754c8ff01769bacfc80e6923c46e", "bed_file", "http")
+        ff = agent.objects.get_object_uri(
+            "bed", "91b2754c8ff01769bacfc80e6923c46e", "bed_file", "http"
+        )
         ff
 
     def test_object_path_thumbnail_error(self):
         agent = BedBaseAgent(config=config)
         # TODO: it should raise issue:
-        ff = agent.objects.get_thumbnail_uri("bed", "91b2754c8ff01769bacfc80e6923c46e", "bed_file", "http")
+        ff = agent.objects.get_thumbnail_uri(
+            "bed", "91b2754c8ff01769bacfc80e6923c46e", "bed_file", "http"
+        )
         ff
 
     def test_object_path_thumbnail(self):
         agent = BedBaseAgent(config=config)
         # TODO: it should raise issue:
-        ff = agent.objects.get_thumbnail_uri("bed", "91b2754c8ff01769bacfc80e6923c46e", "widths_histogram", "http")
+        ff = agent.objects.get_thumbnail_uri(
+            "bed", "91b2754c8ff01769bacfc80e6923c46e", "widths_histogram", "http"
+        )
         ff
 
     def test_object_metadata(self):
         agent = BedBaseAgent(config=config)
-        ff = agent.objects.get_drs_metadata("bed", "91b2754c8ff01769bacfc80e6923c46e", "widths_histogram", "localhost")
+        ff = agent.objects.get_drs_metadata(
+            "bed", "91b2754c8ff01769bacfc80e6923c46e", "widths_histogram", "localhost"
+        )
         ff
