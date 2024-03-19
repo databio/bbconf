@@ -7,7 +7,11 @@ from pydantic import BaseModel, ConfigDict
 
 from bbconf.model_parser import yaml_to_pydantic
 
-from bbconf.const_new import DEFAULT_VEC2VEC_MODEL, DEFAULT_TEXT2VEC_MODEL, DEFAULT_REGION2_VEC_MODEL
+from bbconf.const_new import (
+    DEFAULT_VEC2VEC_MODEL,
+    DEFAULT_TEXT2VEC_MODEL,
+    DEFAULT_REGION2_VEC_MODEL,
+)
 
 
 # DRS Models

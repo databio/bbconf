@@ -52,7 +52,9 @@ class BedBaseConfig:
         config_dict = {}
         for field_name, annotation in ConfigFile.model_fields.items():
             try:
-                config_dict[field_name] = annotation.annotation(**_config.get(field_name))
+                config_dict[field_name] = annotation.annotation(
+                    **_config.get(field_name)
+                )
             except TypeError:
                 # TODO: this should be more specific
                 config_dict[field_name] = annotation.annotation()
@@ -171,7 +173,9 @@ class BedBaseConfig:
             _LOGGER.error(f"Error in creating PephubClient object: {e}")
             return None
 
-    def _init_boto3_client(self,) -> boto3.client:
+    def _init_boto3_client(
+        self,
+    ) -> boto3.client:
         """
         Create Pephub client object using credentials provided in config file
 
@@ -183,7 +187,7 @@ class BedBaseConfig:
                 endpoint_url=self._config.s3.endpoint_url,
                 aws_access_key_id=self._config.s3.aws_access_key_id,
                 aws_secret_access_key=self._config.s3.aws_secret_access_key,
-        )
+            )
         except Exception as e:
             _LOGGER.error(f"Error in creating boto3 client object: {e}")
             return None

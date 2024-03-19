@@ -9,6 +9,7 @@ DNS = "postgresql+psycopg://postgres:docker@localhost:5432/bedbase"
 
 config = "/home/bnt4me/virginia/repos/bbuploader/config_db_local.yaml"
 
+
 def db_setup():
     # Check if the database is setup
     try:

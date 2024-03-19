@@ -1,4 +1,3 @@
-
 import warnings
 from logging import getLogger
 from typing import List, Optional, Dict, Union, Literal
@@ -15,7 +14,15 @@ import os
 from bbconf.const import (
     PKG_NAME,
 )
-from bbconf.modules.models import BedMetadata, BedFiles, Files
+from bbconf.modules.models import (
+    BedMetadata,
+    BedFiles,
+    Files,
+    BedPlots,
+    BedClassification,
+    BedStats,
+    Plot,
+)
 from bbconf.exceptions import (
     BedBaseConfError,
 )
@@ -23,6 +30,11 @@ from bbconf.db_utils import BaseEngine, Bed
 from bbconf.config_parser.bedbaseconfig import BedBaseConfig
 
 _LOGGER = getLogger(PKG_NAME)
+
+
+BIGBED_PATH_FOLDER = "bigbed_files"
+BED_PATH_FOLDER = "bed_files"
+PLOTS_PATH_FOLDER = "stats"
 
 
 class BedAgentBedFile:
@@ -53,11 +65,6 @@ class BedAgentBedFile:
 
         with Session(self._sa_engine) as session:
             bed_object = session.scalar(statement)
-
-
-
-
-
 
     def get_stats(self, identifier: str) -> dict:
         """
@@ -104,55 +111,71 @@ class BedAgentBedFile:
         """
         ...
 
-    def add(self,
-            identifier: str,
-            stats: dict,
-            metadata: dict = None,
-            plots: dict = None,
-            files: dict = None,
-            add_to_qdrant: bool = False,
-            upload_pephub: bool = False,
-            upload_s3: bool = False,
-            overwrite: bool = False) -> None:
+    def add(
+        self,
+        identifier: str,
+        stats: dict,
+        metadata: dict = None,
+        plots: dict = None,
+        files: dict = None,
+        classification: dict = None,
+        add_to_qdrant: bool = False,
+        upload_pephub: bool = False,
+        upload_s3: bool = False,
+        local_path: str = None,
+        overwrite: bool = False,
+    ) -> None:
         """
         Add bed file to the database.
 
         :param identifier: bed file identifier
         :param stats: bed file results {statistics, plots, files, metadata}
         :param metadata: bed file metadata (will be saved in pephub)
+        :param plots: bed file plots
+        :param files: bed file files
+        :param classification: bed file classification
         :param add_to_qdrant: add bed file to qdrant indexs
         :param upload_pephub: add bed file to pephub
         :param upload_s3: upload files to s3
+        :param local_path: local path to the output files
         :param overwrite: overwrite bed file if it already exists
         :return: None
         """
         _LOGGER.info(f"Adding bed file to database. bed_id: {identifier}")
 
+        stats = BedStats(**stats)
+        plots = BedPlots(**plots)
+        files = BedFiles(**files)
+        metadata = BedMetadata(**metadata)
+        classification = BedClassification(**classification)
+
         if upload_pephub:
-            self.upload_pephub(identifier, metadata, overwrite)
+            self.upload_pephub(identifier, metadata.model_dump(), overwrite)
         else:
             _LOGGER.info("upload_pephub set to false. Skipping pephub..")
 
         if add_to_qdrant:
-            # TODO: rethink it
-            bed_file_path = files.get("bed_file")
-            self.upload_qdrant(identifier, bed_file_path, metadata)
+            self.upload_qdrant(identifier, files.bed_file.path, metadata.model_dump())
         else:
             _LOGGER.info("add_to_qdrant set to false. Skipping qdrant..")
 
         # Upload files to s3
-        if files:
-            self.upload_files_s3(files)
+        if upload_s3:
+            if files:
+                files = self.upload_files_s3(files)
 
-        if plots:
-            self.upload_plots_s3(identifier, plots)
-
-        stats["id"] = identifier
+            if plots:
+                plots = self.upload_plots_s3(
+                    identifier, output_path=local_path, plots=plots
+                )
 
         new_bed = Bed(
-            **stats
+            id=identifier,
+            **stats.model_dump(),
+            **classification.model_dump(),
         )
 
+        # TODO: add plots to the file
         with Session(self._sa_engine) as session:
             session.add(new_bed)
             session.commit()
@@ -168,61 +191,93 @@ class BedAgentBedFile:
         """
         ...
 
-    def upload_files_s3(self, files: List[Files]) -> BedFiles:
+    def upload_files_s3(self, files: BedFiles) -> BedFiles:
         """
         Upload files to s3.
 
         :param files: dictionary with files to upload
         :return: None
         """
-        bed_files_object = BedFiles()
-        for file in files:
-            if file.name == "bed_file":
 
-                file_base_name = os.path.basename(file.path)
+        if files.bed_file:
+            file_base_name = os.path.basename(files.bed_file.path)
 
-                bed_file = file.path
-                bed_s3_path = os.path.join("bed_files", file_base_name[0], file_base_name[1], os.path.basename(bed_file))
-                self._upload_s3(bed_file, bed_s3_path)
+            bed_file_path = files.bed_file.path
+            bed_s3_path = os.path.join(
+                BED_PATH_FOLDER,
+                file_base_name[0],
+                file_base_name[1],
+                os.path.basename(bed_file_path),
+            )
+            self._upload_s3(bed_file_path, bed_s3_path)
 
-                bed_files_object["bed_file"] = Files(
-                    name="bedfile",
-                    path=bed_s3_path,
-                )
+            files.bed_file.path = bed_s3_path
 
-            elif file.name == "bigbed_file":
-                file_base_name = os.path.basename(file.path)
+        if files.bigbed_file:
+            file_base_name = os.path.basename(files.bigbed_file.path)
 
-                bed_file = file.path
-                bed_s3_path = os.path.join("bigbed_files", file_base_name[0], file_base_name[1],
-                                           os.path.basename(bed_file))
-                self._upload_s3(bed_file, bed_s3_path)
+            bed_file = files.bigbed_file.path
+            bigbed_s3_path = os.path.join(
+                BIGBED_PATH_FOLDER,
+                file_base_name[0],
+                file_base_name[1],
+                os.path.basename(bed_file),
+            )
+            self._upload_s3(bed_file, bigbed_s3_path)
 
-                bed_files_object["bed_file"] = Files(
-                    name="bigbedfile",
-                    path=bed_s3_path,
-                )
+            files.bigbed_file.path = bigbed_s3_path
 
-            else:
-                warnings.warn(f"Provided file name: {file.name} is not supported. Skipping..")
-        return bed_files_object
+        return files
 
-    def upload_plots_s3(self, identifier: str, plots: dict) -> dict:
+    def upload_plots_s3(
+        self, identifier: str, output_path: str, plots: BedPlots
+    ) -> BedPlots:
         """
         Upload plots to s3.
 
         :param identifier: bed file identifier
         :param plots: dictionary with plots to upload
+        :param output_path: local path to the output files
         :return: None
         """
-        return_dict = {}
         _LOGGER.info(f"Uploading plots to S3...")
-        for key, value in plots.items():
-            self._upload_s3(value["local_path"], value["s3_path"])
-            return_dict[key] = value["s3_path"]
 
-        _LOGGER.info(f"Data for '{identifier}' uploaded to S3 successfully!")
-        return return_dict
+        plots_output = BedPlots()
+        output_folder = os.path.join(PLOTS_PATH_FOLDER, identifier)
+
+        for key, value in plots:
+            if value:
+                if value.path:
+                    file_s3_path = os.path.join(
+                        output_folder, os.path.basename(value.path)
+                    )
+                    local_path = os.path.join(output_path, value.path)
+                    self._upload_s3(local_path, file_s3_path)
+                else:
+                    file_s3_path = None
+                if value.path_thumbnail:
+                    file_s3_path_thumbnail = os.path.join(
+                        output_folder, os.path.basename(value.path_thumbnail)
+                    )
+                    local_path_thumbnail = os.path.join(
+                        output_path, value.path_thumbnail
+                    )
+                    self._upload_s3(local_path_thumbnail, file_s3_path_thumbnail)
+                else:
+                    file_s3_path_thumbnail = None
+
+                setattr(
+                    plots_output,
+                    key,
+                    Plot(
+                        name=value.name,
+                        path=file_s3_path,
+                        path_thumbnail=file_s3_path_thumbnail,
+                        description=value.description,
+                    ),
+                )
+
+        return plots_output
 
     def _upload_s3(self, file_path: str, s3_path: str) -> None:
         """
@@ -232,9 +287,9 @@ class BedAgentBedFile:
         :param s3_path: path to the file in s3 with file name
         :return: None
         """
-        self._config.boto3_client.upload_file(file_path,
-                                              self._config.config.s3.bucket,
-                                              s3_path)
+        self._config.boto3_client.upload_file(
+            file_path, self._config.config.s3.bucket, s3_path
+        )
 
     def upload_pephub(self, identifier: str, metadata: dict, overwrite: bool = False):
         if not metadata:

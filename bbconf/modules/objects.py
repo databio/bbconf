@@ -2,8 +2,7 @@ from bbconf.db_utils import BaseEngine
 
 
 class BBObjects:
-    """
-    """
+    """ """
 
     def __init__(self, db_engine: BaseEngine):
         """

@@ -37,7 +37,9 @@ POSTGRES_DIALECT = "postgresql+psycopg"
 
 class SchemaError(Exception):
     def __init__(self):
-        super().__init__("""PEP_db connection error! The schema of connected db is incorrect!""")
+        super().__init__(
+            """PEP_db connection error! The schema of connected db is incorrect!"""
+        )
 
 
 class BIGSERIAL(BigInteger):
@@ -77,18 +79,27 @@ class Bed(Base):
 
     __tablename__ = "bed"
 
-    id: Mapped[str] = mapped_column(primary_key=True, )
+    id: Mapped[str] = mapped_column(
+        primary_key=True,
+    )
     name: Mapped[str] = Mapped[Optional[str]]
     genome_alias: Mapped[Optional[str]]
     genome_digest: Mapped[Optional[str]]
     bed_type: Mapped[str] = mapped_column(default="bed3")
     bed_format: Mapped[str] = mapped_column(default="bed")
-    indexed: Mapped[bool] = mapped_column(default=False, comment="Whether sample was added to qdrant")
-    pephub: Mapped[bool] = mapped_column(default=False, comment="Whether sample was added to pephub")
+    indexed: Mapped[bool] = mapped_column(
+        default=False, comment="Whether sample was added to qdrant"
+    )
+    pephub: Mapped[bool] = mapped_column(
+        default=False, comment="Whether sample was added to pephub"
+    )
 
-    submission_date: Mapped[datetime.datetime] = mapped_column(default=deliver_update_date)
+    submission_date: Mapped[datetime.datetime] = mapped_column(
+        default=deliver_update_date
+    )
     last_update_date: Mapped[Optional[datetime.datetime]] = mapped_column(
-        default=deliver_update_date, onupdate=deliver_update_date,
+        default=deliver_update_date,
+        onupdate=deliver_update_date,
     )
 
     # statistics:
@@ -116,16 +127,21 @@ class Bed(Base):
     plots: Mapped[List["Plots"]] = relationship("Plots", back_populates="bedfile")
     files: Mapped[List["Files"]] = relationship("Files", back_populates="bedfile")
 
-    bedsets: Mapped[List["BedFileBedSetRelation"]] = relationship("BedFileBedSetRelation", back_populates="bedfile")
+    bedsets: Mapped[List["BedFileBedSetRelation"]] = relationship(
+        "BedFileBedSetRelation", back_populates="bedfile"
+    )
 
 
 class Files(Base):
     __tablename__ = "files"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    name: Mapped[str] = mapped_column(nullable=False, comment="Name of the file, e.g. bed, bigBed")
+    name: Mapped[str] = mapped_column(
+        nullable=False, comment="Name of the file, e.g. bed, bigBed"
+    )
     path: Mapped[str]
     description: Mapped[Optional[str]]
+    size: Mapped[Optional[str]] = mapped_column(comment="Size of the file")
 
     bedfile_id: Mapped[int] = mapped_column(ForeignKey("bed.id"), nullable=True)
     bedset_id: Mapped[int] = mapped_column(ForeignKey("bedsets.id"), nullable=True)
@@ -139,9 +155,13 @@ class Plots(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(nullable=False, comment="Name of the plot")
-    description: Mapped[Optional[str]] = mapped_column(comment="Description of the plot")
+    description: Mapped[Optional[str]] = mapped_column(
+        comment="Description of the plot"
+    )
     path: Mapped[str] = mapped_column(comment="Path to the plot file")
-    path_thumbnail: Mapped[str] = mapped_column(nullable=True, comment="Path to the thumbnail of the plot file")
+    path_thumbnail: Mapped[str] = mapped_column(
+        nullable=True, comment="Path to the thumbnail of the plot file"
+    )
 
     bedfile_id: Mapped[int] = mapped_column(ForeignKey("bed.id"), nullable=True)
     bedset_id: Mapped[int] = mapped_column(ForeignKey("bedsets.id"), nullable=True)
@@ -164,18 +184,28 @@ class BedSets(Base):
 
     id: Mapped[str] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(nullable=False, comment="Name of the bedset")
-    description: Mapped[Optional[str]] = mapped_column(comment="Description of the bedset")
-    submission_date: Mapped[datetime.datetime] = mapped_column(default=deliver_update_date)
+    description: Mapped[Optional[str]] = mapped_column(
+        comment="Description of the bedset"
+    )
+    submission_date: Mapped[datetime.datetime] = mapped_column(
+        default=deliver_update_date
+    )
     last_update_date: Mapped[Optional[datetime.datetime]] = mapped_column(
-        default=deliver_update_date, onupdate=deliver_update_date,
+        default=deliver_update_date,
+        onupdate=deliver_update_date,
     )
     md5sum: Mapped[Optional[str]] = mapped_column(comment="MD5 sum of the bedset")
 
-    bedset_means: Mapped[Optional[dict]] = mapped_column(JSON, comment="Mean values of the bedset")
-    bedset_standard_deviation: Mapped[Optional[dict]] = mapped_column(JSON, comment="Median values of the bedset")
+    bedset_means: Mapped[Optional[dict]] = mapped_column(
+        JSON, comment="Mean values of the bedset"
+    )
+    bedset_standard_deviation: Mapped[Optional[dict]] = mapped_column(
+        JSON, comment="Median values of the bedset"
+    )
 
-
-    bedfiles: Mapped[List["BedFileBedSetRelation"]] = relationship("BedFileBedSetRelation", back_populates="bedset")
+    bedfiles: Mapped[List["BedFileBedSetRelation"]] = relationship(
+        "BedFileBedSetRelation", back_populates="bedset"
+    )
     plots: Mapped[List["Plots"]] = relationship("Plots", back_populates="bedset")
     files: Mapped[List["Files"]] = relationship("Files", back_populates="bedset")
 

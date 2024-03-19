@@ -12,7 +12,7 @@ import qdrant_client
 
 from sqlalchemy.orm import relationship
 from sqlalchemy import inspect
-import  numpy as np
+import numpy as np
 
 from bbconf.const import (
     CFG_PATH_KEY,

@@ -1,7 +1,11 @@
 from typing import Optional, List, Union
 from pydantic import BaseModel, ConfigDict
 
-from bbconf.const_new import DEFAULT_VEC2VEC_MODEL, DEFAULT_TEXT2VEC_MODEL, DEFAULT_REGION2_VEC_MODEL
+from bbconf.const_new import (
+    DEFAULT_VEC2VEC_MODEL,
+    DEFAULT_TEXT2VEC_MODEL,
+    DEFAULT_REGION2_VEC_MODEL,
+)
 
 
 class ConfigDB(BaseModel):
