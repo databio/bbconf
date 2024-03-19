@@ -4,33 +4,35 @@ from typing import Optional, Union
 from pydantic import BaseModel, ConfigDict, Field
 
 
-class PlotModel(BaseModel):
+# class PlotModel(BaseModel):
+#     name: str = Field(alias="title")
+#     path: str
+#     path_thumbnail: Optional[Union[str, None]] = Field(None, alias="thumbnail_path")
+#     description: Optional[Union[str, None]] = None
+#
+#     model_config = ConfigDict(populate_by_name=True)
+
+class FileModel(BaseModel):
     name: str = Field(alias="title")
     path: str
     path_thumbnail: Optional[Union[str, None]] = Field(None, alias="thumbnail_path")
-    description: Optional[Union[str, None]] = None
+    description: Optional[str] = None
+    size: Optional[str] = None
 
     model_config = ConfigDict(populate_by_name=True)
 
 
 class BedPlots(BaseModel):
-    chrombins: PlotModel = None
-    gccontent: PlotModel = None
-    partitions: PlotModel = None
-    expected_partitions: PlotModel = None
-    cumulative_partitions: PlotModel = None
-    widths_histogram: PlotModel = None
-    neighbor_distances: PlotModel = None
-    open_chromatin: PlotModel = None
+    chrombins: FileModel = None
+    gccontent: FileModel = None
+    partitions: FileModel = None
+    expected_partitions: FileModel = None
+    cumulative_partitions: FileModel = None
+    widths_histogram: FileModel = None
+    neighbor_distances: FileModel = None
+    open_chromatin: FileModel = None
 
-
-class FileModel(BaseModel):
-    name: str = Field(alias="title")
-    path: str
-    description: Optional[str] = None
-    size: Optional[str] = None
-
-    model_config = ConfigDict(populate_by_name=True)
+    model_config = ConfigDict(extra="ignore")
 
 
 class BedFiles(BaseModel):
@@ -39,7 +41,7 @@ class BedFiles(BaseModel):
 
     model_config = ConfigDict(
         populate_by_name=True,
-        extra="allow",
+        extra="ignore",
     )
 
 
@@ -53,6 +55,7 @@ class BedClassification(BaseModel):
     bed_format: str = None
 
     model_config = ConfigDict(extra="ignore")
+
 
 class BedStats(BaseModel):
     number_of_regions: Optional[float] = None
@@ -111,3 +114,4 @@ class BedMetadata(BaseModel):
     plots: BedPlots = None
     files: BedFiles = None
     raw_metadata: Optional[BedPEPHub] = None
+

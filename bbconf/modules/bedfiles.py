@@ -7,7 +7,7 @@ from geniml.region2vec import Region2VecExModel
 from geniml.io import RegionSet
 
 from sqlalchemy.orm import Session
-from sqlalchemy import select
+from sqlalchemy import select, and_, or_
 
 import os
 
@@ -21,13 +21,12 @@ from bbconf.models.bed_models import (
     BedPlots,
     BedClassification,
     BedStats,
-    PlotModel,
     BedPEPHub,
 )
 from bbconf.exceptions import (
     BedBaseConfError,
 )
-from bbconf.db_utils import BaseEngine, Bed, Plots, Files
+from bbconf.db_utils import BaseEngine, Bed, Files
 from bbconf.config_parser.bedbaseconfig import BedBaseConfig
 
 _LOGGER = getLogger(PKG_NAME)
@@ -70,20 +69,26 @@ class BedAgentBedFile:
         with Session(self._sa_engine) as session:
             bed_object = session.scalar(statement)
 
-            for result in bed_object.plots:
-                setattr(bed_plots, result.name, PlotModel(
-                    name=result.name,
-                    path=result.path,
-                    path_thumbnail=result.path_thumbnail,
-                    description=result.description
-                ))
-
             for result in bed_object.files:
-                setattr(bed_files, result.name, FileModel(
-                    name=result.name,
-                    path=result.path,
-                    description=result.description
-                ))
+                # PLOTS
+                if result.name in BedPlots.model_fields:
+                    setattr(bed_plots, result.name, FileModel(
+                        name=result.name,
+                        path=result.path,
+                        size=result.size,
+                        path_thumbnail=result.path_thumbnail,
+                        description=result.description
+                    ))
+                # FILES
+                elif result.name in BedFiles.model_fields:
+                    setattr(bed_files, result.name, FileModel(
+                        name=result.name,
+                        path=result.path,
+                        size=result.size,
+                        description=result.description
+                    ))
+                else:
+                    _LOGGER.error(f"Unknown file type: {result.name}. And is not in the model fields. Skipping..")
 
             bed_stats = BedStats(**bed_object.__dict__)
             bed_classification = BedClassification(**bed_object.__dict__)
@@ -140,13 +145,14 @@ class BedAgentBedFile:
         with Session(self._sa_engine) as session:
             bed_object = session.scalar(statement)
             bed_plots = BedPlots()
-            for result in bed_object.plots:
-                setattr(bed_plots, result.name, PlotModel(
-                    name=result.name,
-                    path=result.path,
-                    path_thumbnail=result.path_thumbnail,
-                    description=result.description
-                ))
+            for result in bed_object.files:
+                if result.name in BedPlots.model_fields:
+                    setattr(bed_plots, result.name, FileModel(
+                        name=result.name,
+                        path=result.path,
+                        path_thumbnail=result.path_thumbnail,
+                        description=result.description
+                    ))
         return bed_plots
 
     def get_files(self, identifier: str) -> BedFiles:
@@ -162,11 +168,12 @@ class BedAgentBedFile:
             bed_object = session.scalar(statement)
             bed_files = BedFiles()
             for result in bed_object.files:
-                setattr(bed_files, result.name, FileModel(
-                    name=result.name,
-                    path=result.path,
-                    description=result.description
-                ))
+                if result.name in BedFiles.model_fields:
+                    setattr(bed_files, result.name, FileModel(
+                        name=result.name,
+                        path=result.path,
+                        description=result.description
+                    ))
         return bed_files
 
     def get_raw_metadata(self, identifier: str) -> BedPEPHub:
@@ -202,6 +209,24 @@ class BedAgentBedFile:
             bed_classification = BedClassification(**bed_object.__dict__)
 
         return bed_classification
+
+    def get_objects(self, identifier: str) -> Dict[str, FileModel]:
+        """
+        Get all object related to bedfile
+
+        :param identifier:  bed file identifier
+        :return: project objects dict
+        """
+        statement = select(Bed).where(Bed.id == identifier)
+        return_dict = {}
+
+        with Session(self._sa_engine) as session:
+            bed_object = session.scalar(statement)
+            for result in bed_object.files:
+                return_dict[result.name] = FileModel(**result.__dict__)
+
+        return return_dict
+
 
     def add(
         self,
@@ -278,16 +303,19 @@ class BedAgentBedFile:
                             path=v.path,
                             description=v.description,
                             bedfile_id=identifier,
+                            type="file",
+                            size=v.size,
                         )
                         session.add(new_file)
                 for k, v in plots:
                     if v:
-                        new_plot = Plots(
+                        new_plot = Files(
                             name=k,
                             path=v.path,
                             path_thumbnail=v.path_thumbnail,
                             description=v.description,
                             bedfile_id=identifier,
+                            type="plot"
                         )
                         session.add(new_plot)
 
@@ -382,7 +410,7 @@ class BedAgentBedFile:
                 setattr(
                     plots_output,
                     key,
-                    PlotModel(
+                    FileModel(
                         name=value.name,
                         path=file_s3_path,
                         path_thumbnail=file_s3_path_thumbnail,

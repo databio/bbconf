@@ -29,7 +29,7 @@ class BedBaseAgent(object):
         # ff
 
         # self.__bedset = BedAgentBedSet(self.config)
-        # self.__objects = BBObjects(self.config)
+        self.__objects = BBObjects(self.config)
 
     @property
     def bed(self) -> BedAgentBedFile:
@@ -39,7 +39,7 @@ class BedBaseAgent(object):
     # def bedset(self):
     #     return self.__bedset
     # #
-    # @property
-    # def objects(self):
-    #     return self.__objects
+    @property
+    def objects(self):
+        return self.__objects
 

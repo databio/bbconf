@@ -13,6 +13,7 @@ from bbconf.exceptions import (
 )
 
 from bbconf.models.drs_models import AccessMethod, AccessURL, DRSModel
+from bbconf.models.bed_models import FileModel
 
 
 _LOGGER = logging.getLogger(PKG_NAME)
@@ -28,7 +29,7 @@ class BBObjects:
         self.config = config
         self.bed = BedAgentBedFile(self.config)
 
-    def get_prefixed_uri(self, postfix: str, access_id: str) -> str:
+    def _get_prefixed_uri(self, postfix: str, access_id: str) -> str:
         """
         Return uri with correct prefix (schema)
 
@@ -60,20 +61,11 @@ class BBObjects:
         :param access_id: access id (e.g. http, s3, etc.)
         :return: string with thumbnail
         """
-        if record_type == "bed":
-            ...
-        elif record_type == "bedset":
-            ...
-        else:
-            raise BedBaseConfError(
-                f"Record type {record_type} is not supported. Only bed and bedset are supported."
-            )
-        try:
-            self.bed.get_plots(identifier=record_id)
+        result = self._get_result(record_type, record_id, result_id)
+        if result.path_thumbnail:
+            return self._get_prefixed_uri(result.path_thumbnail, access_id)
 
-            result = self.get_result(record_type, record_id, result_id)
-            return self.get_prefixed_uri(result["thumbnail_path"], access_id)
-        except KeyError:
+        else:
             _LOGGER.error(
                 f"Thumbnail for {record_type} {record_id} {result_id} is not defined."
             )
@@ -97,15 +89,15 @@ class BBObjects:
         :param access_id: access id (e.g. http, s3, etc.)
         :return:
         """
-        result = self.get_result(record_type, record_id, result_id)
-        return self.get_prefixed_uri(result["path"], access_id)
+        result = self._get_result(record_type, record_id, result_id)
+        return self._get_prefixed_uri(result.path, access_id)
 
-    def get_result(
+    def _get_result(
             self,
             record_type: Literal["bed", "bedset"],
             record_id: str,
             result_id: Union[str, List[str]],
-    ) -> dict:
+    ) -> FileModel:
         """
         Generic getter that can return a result from either bed or bedset
 
@@ -115,9 +107,12 @@ class BBObjects:
         :return: pipestat result
         """
         if record_type == "bed":
-            result = self.bed.retrieve_one(record_id, result_id)
+            result = self.bed.get_objects(identifier=record_id)[result_id]
         elif record_type == "bedset":
-            result = self.bedset.retrieve_one(record_id, result_id)
+            # result = self.bedset.retrieve_one(record_id, result_id)
+            _LOGGER.error("Not implemented")
+            return {}
+
         else:
             raise BedBaseConfError(
                 f"Record type {record_type} is not supported. Only bed and bedset are supported."
@@ -146,23 +141,19 @@ class BBObjects:
 
         access_methods = []
         object_id = f"{record_type}.{record_id}.{result_id}"
-        result_ids = [result_id, "pipestat_created_time", "pipestat_modified_time"]
-        record_metadata = self.get_result(
-            record_type, record_id, result_ids
-        )  # only get result once
+        bed_result = self.bed.get(record_id)
+        created_time = bed_result.submission_date
+        modified_time = bed_result.last_update_date
+        record_metadata = self._get_result(record_type, record_id, result_id)  # only get result once
         if not record_metadata:
-            raise RecordNotFoundError("This record does not exist")
+            raise BedBaseConfError(f"Record not found")
 
-        if not record_metadata[result_id] or not record_metadata[result_id]["path"]:
-            raise MissingObjectError("This object does not exist")
-
-        path = record_metadata[result_id]["path"]
-        for access_id in self.config[CFG_ACCESS_METHOD_KEY].keys():
+        for access_id in self.config.config.access_methods.model_dump().keys():
             access_dict = AccessMethod(
                 type=access_id,
                 access_id=access_id,
-                access_url=AccessURL(url=self.get_prefixed_uri(path, access_id)),
-                region=self.config[CFG_ACCESS_METHOD_KEY][access_id].get(
+                access_url=AccessURL(url=self._get_prefixed_uri(record_metadata.path, access_id)),
+                region=self.config.config.access_methods.model_dump()[access_id].get(
                     "region", None
                 ),
             )
@@ -170,9 +161,9 @@ class BBObjects:
         drs_dict = DRSModel(
             id=object_id,
             self_uri=f"drs://{base_uri}/{object_id}",
-            size=record_metadata[result_id].get("size", "unknown"),
-            created_time=record_metadata.get("pipestat_created_time", "unknown"),
-            updated_time=record_metadata.get("pipestat_modified_time", "unknown"),
+            size=record_metadata.size or "unknown",
+            created_time=created_time,
+            updated_time=modified_time,
             checksums=object_id,
             access_methods=access_methods,
         )

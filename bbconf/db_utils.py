@@ -125,7 +125,7 @@ class Bed(Base):
     tssdist: Mapped[Optional[int]]
 
     # relations:
-    plots: Mapped[List["Plots"]] = relationship("Plots", back_populates="bedfile")
+    # plots: Mapped[List["Plots"]] = relationship("Plots", back_populates="bedfile")
     files: Mapped[List["Files"]] = relationship("Files", back_populates="bedfile")
 
     bedsets: Mapped[List["BedFileBedSetRelation"]] = relationship(
@@ -140,7 +140,13 @@ class Files(Base):
     name: Mapped[str] = mapped_column(
         nullable=False, comment="Name of the file, e.g. bed, bigBed"
     )
+    type: Mapped[str] = mapped_column(
+        default="file", comment="Type of the object, e.g. file, plot, ..."
+    )
     path: Mapped[str]
+    path_thumbnail: Mapped[str] = mapped_column(
+        nullable=True, comment="Thumbnail path of the file"
+    )
     description: Mapped[Optional[str]]
     size: Mapped[Optional[str]] = mapped_column(comment="Size of the file")
 
@@ -151,24 +157,24 @@ class Files(Base):
     bedset: Mapped["BedSets"] = relationship("BedSets", back_populates="files")
 
 
-class Plots(Base):
-    __tablename__ = "plots"
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-    name: Mapped[str] = mapped_column(nullable=False, comment="Name of the plot")
-    description: Mapped[Optional[str]] = mapped_column(
-        comment="Description of the plot"
-    )
-    path: Mapped[str] = mapped_column(comment="Path to the plot file")
-    path_thumbnail: Mapped[str] = mapped_column(
-        nullable=True, comment="Path to the thumbnail of the plot file"
-    )
-
-    bedfile_id: Mapped[int] = mapped_column(ForeignKey("bed.id"), nullable=True)
-    bedset_id: Mapped[int] = mapped_column(ForeignKey("bedsets.id"), nullable=True)
-
-    bedfile: Mapped["Bed"] = relationship("Bed", back_populates="plots")
-    bedset: Mapped["BedSets"] = relationship("BedSets", back_populates="plots")
+# class Plots(Base):
+#     __tablename__ = "plots"
+#
+#     id: Mapped[int] = mapped_column(primary_key=True)
+#     name: Mapped[str] = mapped_column(nullable=False, comment="Name of the plot")
+#     description: Mapped[Optional[str]] = mapped_column(
+#         comment="Description of the plot"
+#     )
+#     path: Mapped[str] = mapped_column(comment="Path to the plot file")
+#     path_thumbnail: Mapped[str] = mapped_column(
+#         nullable=True, comment="Path to the thumbnail of the plot file"
+#     )
+#
+#     bedfile_id: Mapped[int] = mapped_column(ForeignKey("bed.id"), nullable=True)
+#     bedset_id: Mapped[int] = mapped_column(ForeignKey("bedsets.id"), nullable=True)
+#
+#     bedfile: Mapped["Bed"] = relationship("Bed", back_populates="plots")
+#     bedset: Mapped["BedSets"] = relationship("BedSets", back_populates="plots")
 
 
 class BedFileBedSetRelation(Base):
@@ -207,7 +213,7 @@ class BedSets(Base):
     bedfiles: Mapped[List["BedFileBedSetRelation"]] = relationship(
         "BedFileBedSetRelation", back_populates="bedset"
     )
-    plots: Mapped[List["Plots"]] = relationship("Plots", back_populates="bedset")
+    # plots: Mapped[List["Plots"]] = relationship("Plots", back_populates="bedset")
     files: Mapped[List["Files"]] = relationship("Files", back_populates="bedset")
 
 
