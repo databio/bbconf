@@ -14,7 +14,7 @@ import os
 from bbconf.const import (
     PKG_NAME,
 )
-from bbconf.modules.models import (
+from bbconf.models.bed_models import (
     BedMetadata,
     BedFiles,
     FileModel,
@@ -88,6 +88,17 @@ class BedAgentBedFile:
             bed_stats = BedStats(**bed_object.__dict__)
             bed_classification = BedClassification(**bed_object.__dict__)
 
+        try:
+            bed_metadata = self._config.phc.sample.get(
+                namespace=self._config.config.phc.namespace,
+                name=self._config.config.phc.name,
+                tag=self._config.config.phc.tag,
+                sample_name=identifier,
+            )
+        except Exception as e:
+            _LOGGER.warning(f"Could not retrieve metadata from pephub. Error: {e}")
+            bed_metadata = {}
+
         return BedMetadata(
             id=bed_object.id,
             name=bed_object.name,
@@ -95,55 +106,102 @@ class BedAgentBedFile:
             classification=bed_classification,
             plots=bed_plots,
             files=bed_files,
-            description="",
+            description=bed_object.description,
             submission_date=bed_object.submission_date,
-            last_update_date=bed_object.last_update_date
+            last_update_date=bed_object.last_update_date,
+            raw_metadata=BedPEPHub(**bed_metadata),
         )
 
-    def get_stats(self, identifier: str) -> dict:
+    def get_stats(self, identifier: str) -> BedStats:
         """
         Get file statistics by identifier.
 
         :param identifier: bed file identifier
-        :return: project statistics
-        """
-        ...
 
-    def get_plots(self, identifier: str) -> dict:
+        :return: project statistics as BedStats object
+        """
+        statement = select(Bed).where(Bed.id == identifier)
+
+        with Session(self._sa_engine) as session:
+            bed_object = session.scalar(statement)
+            bed_stats = BedStats(**bed_object.__dict__)
+
+        return bed_stats
+
+    def get_plots(self, identifier: str) -> BedPlots:
         """
         Get file plots by identifier.
 
         :param identifier: bed file identifier
         :return: project plots
         """
-        ...
+        statement = select(Bed).where(Bed.id == identifier)
 
-    def get_files(self, identifier: str) -> dict:
+        with Session(self._sa_engine) as session:
+            bed_object = session.scalar(statement)
+            bed_plots = BedPlots()
+            for result in bed_object.plots:
+                setattr(bed_plots, result.name, PlotModel(
+                    name=result.name,
+                    path=result.path,
+                    path_thumbnail=result.path_thumbnail,
+                    description=result.description
+                ))
+        return bed_plots
+
+    def get_files(self, identifier: str) -> BedFiles:
         """
         Get file files by identifier.
 
         :param identifier: bed file identifier
         :return: project files
         """
-        ...
+        statement = select(Bed).where(Bed.id == identifier)
 
-    def get_metadata(self, identifier: str) -> dict:
+        with Session(self._sa_engine) as session:
+            bed_object = session.scalar(statement)
+            bed_files = BedFiles()
+            for result in bed_object.files:
+                setattr(bed_files, result.name, FileModel(
+                    name=result.name,
+                    path=result.path,
+                    description=result.description
+                ))
+        return bed_files
+
+    def get_raw_metadata(self, identifier: str) -> BedPEPHub:
         """
         Get file metadata by identifier.
 
         :param identifier: bed file identifier
         :return: project metadata
         """
-        ...
+        try:
+            bed_metadata = self._config.phc.sample.get(
+                namespace=self._config.config.phc.namespace,
+                name=self._config.config.phc.name,
+                tag=self._config.config.phc.tag,
+                sample_name=identifier,
+            )
+        except Exception as e:
+            _LOGGER.warning(f"Could not retrieve metadata from pephub. Error: {e}")
+            bed_metadata = {}
+        return BedPEPHub(**bed_metadata)
 
-    def get_classification(self, identifier: str) -> dict:
+    def get_classification(self, identifier: str) -> BedClassification:
         """
         Get file classification by identifier.
 
         :param identifier: bed file identifier
         :return: project classification
         """
-        ...
+        statement = select(Bed).where(Bed.id == identifier)
+
+        with Session(self._sa_engine) as session:
+            bed_object = session.scalar(statement)
+            bed_classification = BedClassification(**bed_object.__dict__)
+
+        return bed_classification
 
     def add(
         self,
@@ -424,20 +482,3 @@ class BedAgentBedFile:
                     f"Couldn't find qdrant result in bedbase for id: {result['id']}"
                 )
         return results
-
-    def _verify_results(self, results: dict) -> tuple:
-        """
-        Verify if results are in the correct format
-
-        :param results: results to verify
-        :return: True if results are correct, False if not
-        """
-        table_annotations = Bed.__annotations__.keys()
-        correct_results = {}
-        unknown_results = {}
-        for key, value in results.items():
-            if key in table_annotations:
-                correct_results[key] = value
-            else:
-                unknown_results[key] = value
-        return correct_results, unknown_results

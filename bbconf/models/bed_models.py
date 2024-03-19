@@ -1,17 +1,7 @@
 import datetime
-from typing import Optional, List, Union
-import os
-import pathlib
+from typing import Optional, Union
 
 from pydantic import BaseModel, ConfigDict, Field
-
-from bbconf.model_parser import yaml_to_pydantic
-
-from bbconf.const_new import (
-    DEFAULT_VEC2VEC_MODEL,
-    DEFAULT_TEXT2VEC_MODEL,
-    DEFAULT_REGION2_VEC_MODEL,
-)
 
 
 class PlotModel(BaseModel):
@@ -87,18 +77,6 @@ class BedStats(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
 
-class BedMetadata(BaseModel):
-    id: str
-    name: str
-    description: Optional[str] = None
-    submission_date: datetime.datetime = None
-    last_update_date: Optional[datetime.datetime] = None
-    stats: BedStats = None
-    classification: BedClassification = None
-    plots: BedPlots = None
-    files: BedFiles = None
-
-
 class BedPEPHub(BaseModel):
     sample_name: str
     genome: str
@@ -121,8 +99,15 @@ class BedPEPHub(BaseModel):
     global_experiment_id: str = Field("", description="Global experiment identifier")
     description: str = Field("", description="Description of the sample")
 
-    # THIS IS NOW PART OF THE BedBase model in bbconf
-    # bed_format: FILE_TYPE = FILE_TYPE.BED
-    # bed_type: str = Field(
-    #     default="bed3", pattern="^bed(?:[3-9]|1[0-5])(?:\+|$)[0-9]?+$"
-    # )
+
+class BedMetadata(BaseModel):
+    id: str
+    name: str
+    description: Optional[str] = None
+    submission_date: datetime.datetime = None
+    last_update_date: Optional[datetime.datetime] = None
+    stats: BedStats = None
+    classification: BedClassification = None
+    plots: BedPlots = None
+    files: BedFiles = None
+    raw_metadata: Optional[BedPEPHub] = None

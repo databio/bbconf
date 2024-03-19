@@ -50,7 +50,7 @@ from bbconf.exceptions import (
     BadAccessMethodError,
 )
 from bbconf.helpers import raise_missing_key, get_bedbase_cfg
-from bbconf.models import DRSModel, AccessMethod, AccessURL
+# from bbconf.models import DRSModel, AccessMethod, AccessURL
 
 from geniml.text2bednn import text2bednn
 from geniml.search import QdrantBackend
@@ -667,54 +667,54 @@ class BedBaseConf:
         _LOGGER.info(f"Result: {result}")
         return result
 
-    def get_drs_metadata(
-        self,
-        record_type: Literal["bed", "bedset"],
-        record_id: str,
-        result_id: str,
-        base_uri: str,
-    ) -> DRSModel:
-        """
-        Get DRS metadata for a bed- or bedset-associated file
-
-        :param record_type: bed or bedset
-        :param record_id: record identifier
-        :param result_id: name of the result file to get metadata for
-        :param base_uri: base uri to use for the self_uri field (server hostname of DRS broker)
-        :return: DRS metadata
-        """
-
-        access_methods = []
-        object_id = f"{record_type}.{record_id}.{result_id}"
-        result_ids = [result_id, "pipestat_created_time", "pipestat_modified_time"]
-        record_metadata = self.get_result(
-            record_type, record_id, result_ids
-        )  # only get result once
-        if not record_metadata:
-            raise RecordNotFoundError("This record does not exist")
-
-        if not record_metadata[result_id] or not record_metadata[result_id]["path"]:
-            raise MissingObjectError("This object does not exist")
-
-        path = record_metadata[result_id]["path"]
-        for access_id in self.config[CFG_ACCESS_METHOD_KEY].keys():
-            access_dict = AccessMethod(
-                type=access_id,
-                access_id=access_id,
-                access_url=AccessURL(url=self.get_prefixed_uri(path, access_id)),
-                region=self.config[CFG_ACCESS_METHOD_KEY][access_id].get(
-                    "region", None
-                ),
-            )
-            access_methods.append(access_dict)
-        drs_dict = DRSModel(
-            id=object_id,
-            self_uri=f"drs://{base_uri}/{object_id}",
-            size=record_metadata[result_id].get("size", "unknown"),
-            created_time=record_metadata.get("pipestat_created_time", "unknown"),
-            updated_time=record_metadata.get("pipestat_modified_time", "unknown"),
-            checksums=object_id,
-            access_methods=access_methods,
-        )
-
-        return drs_dict
+    # def get_drs_metadata(
+    #     self,
+    #     record_type: Literal["bed", "bedset"],
+    #     record_id: str,
+    #     result_id: str,
+    #     base_uri: str,
+    # ) -> DRSModel:
+    #     """
+    #     Get DRS metadata for a bed- or bedset-associated file
+    #
+    #     :param record_type: bed or bedset
+    #     :param record_id: record identifier
+    #     :param result_id: name of the result file to get metadata for
+    #     :param base_uri: base uri to use for the self_uri field (server hostname of DRS broker)
+    #     :return: DRS metadata
+    #     """
+    #
+    #     access_methods = []
+    #     object_id = f"{record_type}.{record_id}.{result_id}"
+    #     result_ids = [result_id, "pipestat_created_time", "pipestat_modified_time"]
+    #     record_metadata = self.get_result(
+    #         record_type, record_id, result_ids
+    #     )  # only get result once
+    #     if not record_metadata:
+    #         raise RecordNotFoundError("This record does not exist")
+    #
+    #     if not record_metadata[result_id] or not record_metadata[result_id]["path"]:
+    #         raise MissingObjectError("This object does not exist")
+    #
+    #     path = record_metadata[result_id]["path"]
+    #     for access_id in self.config[CFG_ACCESS_METHOD_KEY].keys():
+    #         access_dict = AccessMethod(
+    #             type=access_id,
+    #             access_id=access_id,
+    #             access_url=AccessURL(url=self.get_prefixed_uri(path, access_id)),
+    #             region=self.config[CFG_ACCESS_METHOD_KEY][access_id].get(
+    #                 "region", None
+    #             ),
+    #         )
+    #         access_methods.append(access_dict)
+    #     drs_dict = DRSModel(
+    #         id=object_id,
+    #         self_uri=f"drs://{base_uri}/{object_id}",
+    #         size=record_metadata[result_id].get("size", "unknown"),
+    #         created_time=record_metadata.get("pipestat_created_time", "unknown"),
+    #         updated_time=record_metadata.get("pipestat_modified_time", "unknown"),
+    #         checksums=object_id,
+    #         access_methods=access_methods,
+    #     )
+    #
+    #     return drs_dict
