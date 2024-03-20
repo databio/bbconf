@@ -1,9 +1,8 @@
 import warnings
 from logging import getLogger
-from typing import List, Optional, Dict, Union, Literal
+from typing import Dict, Union
 import numpy as np
 
-from geniml.region2vec import Region2VecExModel
 from geniml.io import RegionSet
 from geniml.bbclient import BBClient
 

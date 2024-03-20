@@ -50,26 +50,33 @@ class BedClassification(BaseModel):
 
 
 class BedStats(BaseModel):
-    number_of_regions: Optional[float] = None
+    number_of_regions: Optional[float] = Field(None, alias="regions_no")
     gc_content: Optional[float] = None
     median_tss_dist: Optional[float] = None
     mean_region_width: Optional[float] = None
+
     exon_frequency: Optional[float] = None
-    intron_frequency: Optional[float] = None
-    promoterprox_frequency: Optional[float] = None
-    intergenic_frequency: Optional[float] = None
-    promotercore_frequency: Optional[float] = None
-    fiveutr_frequency: Optional[float] = None
-    threeutr_frequency: Optional[float] = None
-    fiveutr_percentage: Optional[float] = None
-    threeutr_percentage: Optional[float] = None
-    promoterprox_percentage: Optional[float] = None
     exon_percentage: Optional[float] = None
+
+    intron_frequency: Optional[float] = None
     intron_percentage: Optional[float] = None
+
     intergenic_percentage: Optional[float] = None
+    intergenic_frequency: Optional[float] = None
+
+    promotercore_frequency: Optional[float] = None
     promotercore_percentage: Optional[float] = None
 
-    model_config = ConfigDict(extra="ignore")
+    fiveutr_frequency: Optional[float] = None
+    fiveutr_percentage: Optional[float] = None
+
+    threeutr_frequency: Optional[float] = None
+    threeutr_percentage: Optional[float] = None
+
+    promoterprox_frequency: Optional[float] = None
+    promoterprox_percentage: Optional[float] = None
+
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
 
 class BedPEPHub(BaseModel):
