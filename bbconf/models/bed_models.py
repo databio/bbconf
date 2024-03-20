@@ -1,16 +1,7 @@
 import datetime
-from typing import Optional, Union
+from typing import Optional, Union, List
 
 from pydantic import BaseModel, ConfigDict, Field
-
-
-# class PlotModel(BaseModel):
-#     name: str = Field(alias="title")
-#     path: str
-#     path_thumbnail: Optional[Union[str, None]] = Field(None, alias="thumbnail_path")
-#     description: Optional[Union[str, None]] = None
-#
-#     model_config = ConfigDict(populate_by_name=True)
 
 
 class FileModel(BaseModel):
@@ -18,7 +9,7 @@ class FileModel(BaseModel):
     path: str
     path_thumbnail: Optional[Union[str, None]] = Field(None, alias="thumbnail_path")
     description: Optional[str] = None
-    size: Optional[str] = None
+    size: Optional[int] = None
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -115,3 +106,24 @@ class BedMetadata(BaseModel):
     plots: BedPlots = None
     files: BedFiles = None
     raw_metadata: Optional[BedPEPHub] = None
+
+
+class BedListResult(BaseModel):
+    count: int
+    limit: int
+    offset: int
+    results: List[str]
+
+
+class QdrantSearchResult(BaseModel):
+    id: str
+    payload: dict
+    score: float
+    metadata: Union[BedMetadata, None] = None
+
+
+class BedListSearchResult(BaseModel):
+    count: int
+    limit: int
+    offset: int
+    results: List[QdrantSearchResult] = None

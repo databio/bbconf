@@ -29,3 +29,9 @@ class MissingObjectError(BedBaseConfError):
     """Error type for missing object"""
 
     pass
+
+
+class BEDFileNotFoundError(BedBaseConfError):
+    """Error type for missing object"""
+
+    pass

@@ -32,6 +32,7 @@ class BedBaseConfig:
         self._db_engine = self._init_db_engine()
         self._qdrant_engine = self._init_qdrant_backend()
         self._t2bsi = self._init_t2bsi_object()
+        self._r2v = self._init_r2v_object()
 
         self._phc = self._init_pephubclient()
         self._boto3_client = self._init_boto3_client()
@@ -85,6 +86,15 @@ class BedBaseConfig:
         :return: text2bednn object
         """
         return self._t2bsi
+
+    @property
+    def r2v(self) -> Region2VecExModel:
+        """
+        Get region2vec object
+
+        :return: region2vec object
+        """
+        return self._r2v
 
     @property
     def qdrant_engine(self) -> QdrantBackend:
@@ -189,3 +199,9 @@ class BedBaseConfig:
         except Exception as e:
             _LOGGER.error(f"Error in creating boto3 client object: {e}")
             return None
+
+    def _init_r2v_object(self) -> Region2VecExModel:
+        """
+        Create Region2VecExModel object using credentials provided in config file
+        """
+        return Region2VecExModel(self.config.path.region2vec)

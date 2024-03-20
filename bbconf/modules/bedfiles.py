@@ -5,6 +5,9 @@ import numpy as np
 
 from geniml.region2vec import Region2VecExModel
 from geniml.io import RegionSet
+from geniml.bbclient import BBClient
+
+from qdrant_client.models import PointIdsList, VectorParams, Distance
 
 from sqlalchemy.orm import Session
 from sqlalchemy import select, and_, or_
@@ -22,11 +25,15 @@ from bbconf.models.bed_models import (
     BedClassification,
     BedStats,
     BedPEPHub,
+    BedListResult,
+    BedListSearchResult,
+    QdrantSearchResult,
 )
 from bbconf.exceptions import (
     BedBaseConfError,
+    BEDFileNotFoundError,
 )
-from bbconf.db_utils import BaseEngine, Bed, Files
+from bbconf.db_utils import Bed, Files
 from bbconf.config_parser.bedbaseconfig import BedBaseConfig
 
 _LOGGER = getLogger(PKG_NAME)
@@ -35,6 +42,7 @@ _LOGGER = getLogger(PKG_NAME)
 BIGBED_PATH_FOLDER = "bigbed_files"
 BED_PATH_FOLDER = "bed_files"
 PLOTS_PATH_FOLDER = "stats"
+QDRANT_GENOME = "hg38"
 
 
 class BedAgentBedFile:
@@ -68,7 +76,8 @@ class BedAgentBedFile:
 
         with Session(self._sa_engine) as session:
             bed_object = session.scalar(statement)
-
+            if not bed_object:
+                raise BEDFileNotFoundError(f"Bed file with id: {identifier} not found.")
             for result in bed_object.files:
                 # PLOTS
                 if result.name in BedPlots.model_fields:
@@ -245,6 +254,28 @@ class BedAgentBedFile:
 
         return return_dict
 
+    def get_ids_list(self, limit: int = 100, offset: int = 0) -> BedListResult:
+        """
+        Get list of bed file identifiers.
+
+        :param limit: number of results to return
+        :param offset: offset to start from
+        :return: list of bed file identifiers
+        """
+        # TODO: add filter (e.g. bed_type, genome...), search by description
+        # TODO: question: Return Annotation?
+        statement = select(Bed.id).limit(limit).offset(offset)
+
+        with Session(self._sa_engine) as session:
+            bed_ids = session.execute(statement).all()
+
+        return BedListResult(
+            count=len(bed_ids),
+            limit=limit,
+            offset=offset,
+            results=[result[0] for result in bed_ids],
+        )
+
     def add(
         self,
         identifier: str,
@@ -290,7 +321,9 @@ class BedAgentBedFile:
             _LOGGER.info("upload_pephub set to false. Skipping pephub..")
 
         if add_to_qdrant:
-            self.upload_qdrant(identifier, files.bed_file.path, metadata.model_dump())
+            self.upload_file_qdrant(
+                identifier, files.bed_file.path, {"bed_id": identifier}
+            )
         else:
             _LOGGER.info("add_to_qdrant set to false. Skipping qdrant..")
 
@@ -332,6 +365,7 @@ class BedAgentBedFile:
                             description=v.description,
                             bedfile_id=identifier,
                             type="plot",
+                            size=v.size,
                         )
                         session.add(new_plot)
 
@@ -346,7 +380,7 @@ class BedAgentBedFile:
         :param identifier: bed file identifier
         :return: None
         """
-        ...
+        raise NotImplemented
 
     def upload_files_s3(self, files: BedFiles) -> BedFiles:
         """
@@ -369,20 +403,22 @@ class BedAgentBedFile:
             self._upload_s3(bed_file_path, bed_s3_path)
 
             files.bed_file.path = bed_s3_path
+            files.bed_file.size = os.path.getsize(bed_file_path)
 
         if files.bigbed_file:
             file_base_name = os.path.basename(files.bigbed_file.path)
 
-            bed_file = files.bigbed_file.path
+            bigbed_file_local = files.bigbed_file.path
             bigbed_s3_path = os.path.join(
                 BIGBED_PATH_FOLDER,
                 file_base_name[0],
                 file_base_name[1],
-                os.path.basename(bed_file),
+                os.path.basename(bigbed_file_local),
             )
-            self._upload_s3(bed_file, bigbed_s3_path)
+            self._upload_s3(bigbed_file_local, bigbed_s3_path)
 
             files.bigbed_file.path = bigbed_s3_path
+            files.bigbed_file.size = os.path.getsize(bigbed_file_local)
 
         return files
 
@@ -412,6 +448,7 @@ class BedAgentBedFile:
                     self._upload_s3(local_path, file_s3_path)
                 else:
                     file_s3_path = None
+                    local_path = None
                 if value.path_thumbnail:
                     file_s3_path_thumbnail = os.path.join(
                         output_folder, os.path.basename(value.path_thumbnail)
@@ -431,6 +468,7 @@ class BedAgentBedFile:
                         path=file_s3_path,
                         path_thumbnail=file_s3_path_thumbnail,
                         description=value.description,
+                        size=os.path.getsize(local_path) if local_path else None,
                     ),
                 )
 
@@ -461,15 +499,16 @@ class BedAgentBedFile:
             overwrite=overwrite,
         )
 
-    def upload_qdrant(
+    def upload_file_qdrant(
         self,
         bed_id: str,
         bed_file: Union[str, RegionSet],
         payload: dict = None,
-        region_to_vec: Region2VecExModel = None,
     ) -> None:
         """
         Convert bed file to vector and add it to qdrant database
+
+        !Warning: only hg38 genome can be added to qdrant!
 
         :param bed_id: bed file id
         :param bed_file: path to the bed file, or RegionSet object
@@ -487,11 +526,7 @@ class BedAgentBedFile:
             raise BedBaseConfError(
                 "Could not add add region to qdrant. Invalid type, or path. "
             )
-        if not region_to_vec and isinstance(self._config.config.path.region2vec, str):
-            reg_2_vec_obj = Region2VecExModel(self._config.config.path.region2vec)
-        else:
-            reg_2_vec_obj = region_to_vec
-        bed_embedding = np.mean(reg_2_vec_obj.encode(bed_region_set), axis=0)
+        bed_embedding = np.mean(self._config.r2v.encode(bed_region_set), axis=0)
 
         # Upload bed file vector to the database
         vec_dim = bed_embedding.shape[0]
@@ -502,7 +537,9 @@ class BedAgentBedFile:
         )
         return None
 
-    def text_to_bed_search(self, query: str, limit: int = 10, offset: int = 0):
+    def text_to_bed_search(
+        self, query: str, limit: int = 10, offset: int = 0
+    ) -> BedListSearchResult:
         """
         Search for bed files by text query in qdrant database
 
@@ -515,14 +552,74 @@ class BedAgentBedFile:
         _LOGGER.info(f"Looking for: {query}")
         _LOGGER.info(f"Using backend: {self._config.t2bsi}")
 
-        # TODO: FIX it!
         results = self._config.t2bsi.nl_vec_search(query, limit=limit, offset=offset)
+        results_list = []
         for result in results:
+            result_id = result["id"].replace("-", "")
             try:
-                # qdrant automatically adds hypens to the ids. remove them.
-                result["metadata"] = bbc.bed.retrieve_one(result["id"].replace("-", ""))
-            except RecordNotFoundError:
-                _LOGGER.info(
-                    f"Couldn't find qdrant result in bedbase for id: {result['id']}"
+                result_meta = self.get(result_id)
+            except BEDFileNotFoundError as e:
+                _LOGGER.warning(
+                    f"Could not retrieve metadata for bed file: {result_id}. Error: {e}"
                 )
-        return results
+                continue
+            if result_meta:
+                results_list.append(QdrantSearchResult(**result, metadata=result_meta))
+        return BedListSearchResult(
+            count=len(results), limit=limit, offset=offset, results=results_list
+        )
+
+    def reindex_qdrant(self) -> None:
+        """
+        Re-upload all files to quadrant.
+        !Warning: only hg38 genome can be added to qdrant!
+
+        If you want want to fully reindex/reupload to qdrant, first delete collection and create new one.
+
+        Upload all files to qdrant.
+        """
+        bb_client = BBClient()
+
+        statement = select(Bed.id).where(Bed.genome_alias == QDRANT_GENOME)
+
+        with Session(self._db_engine.engine) as session:
+            bed_ids = session.execute(statement).all()
+
+        bed_ids = [bed_result[0] for bed_result in bed_ids]
+
+        for record_id in bed_ids:
+            bed_region_set_obj = bb_client.load_bed(record_id)
+
+            self.upload_file_qdrant(
+                bed_id=record_id,
+                bed_file=bed_region_set_obj,
+                payload={"bed_id": record_id},
+            )
+
+        return None
+
+    def delete_qdrant_point(self, identifier: str) -> None:
+        """
+        Delete bed file from qdrant.
+
+        :param identifier: bed file identifier
+        :return: None
+        """
+
+        result = self._config.qdrant_engine.qd_client.delete(
+            collection_name=self._config.config.qdrant.collection,
+            points_selector=PointIdsList(
+                points=[identifier],
+            ),
+        )
+        return result
+
+    def create_qdrant_collection(self) -> None:
+        """
+        Create qdrant collection for bed files.
+        """
+        result = self._config.qdrant_engine.qd_client.create_collection(
+            collection_name="test_collection",
+            vectors_config=VectorParams(size=100, distance=Distance.DOT),
+        )
+        return None

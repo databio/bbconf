@@ -79,9 +79,7 @@ class Bed(Base):
 
     __tablename__ = "bed"
 
-    id: Mapped[str] = mapped_column(
-        primary_key=True,
-    )
+    id: Mapped[str] = mapped_column(primary_key=True, index=True)
     name: Mapped[Optional[str]]
     genome_alias: Mapped[Optional[str]]
     genome_digest: Mapped[Optional[str]]
@@ -136,7 +134,7 @@ class Bed(Base):
 class Files(Base):
     __tablename__ = "files"
 
-    id: Mapped[int] = mapped_column(primary_key=True)
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
     name: Mapped[str] = mapped_column(
         nullable=False, comment="Name of the file, e.g. bed, bigBed"
     )
@@ -148,10 +146,14 @@ class Files(Base):
         nullable=True, comment="Thumbnail path of the file"
     )
     description: Mapped[Optional[str]]
-    size: Mapped[Optional[str]] = mapped_column(comment="Size of the file")
+    size: Mapped[Optional[int]] = mapped_column(default=0, comment="Size of the file")
 
-    bedfile_id: Mapped[int] = mapped_column(ForeignKey("bed.id"), nullable=True)
-    bedset_id: Mapped[int] = mapped_column(ForeignKey("bedsets.id"), nullable=True)
+    bedfile_id: Mapped[int] = mapped_column(
+        ForeignKey("bed.id"), nullable=True, index=True
+    )
+    bedset_id: Mapped[int] = mapped_column(
+        ForeignKey("bedsets.id"), nullable=True, index=True
+    )
 
     bedfile: Mapped["Bed"] = relationship("Bed", back_populates="files")
     bedset: Mapped["BedSets"] = relationship("BedSets", back_populates="files")
@@ -189,7 +191,7 @@ class BedFileBedSetRelation(Base):
 class BedSets(Base):
     __tablename__ = "bedsets"
 
-    id: Mapped[str] = mapped_column(primary_key=True)
+    id: Mapped[str] = mapped_column(primary_key=True, index=True)
     name: Mapped[str] = mapped_column(nullable=False, comment="Name of the bedset")
     description: Mapped[Optional[str]] = mapped_column(
         comment="Description of the bedset"

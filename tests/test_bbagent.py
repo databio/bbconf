@@ -69,6 +69,30 @@ class Test_BedFile_Agent:
         ff = agent.bed.get_objects("91b2754c8ff01769bacfc80e6923c46e")
         print(ff)
 
+    def test_get_list(self):
+        agent = BedBaseAgent(config=config)
+        ff = agent.bed.get_ids_list()
+        print(ff)
+        assert ff != None
+
+    def test_qdrant_search(self):
+        agent = BedBaseAgent(config=config)
+        ff = agent.bed.text_to_bed_search("asf")
+        print(ff)
+        assert ff != None
+
+    def test_qdrant_reindex(self):
+        agent = BedBaseAgent(config=config)
+        ff = agent.bed.reindex_qdrant()
+        ff
+        assert True
+
+    def test_delete_qdrant_point(self):
+        agent = BedBaseAgent(config=config)
+        ff = agent.bed.delete_qdrant_point("91b2754c8ff01769bacfc80e6923c46e")
+        ff
+        assert True
+
     def test_bed_delete(self):
         # agent = BedBaseAgent(config=config)
         # ff = agent.bed.delete("91b2754c8ff01769bacfc80e6923c46e")
