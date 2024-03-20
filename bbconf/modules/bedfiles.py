@@ -342,6 +342,8 @@ class BedAgentBedFile:
                 id=identifier,
                 **stats.model_dump(),
                 **classification.model_dump(),
+                indexed=add_to_qdrant,
+                pephub=upload_pephub,
             )
             session.add(new_bed)
             if upload_s3:
