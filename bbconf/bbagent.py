@@ -27,31 +27,25 @@ class BedBaseAgent(object):
         self.config = BedBaseConfig(config)
 
         self.__bed = BedAgentBedFile(self.config)
-
-        # ff = self.__bed.add("test", {"number_of_regions": 44})
-
-        # ff
-
-        # self.__bedset = BedAgentBedSet(self.config)
+        self.__bedset = BedAgentBedSet(self.config)
         self.__objects = BBObjects(self.config)
 
     @property
     def bed(self) -> BedAgentBedFile:
         return self.__bed
 
-    # @property
-    # def bedset(self):
-    #     return self.__bedset
+    @property
+    def bedset(self):
+        return self.__bedset
 
     @property
     def objects(self):
         return self.__objects
 
-    def get_stats(self, bedfile: str) -> StatsReturn:
+    def get_stats(self) -> StatsReturn:
         """
         Get statistics for a bed file
 
-        :param bedfile: bed file name
         :return: statistics
         """
         with Session(self.config.db_engine.engine) as session:

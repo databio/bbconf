@@ -4,14 +4,7 @@ from typing import Optional, Union, List
 from pydantic import BaseModel, ConfigDict, Field
 
 
-class FileModel(BaseModel):
-    name: str = Field(alias="title")
-    path: str
-    path_thumbnail: Optional[Union[str, None]] = Field(None, alias="thumbnail_path")
-    description: Optional[str] = None
-    size: Optional[int] = None
-
-    model_config = ConfigDict(populate_by_name=True)
+from .base_models import FileModel
 
 
 class BedPlots(BaseModel):

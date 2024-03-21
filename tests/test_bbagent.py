@@ -145,3 +145,38 @@ class TestObjects:
             "bed", "91b2754c8ff01769bacfc80e6923c46e", "widths_histogram", "localhost"
         )
         ff
+
+
+class TestBedset:
+
+    def test_clalculate_stats(self):
+        agent = BedBaseAgent(config=config)
+        ff = agent.bedset._calculate_statistics(["91b2754c8ff01769bacfc80e6923c46e"])
+        ff
+        assert ff != None
+
+    def test_upload_all(self):
+        agent = BedBaseAgent(config=config)
+        agent.bedset.create(
+            "test",
+            "test_name",
+            description="test",
+            bedid_list=["91b2754c8ff01769bacfc80e6923c46e"],
+            statistics=True,
+            # plots={"test": "test"},
+            upload_pephub=True,
+            no_fail=True,
+        )
+        assert True
+
+    def test_get_idset(self):
+        agent = BedBaseAgent(config=config)
+        ff = agent.bedset.get("test")
+        print(ff)
+        assert ff != None
+
+    def test_get_idset_list(self):
+        agent = BedBaseAgent(config=config)
+        ff = agent.bedset.get_ids_list()
+        print(ff)
+        assert ff != None

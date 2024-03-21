@@ -32,6 +32,12 @@ class MissingObjectError(BedBaseConfError):
 
 
 class BEDFileNotFoundError(BedBaseConfError):
-    """Error type for missing object"""
+    """Error type for missing bedfile"""
+
+    pass
+
+
+class BedSetNotFoundError(BedBaseConfError):
+    """Error type for missing bedset"""
 
     pass
