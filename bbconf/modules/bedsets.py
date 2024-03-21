@@ -9,7 +9,7 @@ from bbconf.config_parser import BedBaseConfig
 from bbconf.db_utils import BedFileBedSetRelation, Bed, BedSets
 
 from bbconf.models.bed_models import BedStats
-from bbconf.models.bedset_models import BedSetStats, BedSetMetadata, BedSetListResult
+from bbconf.models.bedset_models import BedSetStats, BedSetMetadata, BedSetListResult, FileModel
 from bbconf.const import PKG_NAME
 from bbconf.exceptions import BedSetNotFoundError
 
@@ -60,6 +60,7 @@ class BedAgentBedSet:
                     mean=BedStats(**bedset_obj.bedset_means),
                     sd=BedStats(**bedset_obj.bedset_standard_deviation),
                 ).model_dump(),
+                plots=[FileModel(**plot.__dict__) for plot in bedset_obj.files],
                 bed_ids=list_of_bedfiles,
             )
 

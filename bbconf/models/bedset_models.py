@@ -2,6 +2,7 @@ from pydantic import BaseModel
 from typing import List
 
 from .bed_models import BedStats
+from .base_models import FileModel
 
 
 class BedSetStats(BaseModel):
@@ -14,6 +15,7 @@ class BedSetMetadata(BaseModel):
     name: str
     md5sum: str
     statistics: BedSetStats = None
+    plots: List[FileModel] = None
     desciption: str = None
     bed_ids: List[str] = None
 
