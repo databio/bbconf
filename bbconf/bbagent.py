@@ -57,7 +57,7 @@ class BedBaseAgent(object):
             ).one()[0]
 
         return StatsReturn(
-            number_of_bed=number_of_bed,
-            number_of_bedset=number_of_bedset,
-            number_of_genomes=number_of_genomes,
+            bedfiles_number=number_of_bed,
+            bedsets_number=number_of_bedset,
+            genomes_number=number_of_genomes,
         )

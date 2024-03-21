@@ -13,6 +13,6 @@ class FileModel(BaseModel):
 
 
 class StatsReturn(BaseModel):
-    number_of_bedfiles: int = 0
-    number_of_bedsets: int = 0
-    number_of_genomes: int = 0
+    bedfiles_number: int = 0
+    bedsets_number: int = 0
+    genomes_number: int = 0
