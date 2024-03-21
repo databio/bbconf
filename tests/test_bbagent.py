@@ -108,6 +108,13 @@ class Test_BedFile_Agent:
         pass
 
 
+def test_get_stats():
+    agent = BedBaseAgent(config=config)
+    ff = agent.get_stats("91b2754c8ff01769bacfc80e6923c46e")
+    print(ff)
+    assert ff != None
+
+
 class TestObjects:
     def test_object_path(self):
         agent = BedBaseAgent(config=config)

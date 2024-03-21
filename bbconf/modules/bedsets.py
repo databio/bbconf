@@ -8,6 +8,8 @@ from bbconf.db_utils import BedFileBedSetRelation
 from bbconf.db_utils import Bed
 from bbconf.db_utils import BedSets
 
+from bbconf.models.bed_models import BedStats
+
 from bbconf.const import PKG_NAME
 
 
@@ -88,11 +90,7 @@ class BedAgentBedSet:
         :param bed_ids: list of bed file identifiers
         :return: statistics
         """
-        numeric_columns = [
-            column
-            for column, value in bbc.bed.result_schemas.items()
-            if value["type"] == "number"
-        ]
+        numeric_columns = BedStats.model_fields
 
         results_dict = {"mean": {}, "sd": {}}
 
