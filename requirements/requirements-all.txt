@@ -1,5 +1,6 @@
 yacman>=0.9.1
-pipestat[dbbackend]>=0.8.0
+sqlalchemy>=2.0.0
 geniml>=0.2.0
 psycopg>=3.1.15
 colorlogs
+pydantic>=2.6.4
