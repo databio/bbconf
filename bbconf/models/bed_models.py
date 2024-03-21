@@ -105,7 +105,7 @@ class BedMetadata(BaseModel):
     # classification: BedClassification = None
     plots: Union[BedPlots, None] = None
     files: Union[BedFiles, None] = None
-    raw_metadata: Optional[BedPEPHub] = None
+    raw_metadata: Optional[Union[BedPEPHub, None]] = None
 
     genome_alias: str = None
     genome_digest: str = None

@@ -118,15 +118,20 @@ class BedAgentBedFile:
                 bed_stats = None
 
         try:
-            bed_metadata = self._config.phc.sample.get(
-                namespace=self._config.config.phc.namespace,
-                name=self._config.config.phc.name,
-                tag=self._config.config.phc.tag,
-                sample_name=identifier,
-            )
+            if full:
+                bed_metadata = BedPEPHub(
+                    **self._config.phc.sample.get(
+                        namespace=self._config.config.phc.namespace,
+                        name=self._config.config.phc.name,
+                        tag=self._config.config.phc.tag,
+                        sample_name=identifier,
+                    )
+                )
+            else:
+                bed_metadata = None
         except Exception as e:
             _LOGGER.warning(f"Could not retrieve metadata from pephub. Error: {e}")
-            bed_metadata = {}
+            bed_metadata = None
 
         return BedMetadata(
             id=bed_object.id,
@@ -137,7 +142,7 @@ class BedAgentBedFile:
             description=bed_object.description,
             submission_date=bed_object.submission_date,
             last_update_date=bed_object.last_update_date,
-            raw_metadata=BedPEPHub(**bed_metadata),
+            raw_metadata=bed_metadata,
             genome_alias=bed_object.genome_alias,
             genome_digest=bed_object.genome_digest,
             bed_type=bed_object.bed_type,

@@ -119,7 +119,7 @@ class TestObjects:
     def test_object_path(self):
         agent = BedBaseAgent(config=config)
         ff = agent.objects.get_object_uri(
-            "bed", "91b2754c8ff01769bacfc80e6923c46e", "bed_file", "http"
+            "bed", "bbad85f21962bb8d972444f7f9a3a932", "bed_file", "http"
         )
         ff
 
@@ -127,22 +127,21 @@ class TestObjects:
         agent = BedBaseAgent(config=config)
         # TODO: it should raise issue:
         ff = agent.objects.get_thumbnail_uri(
-            "bed", "91b2754c8ff01769bacfc80e6923c46e", "bed_file", "http"
+            "bed", "bbad85f21962bb8d972444f7f9a3a932", "bed_file", "http"
         )
         ff
 
     def test_object_path_thumbnail(self):
         agent = BedBaseAgent(config=config)
-        # TODO: it should raise issue:
         ff = agent.objects.get_thumbnail_uri(
-            "bed", "91b2754c8ff01769bacfc80e6923c46e", "widths_histogram", "http"
+            "bed", "bbad85f21962bb8d972444f7f9a3a932", "widths_histogram", "http"
         )
         ff
 
     def test_object_metadata(self):
         agent = BedBaseAgent(config=config)
         ff = agent.objects.get_drs_metadata(
-            "bed", "91b2754c8ff01769bacfc80e6923c46e", "widths_histogram", "localhost"
+            "bed", "bbad85f21962bb8d972444f7f9a3a932", "widths_histogram", "localhost"
         )
         ff
 
