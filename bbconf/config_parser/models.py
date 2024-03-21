@@ -29,6 +29,8 @@ class ConfigDB(BaseModel):
     dialect: str = DEFAULT_DB_DIALECT
     driver: Optional[str] = DEFAULT_DB_DRIVER
 
+    model_config = ConfigDict(extra="forbid")
+
 
 class ConfigQdrant(BaseModel):
     host: str

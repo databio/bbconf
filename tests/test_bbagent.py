@@ -155,13 +155,17 @@ class TestBedset:
         ff
         assert ff != None
 
-    def test_upload_all(self):
+    def test_crate_bedset_all(self):
         agent = BedBaseAgent(config=config)
         agent.bedset.create(
-            "test",
+            "testinoo",
             "test_name",
-            description="test",
-            bedid_list=["91b2754c8ff01769bacfc80e6923c46e"],
+            description="this is test description",
+            bedid_list=[
+                "bbad85f21962bb8d972444f7f9a3a932",
+                "0dcdf8986a72a3d85805bbc9493a1302",
+                "db69691a3fee81a96c5dad57ca124fd8",
+            ],
             statistics=True,
             # plots={"test": "test"},
             upload_pephub=True,

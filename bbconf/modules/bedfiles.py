@@ -263,12 +263,16 @@ class BedAgentBedFile:
 
         return return_dict
 
-    def get_ids_list(self, limit: int = 100, offset: int = 0) -> BedListResult:
+    def get_ids_list(
+        self, limit: int = 100, offset: int = 0, full: bool = False
+    ) -> BedListResult:
         """
         Get list of bed file identifiers.
 
         :param limit: number of results to return
         :param offset: offset to start from
+        :param full: if True, return full metadata, including statistics, files, and raw metadata from pephub
+
         :return: list of bed file identifiers
         """
         # TODO: add filter (e.g. bed_type, genome...), search by description
@@ -282,7 +286,7 @@ class BedAgentBedFile:
             count=len(bed_ids),
             limit=limit,
             offset=offset,
-            results=[self.get(result[0]) for result in bed_ids],
+            results=[self.get(result[0], full=full) for result in bed_ids],
         )
 
     def add(

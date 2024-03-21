@@ -9,7 +9,12 @@ from bbconf.config_parser import BedBaseConfig
 from bbconf.db_utils import BedFileBedSetRelation, Bed, BedSets
 
 from bbconf.models.bed_models import BedStats
-from bbconf.models.bedset_models import BedSetStats, BedSetMetadata, BedSetListResult, FileModel
+from bbconf.models.bedset_models import (
+    BedSetStats,
+    BedSetMetadata,
+    BedSetListResult,
+    FileModel,
+)
 from bbconf.const import PKG_NAME
 from bbconf.exceptions import BedSetNotFoundError
 
