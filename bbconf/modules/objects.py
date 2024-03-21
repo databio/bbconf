@@ -107,7 +107,13 @@ class BBObjects:
         :return: pipestat result
         """
         if record_type == "bed":
-            result = self.bed.get_objects(identifier=record_id)[result_id]
+            try:
+                result = self.bed.get_objects(identifier=record_id)[result_id]
+            except KeyError:
+                _LOGGER.error(f"Result {result_id} is not defined for bed {record_id}")
+                raise MissingObjectError(
+                    f"Result {result_id} is not defined for bed {record_id}"
+                )
         elif record_type == "bedset":
             # result = self.bedset.retrieve_one(record_id, result_id)
             _LOGGER.error("Not implemented")
@@ -148,7 +154,7 @@ class BBObjects:
             record_type, record_id, result_id
         )  # only get result once
         if not record_metadata:
-            raise BedBaseConfError(f"Record not found")
+            raise MissingObjectError(f"Record not found")
 
         for access_id in self.config.config.access_methods.model_dump().keys():
             access_dict = AccessMethod(

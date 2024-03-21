@@ -162,6 +162,8 @@ class BedAgentBedFile:
 
         with Session(self._sa_engine) as session:
             bed_object = session.scalar(statement)
+            if not bed_object:
+                raise BEDFileNotFoundError(f"Bed file with id: {identifier} not found.")
             bed_stats = BedStats(**bed_object.__dict__)
 
         return bed_stats
@@ -177,6 +179,8 @@ class BedAgentBedFile:
 
         with Session(self._sa_engine) as session:
             bed_object = session.scalar(statement)
+            if not bed_object:
+                raise BEDFileNotFoundError(f"Bed file with id: {identifier} not found.")
             bed_plots = BedPlots()
             for result in bed_object.files:
                 if result.name in BedPlots.model_fields:
@@ -203,6 +207,8 @@ class BedAgentBedFile:
 
         with Session(self._sa_engine) as session:
             bed_object = session.scalar(statement)
+            if not bed_object:
+                raise BEDFileNotFoundError(f"Bed file with id: {identifier} not found.")
             bed_files = BedFiles()
             for result in bed_object.files:
                 if result.name in BedFiles.model_fields:
@@ -247,6 +253,8 @@ class BedAgentBedFile:
 
         with Session(self._sa_engine) as session:
             bed_object = session.scalar(statement)
+            if not bed_object:
+                raise BEDFileNotFoundError(f"Bed file with id: {identifier} not found.")
             bed_classification = BedClassification(**bed_object.__dict__)
 
         return bed_classification
@@ -263,6 +271,8 @@ class BedAgentBedFile:
 
         with Session(self._sa_engine) as session:
             bed_object = session.scalar(statement)
+            if not bed_object:
+                raise BEDFileNotFoundError(f"Bed file with id: {identifier} not found.")
             for result in bed_object.files:
                 return_dict[result.name] = FileModel(**result.__dict__)
 
