@@ -2,7 +2,7 @@ from typing import List
 import logging
 from hashlib import md5
 
-from sqlalchemy import select, func, Numeric, Float
+from sqlalchemy import select, func, Numeric, Float, or_
 from sqlalchemy.orm import Session
 
 from bbconf.config_parser import BedBaseConfig
@@ -14,9 +14,11 @@ from bbconf.models.bedset_models import (
     BedSetMetadata,
     BedSetListResult,
     FileModel,
+    BedSetBedFiles,
 )
+from bbconf.modules.bedfiles import BedAgentBedFile
 from bbconf.const import PKG_NAME
-from bbconf.exceptions import BedSetNotFoundError
+from bbconf.exceptions import BedSetNotFoundError, BEDFileNotFoundError
 
 
 _LOGGER = logging.getLogger(PKG_NAME)
@@ -223,6 +225,75 @@ class BedAgentBedSet:
             limit=limit,
             offset=offset,
             results=results,
+        )
+
+    def get_bedset_bedfiles(
+        self, identifier: str, full: bool = False, limit: int = 100, offset: int = 0
+    ) -> BedSetBedFiles:
+        """
+        Get list of bedfiles in bedset.
+
+        :param identifier: bedset identifier
+        :param full: return full records with stats, plots, files and metadata
+        :param limit: limit of results
+        :param offset: offset of results
+
+        :return: list of bedfiles
+        """
+        bed_object = BedAgentBedFile(self.config)
+
+        statement = (
+            select(BedFileBedSetRelation)
+            .where(BedFileBedSetRelation.bedset_id == identifier)
+            .limit(limit)
+            .offset(offset)
+        )
+
+        with Session(self._db_engine.engine) as session:
+            bedfiles = session.execute(statement).all()
+        results = []
+        for bedfile in bedfiles:
+            try:
+                results.append(bed_object.get(bedfile[0].bedfile_id, full=full))
+            except BEDFileNotFoundError as _:
+                _LOGGER.error(f"Bedfile {bedfile[0].bedfile_id} not found")
+
+        return BedSetBedFiles(
+            count=len(results),
+            limit=limit,
+            offset=offset,
+            results=results,
+        )
+
+    def search(self, query: str, limit: int = 10, offset: int = 0) -> BedSetListResult:
+        """
+        Search bedsets in the database.
+
+        :param query: search query
+        :param limit: limit of results
+        :param offset: offset of results
+        :return: list of bedsets
+        """
+        statement = select(BedSets.id)
+        if query:
+            sql_search_str = f"%{query}%"
+            statement = statement.where(
+                or_(
+                    BedSets.name.ilike(sql_search_str),
+                    BedSets.description.ilike(sql_search_str),
+                )
+            )
+        with Session(self._db_engine.engine) as session:
+            bedset_list = session.execute(statement.limit(limit).offset(offset))
+
+        result_list = []
+        for bedset_id in bedset_list:
+            result_list.append(self.get(bedset_id[0]))
+        return BedSetListResult(
+            count=len(result_list),
+            limit=limit,
+            offset=offset,
+            results=result_list,
         )
 
     def delete(self) -> None:
