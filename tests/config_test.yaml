@@ -1,0 +1,38 @@
+path:
+  region2vec: databio/r2v-encode-hg38
+  vec2vec: databio/v2v-geo-hg38
+database:
+  host: localhost
+  port: 5432
+  password: docker
+  user: postgres
+  database: bedbase
+server:
+  host: 0.0.0.0
+  port: 8000
+qdrant:
+  host: localhost
+  port: 6333
+  collection: "bedbase"
+s3:
+  endpoint_url: test
+  aws_access_key_id: test
+  aws_secret_access_key: test
+  bucket: bedbase
+phc:
+  namespace: bedbase
+  name: bedbase
+  tag: test
+access_methods:
+  http:
+    type: "https"
+    description: HTTP compatible path
+    prefix: https://data2.bedbase.org/
+  s3:
+    type: "s3"
+    description: S3 compatible path
+    prefix: s3://data2.bedbase.org/
+  local:
+    type: "https"
+    description: How to serve local files.
+    prefix: /static

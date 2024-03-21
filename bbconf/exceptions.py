@@ -7,6 +7,12 @@ class BedBaseConfError(Exception):
     __metaclass__ = abc.ABCMeta
 
 
+class BedbaseS3ConnectionError(BedBaseConfError):
+    """connection error to s3"""
+
+    pass
+
+
 class BadAccessMethodError(BedBaseConfError):
     """Access ID is not well defined"""
 

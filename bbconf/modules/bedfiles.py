@@ -9,7 +9,7 @@ from geniml.bbclient import BBClient
 from qdrant_client.models import PointIdsList, VectorParams, Distance
 
 from sqlalchemy.orm import Session
-from sqlalchemy import select, and_, or_
+from sqlalchemy import select
 
 import os
 
@@ -31,6 +31,7 @@ from bbconf.models.bed_models import (
 from bbconf.exceptions import (
     BedBaseConfError,
     BEDFileNotFoundError,
+    BedbaseS3ConnectionError,
 )
 from bbconf.db_utils import Bed, Files
 from bbconf.config_parser.bedbaseconfig import BedBaseConfig
@@ -342,10 +343,11 @@ class BedAgentBedFile:
         # TODO: we should not check for specific keys, of the plots!
         plots = BedPlots(**plots)
         files = BedFiles(**files)
-        metadata = BedPEPHub(**metadata)
+
         classification = BedClassification(**classification)
 
         if upload_pephub:
+            metadata = BedPEPHub(**metadata)
             try:
                 self.upload_pephub(identifier, metadata.model_dump(), overwrite)
             except Exception as e:
@@ -521,9 +523,17 @@ class BedAgentBedFile:
         :param s3_path: path to the file in s3 with file name
         :return: None
         """
-        self._config.boto3_client.upload_file(
-            file_path, self._config.config.s3.bucket, s3_path
-        )
+        try:
+            self._config.boto3_client.upload_file(
+                file_path, self._config.config.s3.bucket, s3_path
+            )
+        except AttributeError as e:
+            _LOGGER.warning(
+                f"Could not upload file to s3. Error: {e}. Connection to s3 not established. Skipping.."
+            )
+            raise BedbaseS3ConnectionError(
+                "Could not upload file to s3. Connection error."
+            )
 
     def upload_pephub(self, identifier: str, metadata: dict, overwrite: bool = False):
         if not metadata:

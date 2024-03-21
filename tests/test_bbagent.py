@@ -1,38 +1,27 @@
 import warnings
 from bbconf.bbagent import BedBaseAgent
+import os
 
 from sqlalchemy.exc import OperationalError
+from .conftest import get_bbagent
 
-# from .conftest import DNS
-
-DNS = "postgresql+psycopg://postgres:docker@localhost:5432/bedbase"
-
-config = "/home/bnt4me/virginia/repos/bbuploader/config_db_local.yaml"
-
-
-def db_setup():
-    # Check if the database is setup
-    try:
-        BedBaseAgent(config=config)
-    except OperationalError:
-        warnings.warn(
-            UserWarning(
-                f"Skipping tests, because DB is not setup. {DNS}. To setup DB go to README.md"
-            )
-        )
-        return False
-    return True
+from unittest.mock import Mock
 
 
 def test_bb_database():
-    assert db_setup()
+    agent = get_bbagent()
+    assert isinstance(agent, BedBaseAgent)
 
 
 class Test_BedFile_Agent:
 
-    def test_upload(self):
-        agent = BedBaseAgent(config=config)
-        agent.bed.add()
+    def test_upload(self, bbagent_obj, example_dict, mocker):
+        upload_s3_mock = mocker.patch(
+            "bbconf.modules.bedfiles.BedAgentBedFile._upload_s3",
+            return_value=True,
+        )
+        bbagent_obj.bed.get_ids_list()
+        bbagent_obj.bed.add(**example_dict)
 
     def test_get_all(self):
         agent = BedBaseAgent(config=config)
