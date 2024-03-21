@@ -22,4 +22,4 @@ class BedSetListResult(BaseModel):
     count: int
     limit: int
     offset: int
-    results: List[str]
+    results: List[BedSetMetadata]

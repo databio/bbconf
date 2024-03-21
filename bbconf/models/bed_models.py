@@ -101,18 +101,26 @@ class BedMetadata(BaseModel):
     description: Optional[str] = None
     submission_date: datetime.datetime = None
     last_update_date: Optional[datetime.datetime] = None
-    stats: BedStats = None
-    classification: BedClassification = None
-    plots: BedPlots = None
-    files: BedFiles = None
+    stats: Union[BedStats, None] = None
+    # classification: BedClassification = None
+    plots: Union[BedPlots, None] = None
+    files: Union[BedFiles, None] = None
     raw_metadata: Optional[BedPEPHub] = None
+
+    genome_alias: str = None
+    genome_digest: str = None
+    bed_type: str = Field(
+        default="bed3", pattern="^bed(?:[3-9]|1[0-5])(?:\+|$)[0-9]?+$"
+    )
+    bed_format: str = None
+    full_response: bool = False
 
 
 class BedListResult(BaseModel):
     count: int
     limit: int
     offset: int
-    results: List[str]
+    results: List[BedMetadata]
 
 
 class QdrantSearchResult(BaseModel):

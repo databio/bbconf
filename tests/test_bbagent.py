@@ -36,7 +36,7 @@ class Test_BedFile_Agent:
 
     def test_get_all(self):
         agent = BedBaseAgent(config=config)
-        ff = agent.bed.get("91b2754c8ff01769bacfc80e6923c46e")
+        ff = agent.bed.get("91b2754c8ff01769bacfc80e6923c46e", full=True)
         print(ff)
         assert ff != None
 

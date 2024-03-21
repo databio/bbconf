@@ -210,7 +210,7 @@ class BedAgentBedSet:
         with Session(self._db_engine.engine) as session:
             bedset_list = session.execute(statement).all()
 
-        results = [bedset[0].id for bedset in bedset_list]
+        results = [self.get(bedset[0].id) for bedset in bedset_list]
 
         return BedSetListResult(
             count=len(results),

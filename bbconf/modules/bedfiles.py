@@ -61,11 +61,12 @@ class BedAgentBedFile:
         self._boto3_client = config.boto3_client
         self._config = config
 
-    def get(self, identifier: str) -> BedMetadata:
+    def get(self, identifier: str, full: bool = False) -> BedMetadata:
         """
         Get file metadata by identifier.
 
         :param identifier: bed file identifier
+        :param full: if True, return full metadata, including statistics, files, and raw metadata from pephub
         :return: project metadata
         """
         statement = select(Bed).where(Bed.id == identifier)
@@ -77,39 +78,44 @@ class BedAgentBedFile:
             bed_object = session.scalar(statement)
             if not bed_object:
                 raise BEDFileNotFoundError(f"Bed file with id: {identifier} not found.")
-            for result in bed_object.files:
-                # PLOTS
-                if result.name in BedPlots.model_fields:
-                    setattr(
-                        bed_plots,
-                        result.name,
-                        FileModel(
-                            name=result.name,
-                            path=result.path,
-                            size=result.size,
-                            path_thumbnail=result.path_thumbnail,
-                            description=result.description,
-                        ),
-                    )
-                # FILES
-                elif result.name in BedFiles.model_fields:
-                    setattr(
-                        bed_files,
-                        result.name,
-                        FileModel(
-                            name=result.name,
-                            path=result.path,
-                            size=result.size,
-                            description=result.description,
-                        ),
-                    )
+
+            if full:
+                for result in bed_object.files:
+                    # PLOTS
+                    if result.name in BedPlots.model_fields:
+                        setattr(
+                            bed_plots,
+                            result.name,
+                            FileModel(
+                                name=result.name,
+                                path=result.path,
+                                size=result.size,
+                                path_thumbnail=result.path_thumbnail,
+                                description=result.description,
+                            ),
+                        )
+                    # FILES
+                    elif result.name in BedFiles.model_fields:
+                        setattr(
+                            bed_files,
+                            result.name,
+                            FileModel(
+                                name=result.name,
+                                path=result.path,
+                                size=result.size,
+                                description=result.description,
+                            ),
+                        )
+
                 else:
                     _LOGGER.error(
                         f"Unknown file type: {result.name}. And is not in the model fields. Skipping.."
                     )
-
-            bed_stats = BedStats(**bed_object.__dict__)
-            bed_classification = BedClassification(**bed_object.__dict__)
+                bed_stats = BedStats(**bed_object.__dict__)
+            else:
+                bed_plots = None
+                bed_files = None
+                bed_stats = None
 
         try:
             bed_metadata = self._config.phc.sample.get(
@@ -126,13 +132,17 @@ class BedAgentBedFile:
             id=bed_object.id,
             name=bed_object.name,
             stats=bed_stats,
-            classification=bed_classification,
             plots=bed_plots,
             files=bed_files,
             description=bed_object.description,
             submission_date=bed_object.submission_date,
             last_update_date=bed_object.last_update_date,
             raw_metadata=BedPEPHub(**bed_metadata),
+            genome_alias=bed_object.genome_alias,
+            genome_digest=bed_object.genome_digest,
+            bed_type=bed_object.bed_type,
+            bed_format=bed_object.bed_format,
+            full_response=full,
         )
 
     def get_stats(self, identifier: str) -> BedStats:
@@ -272,7 +282,7 @@ class BedAgentBedFile:
             count=len(bed_ids),
             limit=limit,
             offset=offset,
-            results=[result[0] for result in bed_ids],
+            results=[self.get(result[0]) for result in bed_ids],
         )
 
     def add(
