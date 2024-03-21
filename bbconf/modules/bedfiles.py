@@ -298,6 +298,7 @@ class BedAgentBedFile:
         upload_s3: bool = False,
         local_path: str = None,
         overwrite: bool = False,
+        nofail: bool = False,
     ) -> None:
         """
         Add bed file to the database.
@@ -313,6 +314,7 @@ class BedAgentBedFile:
         :param upload_s3: upload files to s3
         :param local_path: local path to the output files
         :param overwrite: overwrite bed file if it already exists
+        :param nofail: do not raise an error if sample not found
         :return: None
         """
         _LOGGER.info(f"Adding bed file to database. bed_id: {identifier}")
@@ -325,7 +327,14 @@ class BedAgentBedFile:
         classification = BedClassification(**classification)
 
         if upload_pephub:
-            self.upload_pephub(identifier, metadata.model_dump(), overwrite)
+            try:
+                self.upload_pephub(identifier, metadata.model_dump(), overwrite)
+            except Exception as e:
+                _LOGGER.warning(
+                    f"Could not upload to pephub. Error: {e}. nofail: {nofail}"
+                )
+                if not nofail:
+                    raise e
         else:
             _LOGGER.info("upload_pephub set to false. Skipping pephub..")
 
