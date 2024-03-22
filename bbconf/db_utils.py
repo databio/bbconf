@@ -138,6 +138,7 @@ class Files(Base):
     name: Mapped[str] = mapped_column(
         nullable=False, comment="Name of the file, e.g. bed, bigBed"
     )
+    title: Mapped[Optional[str]]
     type: Mapped[str] = mapped_column(
         default="file", comment="Type of the object, e.g. file, plot, ..."
     )

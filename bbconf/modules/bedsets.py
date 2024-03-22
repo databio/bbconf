@@ -4,6 +4,8 @@ from hashlib import md5
 
 from sqlalchemy import select, func, Numeric, Float, or_
 from sqlalchemy.orm import Session
+from geniml.io.utils import compute_md5sum_bedset
+
 
 from bbconf.config_parser import BedBaseConfig
 from bbconf.db_utils import BedFileBedSetRelation, Bed, BedSets
@@ -117,9 +119,8 @@ class BedAgentBedSet:
             description=description,
             bedset_means=stats.mean.model_dump() if stats else None,
             bedset_standard_deviation=stats.sd.model_dump() if stats else None,
-            md5sum=md5(";".join(sorted(bedid_list)).encode("utf-8")).hexdigest(),
+            md5sum=compute_md5sum_bedset(bedid_list),
         )
-        # TODO: use md5sum from geniml.io
 
         # TODO: upload plots! We don't have them now
 

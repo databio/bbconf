@@ -188,12 +188,7 @@ class BedAgentBedFile:
                     setattr(
                         bed_plots,
                         result.name,
-                        FileModel(
-                            name=result.name,
-                            path=result.path,
-                            path_thumbnail=result.path_thumbnail,
-                            description=result.description,
-                        ),
+                        FileModel(**result.__dict__),
                     )
         return bed_plots
 
@@ -216,11 +211,7 @@ class BedAgentBedFile:
                     setattr(
                         bed_files,
                         result.name,
-                        FileModel(
-                            name=result.name,
-                            path=result.path,
-                            description=result.description,
-                        ),
+                        FileModel(**result.__dict__),
                     )
         return bed_files
 

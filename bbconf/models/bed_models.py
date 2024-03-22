@@ -94,6 +94,8 @@ class BedPEPHub(BaseModel):
     global_experiment_id: str = Field("", description="Global experiment identifier")
     description: str = Field("", description="Description of the sample")
 
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+
 
 class BedMetadata(BaseModel):
     id: str
