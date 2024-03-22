@@ -35,6 +35,6 @@ class BedSetBedFiles(BaseModel):
 
 
 class BedSetPlots(BaseModel):
-    test_plot: FileModel = None
+    region_commonality: FileModel = None
 
     model_config = ConfigDict(extra="ignore")
