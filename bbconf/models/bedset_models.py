@@ -1,5 +1,5 @@
-from pydantic import BaseModel
-from typing import List, Union
+from pydantic import BaseModel, ConfigDict
+from typing import List
 
 from .bed_models import BedStats, BedMetadata
 from .base_models import FileModel
@@ -32,3 +32,9 @@ class BedSetBedFiles(BaseModel):
     limit: int
     offset: int
     results: List[BedMetadata]
+
+
+class BedSetPlots(BaseModel):
+    test_plot: FileModel = None
+
+    model_config = ConfigDict(extra="ignore")

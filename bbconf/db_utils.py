@@ -124,10 +124,12 @@ class Bed(Base):
 
     # relations:
     # plots: Mapped[List["Plots"]] = relationship("Plots", back_populates="bedfile")
-    files: Mapped[List["Files"]] = relationship("Files", back_populates="bedfile")
+    files: Mapped[List["Files"]] = relationship(
+        "Files", back_populates="bedfile", cascade="all, delete-orphan"
+    )
 
     bedsets: Mapped[List["BedFileBedSetRelation"]] = relationship(
-        "BedFileBedSetRelation", back_populates="bedfile"
+        "BedFileBedSetRelation", back_populates="bedfile", cascade="all, delete-orphan"
     )
 
 
@@ -150,10 +152,10 @@ class Files(Base):
     size: Mapped[Optional[int]] = mapped_column(default=0, comment="Size of the file")
 
     bedfile_id: Mapped[int] = mapped_column(
-        ForeignKey("bed.id"), nullable=True, index=True
+        ForeignKey("bed.id", ondelete="CASCADE"), nullable=True, index=True
     )
     bedset_id: Mapped[int] = mapped_column(
-        ForeignKey("bedsets.id"), nullable=True, index=True
+        ForeignKey("bedsets.id", ondelete="CASCADE"), nullable=True, index=True
     )
 
     bedfile: Mapped["Bed"] = relationship("Bed", back_populates="files")
@@ -182,8 +184,12 @@ class Files(Base):
 
 class BedFileBedSetRelation(Base):
     __tablename__ = "bedfile_bedset_relation"
-    bedset_id: Mapped[int] = mapped_column(ForeignKey("bedsets.id"), primary_key=True)
-    bedfile_id: Mapped[int] = mapped_column(ForeignKey("bed.id"), primary_key=True)
+    bedset_id: Mapped[int] = mapped_column(
+        ForeignKey("bedsets.id", ondelete="CASCADE"), primary_key=True
+    )
+    bedfile_id: Mapped[int] = mapped_column(
+        ForeignKey("bed.id", ondelete="CASCADE"), primary_key=True
+    )
 
     bedset: Mapped["BedSets"] = relationship("BedSets", back_populates="bedfiles")
     bedfile: Mapped["Bed"] = relationship("Bed", back_populates="bedsets")
@@ -214,7 +220,7 @@ class BedSets(Base):
     )
 
     bedfiles: Mapped[List["BedFileBedSetRelation"]] = relationship(
-        "BedFileBedSetRelation", back_populates="bedset"
+        "BedFileBedSetRelation", back_populates="bedset", cascade="all, delete-orphan"
     )
     # plots: Mapped[List["Plots"]] = relationship("Plots", back_populates="bedset")
     files: Mapped[List["Files"]] = relationship("Files", back_populates="bedset")

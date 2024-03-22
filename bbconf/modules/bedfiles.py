@@ -1,4 +1,3 @@
-import warnings
 from logging import getLogger
 from typing import Dict, Union
 import numpy as np
@@ -11,7 +10,6 @@ from qdrant_client.models import PointIdsList, VectorParams, Distance
 from sqlalchemy.orm import Session
 from sqlalchemy import select
 
-import os
 
 from bbconf.const import (
     PKG_NAME,
@@ -31,17 +29,12 @@ from bbconf.models.bed_models import (
 from bbconf.exceptions import (
     BedBaseConfError,
     BEDFileNotFoundError,
-    BedbaseS3ConnectionError,
 )
 from bbconf.db_utils import Bed, Files
 from bbconf.config_parser.bedbaseconfig import BedBaseConfig
 
 _LOGGER = getLogger(PKG_NAME)
 
-
-BIGBED_PATH_FOLDER = "bigbed_files"
-BED_PATH_FOLDER = "bed_files"
-PLOTS_PATH_FOLDER = "stats"
 QDRANT_GENOME = "hg38"
 
 
@@ -360,13 +353,14 @@ class BedAgentBedFile:
         # Upload files to s3
         if upload_s3:
             if files:
-                files = self.upload_files_s3(files)
-
-            if plots:
-                plots = self.upload_plots_s3(
-                    identifier, output_path=local_path, plots=plots
+                files = self._config.upload_files_s3(
+                    identifier, files=files, base_path=local_path, type="files"
                 )
 
+            if plots:
+                plots = self._config.upload_files_s3(
+                    identifier, files=plots, base_path=local_path, type="plots"
+                )
         with Session(self._sa_engine) as session:
             new_bed = Bed(
                 id=identifier,
@@ -380,24 +374,17 @@ class BedAgentBedFile:
                 for k, v in files:
                     if v:
                         new_file = Files(
-                            name=k,
-                            path=v.path,
-                            description=v.description,
+                            **v.model_dump(exclude_none=True, exclude_unset=True),
                             bedfile_id=identifier,
                             type="file",
-                            size=v.size,
                         )
                         session.add(new_file)
                 for k, v in plots:
                     if v:
                         new_plot = Files(
-                            name=k,
-                            path=v.path,
-                            path_thumbnail=v.path_thumbnail,
-                            description=v.description,
+                            **v.model_dump(exclude_none=True, exclude_unset=True),
                             bedfile_id=identifier,
                             type="plot",
-                            size=v.size,
                         )
                         session.add(new_plot)
 
@@ -413,118 +400,6 @@ class BedAgentBedFile:
         :return: None
         """
         raise NotImplemented
-
-    def upload_files_s3(self, files: BedFiles) -> BedFiles:
-        """
-        Upload files to s3.
-
-        :param files: dictionary with files to upload
-        :return: None
-        """
-
-        if files.bed_file:
-            file_base_name = os.path.basename(files.bed_file.path)
-
-            bed_file_path = files.bed_file.path
-            bed_s3_path = os.path.join(
-                BED_PATH_FOLDER,
-                file_base_name[0],
-                file_base_name[1],
-                os.path.basename(bed_file_path),
-            )
-            self._upload_s3(bed_file_path, bed_s3_path)
-
-            files.bed_file.path = bed_s3_path
-            files.bed_file.size = os.path.getsize(bed_file_path)
-
-        if files.bigbed_file:
-            file_base_name = os.path.basename(files.bigbed_file.path)
-
-            bigbed_file_local = files.bigbed_file.path
-            bigbed_s3_path = os.path.join(
-                BIGBED_PATH_FOLDER,
-                file_base_name[0],
-                file_base_name[1],
-                os.path.basename(bigbed_file_local),
-            )
-            self._upload_s3(bigbed_file_local, bigbed_s3_path)
-
-            files.bigbed_file.path = bigbed_s3_path
-            files.bigbed_file.size = os.path.getsize(bigbed_file_local)
-
-        return files
-
-    def upload_plots_s3(
-        self, identifier: str, output_path: str, plots: BedPlots
-    ) -> BedPlots:
-        """
-        Upload plots to s3.
-
-        :param identifier: bed file identifier
-        :param plots: dictionary with plots to upload
-        :param output_path: local path to the output files
-        :return: None
-        """
-        _LOGGER.info(f"Uploading plots to S3...")
-
-        plots_output = BedPlots()
-        output_folder = os.path.join(PLOTS_PATH_FOLDER, identifier)
-
-        for key, value in plots:
-            if value:
-                if value.path:
-                    file_s3_path = os.path.join(
-                        output_folder, os.path.basename(value.path)
-                    )
-                    local_path = os.path.join(output_path, value.path)
-                    self._upload_s3(local_path, file_s3_path)
-                else:
-                    file_s3_path = None
-                    local_path = None
-                if value.path_thumbnail:
-                    file_s3_path_thumbnail = os.path.join(
-                        output_folder, os.path.basename(value.path_thumbnail)
-                    )
-                    local_path_thumbnail = os.path.join(
-                        output_path, value.path_thumbnail
-                    )
-                    self._upload_s3(local_path_thumbnail, file_s3_path_thumbnail)
-                else:
-                    file_s3_path_thumbnail = None
-
-                setattr(
-                    plots_output,
-                    key,
-                    FileModel(
-                        name=value.name,
-                        path=file_s3_path,
-                        path_thumbnail=file_s3_path_thumbnail,
-                        description=value.description,
-                        size=os.path.getsize(local_path) if local_path else None,
-                    ),
-                )
-
-        return plots_output
-
-    def _upload_s3(self, file_path: str, s3_path: str) -> None:
-        """
-        Upload file to s3.
-
-        :param file_path: local path to the file
-        :param s3_path: path to the file in s3 with file name
-        :return: None
-        """
-        try:
-            self._config.boto3_client.upload_file(
-                file_path, self._config.config.s3.bucket, s3_path
-            )
-        except AttributeError as e:
-            _LOGGER.warning(
-                f"Could not upload file to s3. Error: {e}. Connection to s3 not established. Skipping.."
-            )
-            raise BedbaseS3ConnectionError(
-                "Could not upload file to s3. Connection error."
-            )
 
     def upload_pephub(self, identifier: str, metadata: dict, overwrite: bool = False):
         if not metadata:
@@ -553,7 +428,6 @@ class BedAgentBedFile:
         :param bed_id: bed file id
         :param bed_file: path to the bed file, or RegionSet object
         :param payload: additional metadata to store alongside vectors
-        :param region_to_vec: initiated region to vector model. If None, new object will be created.
         :return: None
         """
 

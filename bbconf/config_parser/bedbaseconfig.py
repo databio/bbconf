@@ -7,7 +7,8 @@ import qdrant_client
 from geniml.text2bednn import text2bednn
 from fastembed.embedding import FlagEmbedding
 from geniml.region2vec import Region2VecExModel
-from geniml.io import RegionSet
+import warnings
+import os
 
 from pephubclient import PEPHubClient
 import boto3
@@ -17,8 +18,17 @@ from bbconf.db_utils import BaseEngine
 from bbconf.const import (
     PKG_NAME,
 )
-from bbconf.helpers import get_bedbase_cfg
+from bbconf.models.bed_models import BedFiles, BedPlots
+from bbconf.models.bedset_models import BedSetPlots
+from bbconf.helpers import get_bedbase_cfg, get_absolute_path
 from bbconf.config_parser.models import ConfigFile
+from bbconf.config_parser.const import (
+    S3_FILE_PATH_FOLDER,
+    S3_PLOTS_PATH_FOLDER,
+    S3_BEDSET_PATH_FOLDER,
+)
+from bbconf.exceptions import BedbaseS3ConnectionError, BedBaseConfError
+
 
 _LOGGER = logging.getLogger(PKG_NAME)
 
@@ -148,6 +158,9 @@ class BedBaseConfig:
             )
         except qdrant_client.http.exceptions.ResponseHandlingException as err:
             _LOGGER.error(f"error in Connection to qdrant! skipping... Error: {err}")
+            warnings.warn(
+                f"error in Connection to qdrant! skipping... Error: {err}", UserWarning
+            )
 
     def _init_t2bsi_object(self) -> Union[text2bednn.Text2BEDSearchInterface, None]:
         """
@@ -166,10 +179,14 @@ class BedBaseConfig:
             )
         except Exception as e:
             _LOGGER.error("Error in creating Text2BEDSearchInterface object: " + str(e))
+            warnings.warn(
+                "Error in creating Text2BEDSearchInterface object: " + str(e),
+                UserWarning,
+            )
             return None
 
     @staticmethod
-    def _init_pephubclient() -> PEPHubClient:
+    def _init_pephubclient() -> Union[PEPHubClient, None]:
         """
         Create Pephub client object using credentials provided in config file
 
@@ -179,6 +196,7 @@ class BedBaseConfig:
             return PEPHubClient()
         except Exception as e:
             _LOGGER.error(f"Error in creating PephubClient object: {e}")
+            warnings.warn(f"Error in creating PephubClient object: {e}", UserWarning)
             return None
 
     def _init_boto3_client(
@@ -198,6 +216,7 @@ class BedBaseConfig:
             )
         except Exception as e:
             _LOGGER.error(f"Error in creating boto3 client object: {e}")
+            warnings.warn(f"Error in creating boto3 client object: {e}", UserWarning)
             return None
 
     def _init_r2v_object(self) -> Region2VecExModel:
@@ -205,3 +224,78 @@ class BedBaseConfig:
         Create Region2VecExModel object using credentials provided in config file
         """
         return Region2VecExModel(self.config.path.region2vec)
+
+    def upload_s3(self, file_path: str, s3_path: Union[Path, str]) -> None:
+        """
+        Upload file to s3.
+
+        :param file_path: local path to the file
+        :param s3_path: path to the file in s3 with file name
+        :return: None
+        """
+        if not self._boto3_client:
+            _LOGGER.warning(
+                f"Could not upload file to s3. Connection to s3 not established. Skipping.."
+            )
+            raise BedbaseS3ConnectionError(
+                "Could not upload file to s3. Connection error."
+            )
+        return self._boto3_client.upload_file(file_path, self.config.s3.bucket, s3_path)
+
+    def upload_files_s3(
+        self,
+        identifier: str,
+        files: Union[BedFiles, BedPlots, BedSetPlots],
+        base_path: str,
+        type: str = "files",
+    ) -> Union[BedFiles, BedPlots, BedSetPlots]:
+        """
+        Upload files to s3.
+
+        :param identifier: bed file identifier
+        :param files: dictionary with files to upload
+        :param base_path: local path to the output files
+        :param type: type of files to upload [files, plots, bedsets]
+        :return: None
+        """
+
+        if type == "files":
+            s3_output_base_folder = S3_FILE_PATH_FOLDER
+        elif type == "plots":
+            s3_output_base_folder = S3_PLOTS_PATH_FOLDER
+        elif type == "bedsets":
+            s3_output_base_folder = S3_BEDSET_PATH_FOLDER
+        else:
+            raise BedBaseConfError(
+                f"Invalid type: {type}. Should be 'files' or 'plots'"
+            )
+
+        for key, value in files:
+            if not value:
+                continue
+            file_base_name = os.path.basename(value.path)
+            file_path = get_absolute_path(value.path, base_path)
+            s3_path = os.path.join(
+                s3_output_base_folder,
+                identifier[0],
+                identifier[1],
+                file_base_name,
+            )
+            self.upload_s3(file_path, s3_path=s3_path)
+
+            setattr(value, "size", os.path.getsize(file_path))
+            setattr(value, "path", s3_path)
+
+            if value.path_thumbnail:
+                file_base_name_thumbnail = os.path.basename(value.path_thumbnail)
+                file_path_thumbnail = get_absolute_path(value.path_thumbnail, base_path)
+                s3_path_thumbnail = os.path.join(
+                    s3_output_base_folder,
+                    identifier[0],
+                    identifier[1],
+                    file_base_name_thumbnail,
+                )
+                self.upload_s3(file_path_thumbnail, s3_path=s3_path_thumbnail)
+                setattr(value, "path_thumbnail", s3_path_thumbnail)
+
+        return files

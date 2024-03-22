@@ -1,6 +1,5 @@
 from typing import List
 import logging
-from hashlib import md5
 
 from sqlalchemy import select, func, Numeric, Float, or_
 from sqlalchemy.orm import Session
@@ -8,7 +7,7 @@ from geniml.io.utils import compute_md5sum_bedset
 
 
 from bbconf.config_parser import BedBaseConfig
-from bbconf.db_utils import BedFileBedSetRelation, Bed, BedSets
+from bbconf.db_utils import BedFileBedSetRelation, Bed, BedSets, Files
 
 from bbconf.models.bed_models import BedStats
 from bbconf.models.bedset_models import (
@@ -17,6 +16,7 @@ from bbconf.models.bedset_models import (
     BedSetListResult,
     FileModel,
     BedSetBedFiles,
+    BedSetPlots,
 )
 from bbconf.modules.bedfiles import BedAgentBedFile
 from bbconf.const import PKG_NAME
@@ -84,17 +84,22 @@ class BedAgentBedSet:
         statistics: bool = False,
         plots: dict = None,
         upload_pephub: bool = False,
+        upload_s3: bool = False,
+        local_path: str = "",
         no_fail: bool = False,
     ) -> None:
         """
         Create bedset in the database.
 
         :param identifier: bedset identifier
+        :param name: bedset name
         :param description: bedset description
         :param bedid_list: list of bed file identifiers
         :param statistics: calculate statistics for bedset
         :param plots: dictionary with plots
         :param upload_pephub: upload bedset to pephub (create view in pephub)
+        :param upload_s3: upload bedset to s3
+        :param local_path: local path to the output files
         :param no_fail: do not raise an error if bedset already exists
         :return: None
         """
@@ -122,7 +127,11 @@ class BedAgentBedSet:
             md5sum=compute_md5sum_bedset(bedid_list),
         )
 
-        # TODO: upload plots! We don't have them now
+        if upload_s3:
+            plots = BedSetPlots(**plots)
+            plots = self.config.upload_files_s3(
+                identifier, files=plots, base_path=local_path, type="bedsets"
+            )
 
         with Session(self._db_engine.engine) as session:
             session.add(new_bedset)
@@ -131,6 +140,15 @@ class BedAgentBedSet:
                 session.add(
                     BedFileBedSetRelation(bedset_id=identifier, bedfile_id=bedfile)
                 )
+            if upload_s3:
+                for k, v in plots:
+                    if v:
+                        new_file = Files(
+                            **v.model_dump(exclude_none=True, exclude_unset=True),
+                            bedset_id=identifier,
+                            type="plot",
+                        )
+                        session.add(new_file)
 
             session.commit()
 

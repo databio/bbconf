@@ -20,3 +20,8 @@ DEFAULT_PEPHUB_NAME = "allbeds"
 DEFAULT_PEPHUB_TAG = "bedbase"
 
 DEFAULT_S3_BUCKET = "bedbase"
+
+
+S3_FILE_PATH_FOLDER = "files"
+S3_PLOTS_PATH_FOLDER = "stats"
+S3_BEDSET_PATH_FOLDER = "bedsets"

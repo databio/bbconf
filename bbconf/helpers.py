@@ -1,6 +1,6 @@
 import logging
-from typing import NoReturn
 from yacman import select_config
+import os
 
 from bbconf.exceptions import BedBaseConnectionError
 
@@ -28,3 +28,17 @@ def get_bedbase_cfg(cfg: str = None) -> str:
             f"{'or '.join(CFG_ENV_VARS)} environment variable"
         )
     return selected_cfg
+
+
+def get_absolute_path(path: str, base_path: str) -> str:
+    """
+    Get absolute path to the file and create it if it doesn't exist
+
+    :param path: path to the file (abs or relative)
+    :param base_path: base path to the file (will be added to the relative path)
+
+    :return: absolute path to the file
+    """
+    if not os.path.isabs(path) or not os.path.exists(path):
+        return os.path.join(base_path, path)
+    return path
