@@ -80,25 +80,14 @@ class BedAgentBedFile:
                         setattr(
                             bed_plots,
                             result.name,
-                            FileModel(
-                                name=result.name,
-                                path=result.path,
-                                size=result.size,
-                                path_thumbnail=result.path_thumbnail,
-                                description=result.description,
-                            ),
+                            FileModel(**result.__dict__),
                         )
                     # FILES
                     elif result.name in BedFiles.model_fields:
                         setattr(
                             bed_files,
                             result.name,
-                            FileModel(
-                                name=result.name,
-                                path=result.path,
-                                size=result.size,
-                                description=result.description,
-                            ),
+                            FileModel(**result.__dict__),
                         )
 
                 else:
