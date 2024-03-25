@@ -9,6 +9,7 @@ from qdrant_client.models import PointIdsList, VectorParams, Distance
 
 from sqlalchemy.orm import Session
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError, NoResultFound
 
 
 from bbconf.const import (
@@ -350,36 +351,55 @@ class BedAgentBedFile:
                 plots = self._config.upload_files_s3(
                     identifier, files=plots, base_path=local_path, type="plots"
                 )
-        with Session(self._sa_engine) as session:
-            new_bed = Bed(
-                id=identifier,
-                **stats.model_dump(),
-                **classification.model_dump(),
-                indexed=add_to_qdrant,
-                pephub=upload_pephub,
-            )
-            session.add(new_bed)
-            if upload_s3:
-                for k, v in files:
-                    if v:
-                        new_file = Files(
-                            **v.model_dump(exclude_none=True, exclude_unset=True),
-                            bedfile_id=identifier,
-                            type="file",
-                        )
-                        session.add(new_file)
-                for k, v in plots:
-                    if v:
-                        new_plot = Files(
-                            **v.model_dump(exclude_none=True, exclude_unset=True),
-                            bedfile_id=identifier,
-                            type="plot",
-                        )
-                        session.add(new_plot)
+        try:
+            with Session(self._sa_engine) as session:
+                new_bed = Bed(
+                    id=identifier,
+                    **stats.model_dump(),
+                    **classification.model_dump(),
+                    indexed=add_to_qdrant,
+                    pephub=upload_pephub,
+                )
+                session.add(new_bed)
+                if upload_s3:
+                    for k, v in files:
+                        if v:
+                            new_file = Files(
+                                **v.model_dump(exclude_none=True, exclude_unset=True),
+                                bedfile_id=identifier,
+                                type="file",
+                            )
+                            session.add(new_file)
+                    for k, v in plots:
+                        if v:
+                            new_plot = Files(
+                                **v.model_dump(exclude_none=True, exclude_unset=True),
+                                bedfile_id=identifier,
+                                type="plot",
+                            )
+                            session.add(new_plot)
 
-            session.commit()
+                session.commit()
+        except IntegrityError:
+            if not nofail:
+                raise BEDFileNotFoundError(f"Bed file with id: {identifier} not found.")
+            else:
+                _LOGGER.warning(
+                    f"Bed file with id: {identifier} exists in the database. record won't be updated."
+                )
+                # TODO: add overwrite option
 
         return None
+
+    def update(
+        self,
+        identifier: str,
+        stats: BedStats,
+        classification: BedClassification,
+        files: BedFiles,
+        plots: BedPlots,
+    ):
+        raise NotImplemented
 
     def delete(self, identifier: str) -> None:
         """

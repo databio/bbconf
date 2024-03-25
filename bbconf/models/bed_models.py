@@ -21,8 +21,8 @@ class BedPlots(BaseModel):
 
 
 class BedFiles(BaseModel):
-    bed_file: FileModel = Field(None, alias="bedfile")
-    bigbed_file: FileModel = Field(None, alias="bigbedfile")
+    bed_file: Union[FileModel, None] = Field(None, alias="bedfile")
+    bigbed_file: Union[FileModel, None] = Field(None, alias="bigbedfile")
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -33,7 +33,7 @@ class BedFiles(BaseModel):
 class BedClassification(BaseModel):
     name: str
     genome_alias: str = None
-    genome_digest: str = None
+    genome_digest: Union[str, None] = None
     bed_type: str = Field(
         default="bed3", pattern="^bed(?:[3-9]|1[0-5])(?:\+|$)[0-9]?+$"
     )
