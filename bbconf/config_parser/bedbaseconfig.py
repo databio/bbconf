@@ -167,8 +167,6 @@ class BedBaseConfig:
         Create Text 2 BED search interface and return this object
 
         :return: Text2BEDSearchInterface object
-
-        # TODO: should it be text 2 vec?
         """
 
         try:
@@ -235,7 +233,7 @@ class BedBaseConfig:
         """
         if not self._boto3_client:
             _LOGGER.warning(
-                f"Could not upload file to s3. Connection to s3 not established. Skipping.."
+                "Could not upload file to s3. Connection to s3 not established. Skipping.."
             )
             raise BedbaseS3ConnectionError(
                 "Could not upload file to s3. Connection error."

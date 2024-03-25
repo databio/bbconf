@@ -163,7 +163,7 @@ class BedAgentBedSet:
         :return: statistics
         """
 
-        _LOGGER.info(f"Calculating bedset statistics")
+        _LOGGER.info("Calculating bedset statistics")
         numeric_columns = BedStats.model_fields
 
         bedset_sd = {}

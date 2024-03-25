@@ -9,7 +9,7 @@ from qdrant_client.models import PointIdsList, VectorParams, Distance
 
 from sqlalchemy.orm import Session
 from sqlalchemy import select
-from sqlalchemy.exc import IntegrityError, NoResultFound
+from sqlalchemy.exc import IntegrityError
 
 
 from bbconf.const import (
@@ -399,7 +399,7 @@ class BedAgentBedFile:
         files: BedFiles,
         plots: BedPlots,
     ):
-        raise NotImplemented
+        raise NotImplementedError
 
     def delete(self, identifier: str) -> None:
         """
@@ -408,7 +408,7 @@ class BedAgentBedFile:
         :param identifier: bed file identifier
         :return: None
         """
-        raise NotImplemented
+        raise NotImplementedError
 
     def upload_pephub(self, identifier: str, metadata: dict, overwrite: bool = False):
         if not metadata:
@@ -537,12 +537,11 @@ class BedAgentBedFile:
         )
         return result
 
-    def create_qdrant_collection(self) -> None:
+    def create_qdrant_collection(self) -> bool:
         """
         Create qdrant collection for bed files.
         """
-        result = self._config.qdrant_engine.qd_client.create_collection(
-            collection_name="test_collection",
+        return self._config.qdrant_engine.qd_client.create_collection(
+            collection_name=self._config.config.qdrant.collection,
             vectors_config=VectorParams(size=100, distance=Distance.DOT),
         )
-        return None

@@ -154,7 +154,7 @@ class BBObjects:
             record_type, record_id, result_id
         )  # only get result once
         if not record_metadata:
-            raise MissingObjectError(f"Record not found")
+            raise MissingObjectError("Record not found")
 
         for access_id in self.config.config.access_methods.model_dump().keys():
             access_dict = AccessMethod(

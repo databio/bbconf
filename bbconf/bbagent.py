@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Union, List
+from typing import Union
 
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import select, func, distinct
@@ -35,11 +35,11 @@ class BedBaseAgent(object):
         return self.__bed
 
     @property
-    def bedset(self):
+    def bedset(self) -> BedAgentBedSet:
         return self.__bedset
 
     @property
-    def objects(self):
+    def objects(self) -> BBObjects:
         return self.__objects
 
     def get_stats(self) -> StatsReturn:

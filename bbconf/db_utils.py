@@ -4,15 +4,12 @@ from typing import Optional, List
 
 from sqlalchemy import (
     BigInteger,
-    FetchedValue,
     Result,
     Select,
-    String,
     event,
     select,
     TIMESTAMP,
     ForeignKey,
-    UniqueConstraint,
 )
 from sqlalchemy.dialects.postgresql import JSON
 from sqlalchemy.engine import URL, create_engine, Engine

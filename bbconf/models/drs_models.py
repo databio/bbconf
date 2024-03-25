@@ -1,6 +1,6 @@
 import datetime
-from typing import Optional, List, Union
-from pydantic import BaseModel, ConfigDict
+from typing import Optional, List
+from pydantic import BaseModel
 
 
 # DRS Models
