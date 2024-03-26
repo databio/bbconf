@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Union
+from typing import Union, List
 import yacman
 import logging
 from geniml.search import QdrantBackend
@@ -20,6 +20,7 @@ from bbconf.const import (
 )
 from bbconf.models.bed_models import BedFiles, BedPlots
 from bbconf.models.bedset_models import BedSetPlots
+from bbconf.models.base_models import FileModel
 from bbconf.helpers import get_bedbase_cfg, get_absolute_path
 from bbconf.config_parser.models import ConfigFile
 from bbconf.config_parser.const import (
@@ -299,3 +300,34 @@ class BedBaseConfig:
                 setattr(value, "path_thumbnail", s3_path_thumbnail)
 
         return files
+
+    def delete_s3(self, s3_path: str) -> None:
+        """
+        Delete file from s3.
+
+        :param s3_path: path to the file in s3
+        :return: None
+        """
+        if not self._boto3_client:
+            _LOGGER.warning(
+                "Could not delete file from s3. Connection to s3 not established. Skipping.."
+            )
+            raise BedbaseS3ConnectionError(
+                "Could not delete file from s3. Connection error."
+            )
+        return self._boto3_client.delete_object(
+            Bucket=self.config.s3.bucket, Key=s3_path
+        )
+
+    def delete_files_s3(self, files: List[FileModel]) -> None:
+        """
+        Delete files from s3.
+
+        :param files: list of file objects
+        :return: None
+        """
+        for file in files:
+            self.delete_s3(file.path)
+            if file.path_thumbnail:
+                self.delete_s3(file.path_thumbnail)
+        return None

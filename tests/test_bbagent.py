@@ -83,8 +83,10 @@ class Test_BedFile_Agent:
         assert True
 
     def test_bed_delete(self):
-        # agent = BedBaseAgent(config=config)
-        # ff = agent.bed.delete("91b2754c8ff01769bacfc80e6923c46e")
+        agent = BedBaseAgent(
+            config="/home/bnt4me/virginia/repos/bbuploader/config_db_local.yaml"
+        )
+        ff = agent.bed.delete("ec8179a55ab7e649e15762d0e8cb5378")
         # print(ff)
         # assert ff != None
         pass

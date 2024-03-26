@@ -4,6 +4,7 @@ import numpy as np
 
 from geniml.io import RegionSet
 from geniml.bbclient import BBClient
+from pephubclient.exceptions import ResponseError
 
 from qdrant_client.models import PointIdsList, VectorParams, Distance
 
@@ -30,6 +31,7 @@ from bbconf.models.bed_models import (
 from bbconf.exceptions import (
     BedBaseConfError,
     BEDFileNotFoundError,
+    BedFIleExistsError,
 )
 from bbconf.db_utils import Bed, Files
 from bbconf.config_parser.bedbaseconfig import BedBaseConfig
@@ -308,10 +310,22 @@ class BedAgentBedFile:
         :param upload_s3: upload files to s3
         :param local_path: local path to the output files
         :param overwrite: overwrite bed file if it already exists
-        :param nofail: do not raise an error if sample not found
+        :param nofail: do not raise an error for error in pephub/s3/qdrant or record exsist and not overwrite
         :return: None
         """
         _LOGGER.info(f"Adding bed file to database. bed_id: {identifier}")
+
+        if self.exists(identifier):
+            _LOGGER.warning(f"Bed file with id: {identifier} exists in the database.")
+            if not overwrite:
+                if not nofail:
+                    raise BedFIleExistsError(
+                        f"Bed file with id: {identifier} already exists in the database."
+                    )
+                _LOGGER.warning("Overwrite set to False. Skipping..")
+                return None
+            else:
+                self.delete(identifier)
 
         stats = BedStats(**stats)
         # TODO: we should not check for specific keys, of the plots!
@@ -351,43 +365,35 @@ class BedAgentBedFile:
                 plots = self._config.upload_files_s3(
                     identifier, files=plots, base_path=local_path, type="plots"
                 )
-        try:
-            with Session(self._sa_engine) as session:
-                new_bed = Bed(
-                    id=identifier,
-                    **stats.model_dump(),
-                    **classification.model_dump(),
-                    indexed=add_to_qdrant,
-                    pephub=upload_pephub,
-                )
-                session.add(new_bed)
-                if upload_s3:
-                    for k, v in files:
-                        if v:
-                            new_file = Files(
-                                **v.model_dump(exclude_none=True, exclude_unset=True),
-                                bedfile_id=identifier,
-                                type="file",
-                            )
-                            session.add(new_file)
-                    for k, v in plots:
-                        if v:
-                            new_plot = Files(
-                                **v.model_dump(exclude_none=True, exclude_unset=True),
-                                bedfile_id=identifier,
-                                type="plot",
-                            )
-                            session.add(new_plot)
 
-                session.commit()
-        except IntegrityError:
-            if not nofail:
-                raise BEDFileNotFoundError(f"Bed file with id: {identifier} not found.")
-            else:
-                _LOGGER.warning(
-                    f"Bed file with id: {identifier} exists in the database. record won't be updated."
-                )
-                # TODO: add overwrite option
+        with Session(self._sa_engine) as session:
+            new_bed = Bed(
+                id=identifier,
+                **stats.model_dump(),
+                **classification.model_dump(),
+                indexed=add_to_qdrant,
+                pephub=upload_pephub,
+            )
+            session.add(new_bed)
+            if upload_s3:
+                for k, v in files:
+                    if v:
+                        new_file = Files(
+                            **v.model_dump(exclude_none=True, exclude_unset=True),
+                            bedfile_id=identifier,
+                            type="file",
+                        )
+                        session.add(new_file)
+                for k, v in plots:
+                    if v:
+                        new_plot = Files(
+                            **v.model_dump(exclude_none=True, exclude_unset=True),
+                            bedfile_id=identifier,
+                            type="plot",
+                        )
+                        session.add(new_plot)
+
+            session.commit()
 
         return None
 
@@ -399,6 +405,21 @@ class BedAgentBedFile:
         files: BedFiles,
         plots: BedPlots,
     ):
+        """
+        Update bed file in the database.
+
+        :param identifier: bed file identifier
+        :param stats: bed file statistics
+        :param classification: bed file classification
+        :param files: bed file files
+        :param plots: bed file plots
+
+        """
+        if not self.exists(identifier):
+            raise BEDFileNotFoundError(
+                f"Bed file with id: {identifier} not found. Cannot update."
+            )
+
         raise NotImplementedError
 
     def delete(self, identifier: str) -> None:
@@ -408,7 +429,26 @@ class BedAgentBedFile:
         :param identifier: bed file identifier
         :return: None
         """
-        raise NotImplementedError
+        _LOGGER.info(f"Deleting bed file from database. bed_id: {identifier}")
+        if not self.exists(identifier):
+            raise BEDFileNotFoundError(f"Bed file with id: {identifier} not found.")
+
+        with Session(self._sa_engine) as session:
+            statement = select(Bed).where(Bed.id == identifier)
+            bed_object = session.scalar(statement)
+
+            files = [FileModel(**k.__dict__) for k in bed_object.files]
+            delete_pephub = bed_object.pephub
+            delete_qdrant = bed_object.indexed
+
+            session.delete(bed_object)
+            session.commit()
+
+        if delete_pephub:
+            self.delete_pephub_sample(identifier)
+        if delete_qdrant:
+            self.delete_qdrant_point(identifier)
+        self._config.delete_files_s3(files)
 
     def upload_pephub(self, identifier: str, metadata: dict, overwrite: bool = False):
         if not metadata:
@@ -422,6 +462,22 @@ class BedAgentBedFile:
             sample_dict=metadata,
             overwrite=overwrite,
         )
+
+    def delete_pephub_sample(self, identifier: str):
+        """
+        Delete sample from pephub
+
+        :param identifier: bed file identifier
+        """
+        try:
+            self._config.phc.sample.remove(
+                namespace=self._config.config.phc.namespace,
+                name=self._config.config.phc.name,
+                tag=self._config.config.phc.tag,
+                sample_name=identifier,
+            )
+        except ResponseError as e:
+            _LOGGER.warning(f"Could not delete from pephub. Error: {e}")
 
     def upload_file_qdrant(
         self,
@@ -545,3 +601,18 @@ class BedAgentBedFile:
             collection_name=self._config.config.qdrant.collection,
             vectors_config=VectorParams(size=100, distance=Distance.DOT),
         )
+
+    def exists(self, identifier: str) -> bool:
+        """
+        Check if bed file exists in the database.
+
+        :param identifier: bed file identifier
+        :return: True if bed file exists, False otherwise
+        """
+        statement = select(Bed).where(Bed.id == identifier)
+
+        with Session(self._sa_engine) as session:
+            bed_object = session.scalar(statement)
+            if not bed_object:
+                return False
+            return True

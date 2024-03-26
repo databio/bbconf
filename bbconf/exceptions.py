@@ -31,6 +31,12 @@ class MissingThumbnailError(BedBaseConfError):
     pass
 
 
+class BedFIleExistsError(BedBaseConfError):
+    """Error where files exists, and should not be overwritten"""
+
+    pass
+
+
 class MissingObjectError(BedBaseConfError):
     """Error type for missing object"""
 
