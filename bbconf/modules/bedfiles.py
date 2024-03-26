@@ -305,7 +305,7 @@ class BedAgentBedFile:
         plots: dict = None,
         files: dict = None,
         classification: dict = None,
-        add_to_qdrant: bool = False,
+        upload_qdrant: bool = False,
         upload_pephub: bool = False,
         upload_s3: bool = False,
         local_path: str = None,
@@ -321,7 +321,7 @@ class BedAgentBedFile:
         :param plots: bed file plots
         :param files: bed file files
         :param classification: bed file classification
-        :param add_to_qdrant: add bed file to qdrant indexs
+        :param upload_qdrant: add bed file to qdrant indexs
         :param upload_pephub: add bed file to pephub
         :param upload_s3: upload files to s3
         :param local_path: local path to the output files
@@ -363,12 +363,13 @@ class BedAgentBedFile:
         else:
             _LOGGER.info("upload_pephub set to false. Skipping pephub..")
 
-        if add_to_qdrant:
+        if upload_qdrant:
             self.upload_file_qdrant(
                 identifier, files.bed_file.path, {"bed_id": identifier}
             )
+            _LOGGER.info(f"File uploaded to qdrant. {identifier}")
         else:
-            _LOGGER.info("add_to_qdrant set to false. Skipping qdrant..")
+            _LOGGER.info("upload_qdrant set to false. Skipping qdrant..")
 
         # Upload files to s3
         if upload_s3:
@@ -387,7 +388,7 @@ class BedAgentBedFile:
                 id=identifier,
                 **stats.model_dump(),
                 **classification.model_dump(),
-                indexed=add_to_qdrant,
+                indexed=upload_qdrant,
                 pephub=upload_pephub,
             )
             session.add(new_bed)

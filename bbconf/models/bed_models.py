@@ -31,6 +31,7 @@ class BedFiles(BaseModel):
 
 
 class BedClassification(BaseModel):
+    name: Optional[str] = None
     genome_alias: str = None
     genome_digest: Union[str, None] = None
     bed_type: str = Field(
@@ -98,7 +99,7 @@ class BedPEPHub(BaseModel):
 
 class BedMetadata(BedClassification):
     id: str
-    name: str
+    name: Optional[Union[str, None]] = ""
     description: Optional[str] = None
     submission_date: datetime.datetime = None
     last_update_date: Optional[datetime.datetime] = None

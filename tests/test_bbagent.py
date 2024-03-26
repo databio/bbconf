@@ -98,6 +98,14 @@ class Test_BedFile_Agent:
         # assert ff != None
         pass
 
+    def test_create_qdrant_collection(self):
+        agent = BedBaseAgent(
+            config="/home/bnt4me/virginia/repos/bbuploader/config_db_local.yaml"
+        )
+        ff = agent.bed.create_qdrant_collection()
+        ff
+        assert True
+
 
 def test_get_stats():
     agent = BedBaseAgent(config=config)

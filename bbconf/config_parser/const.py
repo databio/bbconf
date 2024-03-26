@@ -16,8 +16,8 @@ DEFAULT_VEC2VEC_MODEL = "databio/v2v-MiniLM-v2-ATAC-hg38"
 DEFAULT_REGION2_VEC_MODEL = "databio/r2v-ChIP-atlas-hg38"
 
 DEFAULT_PEPHUB_NAMESPACE = "databio"
-DEFAULT_PEPHUB_NAME = "allbeds"
-DEFAULT_PEPHUB_TAG = "bedbase"
+DEFAULT_PEPHUB_NAME = "bedbase_all"
+DEFAULT_PEPHUB_TAG = "default"
 
 DEFAULT_S3_BUCKET = "bedbase"
 
