@@ -400,25 +400,105 @@ class BedAgentBedFile:
     def update(
         self,
         identifier: str,
-        stats: BedStats,
-        classification: BedClassification,
-        files: BedFiles,
-        plots: BedPlots,
+        stats: dict,
+        metadata: dict = None,
+        plots: dict = None,
+        files: dict = None,
+        classification: dict = None,
+        add_to_qdrant: bool = False,
+        upload_pephub: bool = False,
+        upload_s3: bool = False,
+        local_path: str = None,
+        overwrite: bool = False,
+        nofail: bool = False,
     ):
         """
-        Update bed file in the database.
+        Update bed file to the database.
 
         :param identifier: bed file identifier
-        :param stats: bed file statistics
-        :param classification: bed file classification
-        :param files: bed file files
+        :param stats: bed file results {statistics, plots, files, metadata}
+        :param metadata: bed file metadata (will be saved in pephub)
         :param plots: bed file plots
-
+        :param files: bed file files
+        :param classification: bed file classification
+        :param add_to_qdrant: add bed file to qdrant indexs
+        :param upload_pephub: add bed file to pephub
+        :param upload_s3: upload files to s3
+        :param local_path: local path to the output files
+        :param overwrite: overwrite bed file if it already exists
+        :return: None
         """
         if not self.exists(identifier):
             raise BEDFileNotFoundError(
                 f"Bed file with id: {identifier} not found. Cannot update."
             )
+
+        stats = BedStats(**stats)
+        plots = BedPlots(**plots)
+        files = BedFiles(**files)
+        classification = BedClassification(**classification)
+
+        if upload_pephub:
+            metadata = BedPEPHub(**metadata)
+            try:
+                self.update_pephub(identifier, metadata.model_dump(), overwrite)
+            except Exception as e:
+                _LOGGER.warning(
+                    f"Could not upload to pephub. Error: {e}. nofail: {nofail}"
+                )
+                if not nofail:
+                    raise e
+        else:
+            _LOGGER.info("upload_pephub set to false. Skipping pephub..")
+
+        if add_to_qdrant:
+            self.upload_file_qdrant(
+                identifier, files.bed_file.path, {"bed_id": identifier}
+            )
+
+        statement = select(Bed).where(Bed.id == identifier)
+
+        if upload_s3:
+            _LOGGER.warning("S3 upload is not implemented yet")
+            # if files:
+            #     files = self._config.upload_files_s3(
+            #         identifier, files=files, base_path=local_path, type="files"
+            #     )
+            #
+            # if plots:
+            #     plots = self._config.upload_files_s3(
+            #         identifier, files=plots, base_path=local_path, type="plots"
+            #     )
+
+        with Session(self._sa_engine) as session:
+            bed_object = session.scalar(statement)
+
+            setattr(bed_object, **stats.model_dump())
+            setattr(bed_object, **classification.model_dump())
+
+            bed_object.indexed = add_to_qdrant
+            bed_object.pephub = upload_pephub
+
+            if upload_s3:
+                _LOGGER.warning("S3 upload is not implemented yet")
+                # for k, v in files:
+                #     if v:
+                #         new_file = Files(
+                #             **v.model_dump(exclude_none=True, exclude_unset=True),
+                #             bedfile_id=identifier,
+                #             type="file",
+                #         )
+                #         session.add(new_file)
+                # for k, v in plots:
+                #     if v:
+                #         new_plot = Files(
+                #             **v.model_dump(exclude_none=True, exclude_unset=True),
+                #             bedfile_id=identifier,
+                #             type="plot",
+                #         )
+                #         session.add(new_plot)
+
+            session.commit()
 
         raise NotImplementedError
 
@@ -461,6 +541,18 @@ class BedAgentBedFile:
             sample_name=identifier,
             sample_dict=metadata,
             overwrite=overwrite,
+        )
+
+    def update_pephub(self, identifier: str, metadata: dict):
+        if not metadata:
+            _LOGGER.warning("No metadata provided. Skipping pephub upload..")
+            return False
+        self._config.phc.sample.update(
+            namespace=self._config.config.phc.namespace,
+            name=self._config.config.phc.name,
+            tag=self._config.config.phc.tag,
+            sample_name=identifier,
+            sample_dict=metadata,
         )
 
     def delete_pephub_sample(self, identifier: str):
