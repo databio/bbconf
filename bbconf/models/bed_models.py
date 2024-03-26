@@ -31,7 +31,6 @@ class BedFiles(BaseModel):
 
 
 class BedClassification(BaseModel):
-    name: str
     genome_alias: str = None
     genome_digest: Union[str, None] = None
     bed_type: str = Field(
@@ -97,7 +96,7 @@ class BedPEPHub(BaseModel):
     model_config = ConfigDict(extra="allow", populate_by_name=True)
 
 
-class BedMetadata(BaseModel):
+class BedMetadata(BedClassification):
     id: str
     name: str
     description: Optional[str] = None
@@ -109,13 +108,13 @@ class BedMetadata(BaseModel):
     files: Union[BedFiles, None] = None
     raw_metadata: Optional[Union[BedPEPHub, None]] = None
 
-    genome_alias: str = None
-    genome_digest: str = None
-    bed_type: str = Field(
-        default="bed3", pattern="^bed(?:[3-9]|1[0-5])(?:\+|$)[0-9]?+$"
-    )
-    bed_format: str = None
-    full_response: bool = False
+    # genome_alias: str = None
+    # genome_digest: str = None
+    # bed_type: str = Field(
+    #     default="bed3", pattern="^bed(?:[3-9]|1[0-5])(?:\+|$)[0-9]?+$"
+    # )
+    # bed_format: str = None
+    # full_response: bool = False
 
 
 class BedListResult(BaseModel):

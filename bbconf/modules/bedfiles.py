@@ -256,20 +256,36 @@ class BedAgentBedFile:
         return return_dict
 
     def get_ids_list(
-        self, limit: int = 100, offset: int = 0, full: bool = False
+        self,
+        limit: int = 100,
+        offset: int = 0,
+        genome: str = None,
+        bed_type: str = None,
+        full: bool = False,
     ) -> BedListResult:
         """
         Get list of bed file identifiers.
 
         :param limit: number of results to return
         :param offset: offset to start from
+        :param genome: filter by genome
+        :param bed_type: filter by bed type. e.g. 'bed6+4'
         :param full: if True, return full metadata, including statistics, files, and raw metadata from pephub
 
         :return: list of bed file identifiers
         """
         # TODO: add filter (e.g. bed_type, genome...), search by description
         # TODO: question: Return Annotation?
-        statement = select(Bed.id).limit(limit).offset(offset)
+        statement = select(Bed.id)
+
+        # TODO: make it generic, like in pephub
+        if genome:
+            statement = statement.where(Bed.genome_alias == genome)
+
+        if bed_type:
+            statement = statement.where(Bed.bed_format == bed_format)
+
+        statement = statement.limit(limit).offset(offset)
 
         with Session(self._sa_engine) as session:
             bed_ids = session.execute(statement).all()
