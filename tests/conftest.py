@@ -1,6 +1,7 @@
 import os
 import pytest
 from bbconf.bbagent import BedBaseAgent
+from bbconf.db_utils import Bed
 
 TESTS_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -74,10 +75,15 @@ def example_dict():
         plots=plots,
         files=files,
         classification=classification,
-        add_to_qdrant=False,
+        upload_qdrant=False,
         upload_pephub=False,
         upload_s3=True,
         local_path=DATA_PATH,
         overwrite=False,
-        nofail=True,
+        nofail=False,
     )
+
+
+@pytest.fixture
+def load_test_data():
+    db_engine = get_bbagent().config.db_engine()

@@ -283,7 +283,7 @@ class BedAgentBedFile:
             statement = statement.where(Bed.genome_alias == genome)
 
         if bed_type:
-            statement = statement.where(Bed.bed_format == bed_format)
+            statement = statement.where(Bed.bed_format == bed_type)
 
         statement = statement.limit(limit).offset(offset)
 
@@ -349,7 +349,6 @@ class BedAgentBedFile:
         files = BedFiles(**files)
 
         classification = BedClassification(**classification)
-
         if upload_pephub:
             metadata = BedPEPHub(**metadata)
             try:
@@ -443,6 +442,7 @@ class BedAgentBedFile:
         :param upload_s3: upload files to s3
         :param local_path: local path to the output files
         :param overwrite: overwrite bed file if it already exists
+        :param nofail: do not raise an error for error in pephub/s3/qdrant or record exsist and not overwrite
         :return: None
         """
         if not self.exists(identifier):

@@ -279,6 +279,18 @@ class BaseEngine:
         Base.metadata.create_all(engine)
         return None
 
+    def delete_schema(self, engine=None) -> None:
+        """
+        Delete sql schema in the database.
+
+        :param engine: sqlalchemy engine [Default: None]
+        :return: None
+        """
+        if not engine:
+            engine = self._engine
+        Base.metadata.drop_all(engine)
+        return None
+
     def session_execute(self, statement: Select) -> Result:
         """
         Execute statement using sqlalchemy statement

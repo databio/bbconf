@@ -1,11 +1,11 @@
-import warnings
 from bbconf.bbagent import BedBaseAgent
-import os
-
-from sqlalchemy.exc import OperationalError
-from .conftest import get_bbagent
+from bbconf.exceptions import BedFIleExistsError
 
 from unittest.mock import Mock
+import pytest
+
+from .utils import ContextManagerDBTesting
+from .conftest import get_bbagent
 
 
 def test_bb_database():
@@ -17,11 +17,36 @@ class Test_BedFile_Agent:
 
     def test_upload(self, bbagent_obj, example_dict, mocker):
         upload_s3_mock = mocker.patch(
-            "bbconf.modules.bedfiles.BedAgentBedFile._upload_s3",
+            "bbconf.config_parser.bedbaseconfig.BedBaseConfig.upload_s3",
             return_value=True,
         )
-        bbagent_obj.bed.get_ids_list()
-        bbagent_obj.bed.add(**example_dict)
+        with ContextManagerDBTesting(config=bbagent_obj.config, add_data=False):
+            bbagent_obj.bed.add(**example_dict)
+
+            assert upload_s3_mock.called
+            assert bbagent_obj.bed.exists(example_dict["identifier"])
+
+    def test_upload_exists(self, bbagent_obj, example_dict, mocker):
+        upload_s3_mock = mocker.patch(
+            "bbconf.config_parser.bedbaseconfig.BedBaseConfig.upload_s3",
+            return_value=True,
+        )
+        with ContextManagerDBTesting(config=bbagent_obj.config, add_data=False):
+            bbagent_obj.bed.add(**example_dict)
+            with pytest.raises(BedFIleExistsError):
+                bbagent_obj.bed.add(**example_dict)
+
+    def test_add_nofail(self, bbagent_obj, example_dict, mocker):
+        upload_s3_mock = mocker.patch(
+            "bbconf.config_parser.bedbaseconfig.BedBaseConfig.upload_s3",
+            return_value=True,
+        )
+
+        example_dict["nofail"] = True
+        with ContextManagerDBTesting(config=bbagent_obj.config, add_data=False):
+            bbagent_obj.bed.add(**example_dict)
+            bbagent_obj.bed.add(**example_dict)
+            assert bbagent_obj.bed.exists(example_dict["identifier"])
 
     def test_get_all(self):
         agent = BedBaseAgent(config=config)
