@@ -43,6 +43,16 @@ def get_example_dict() -> dict:
     return value
 
 
+def get_bedset_files() -> dict:
+    return {
+        "title": "region_commonality",
+        "name": "region_commonality",
+        "path": "data/files/bbad85f21962bb8d972444f7f9a3a932.bed.gz",
+        "description": "Bfffffff",
+        "bedset_id": BEDSET_TEST_ID,
+    }
+
+
 def get_files() -> dict:
     return {
         "title": "Bed file",
@@ -127,6 +137,10 @@ class ContextManagerDBTesting:
                 bedfile_id=BED_TEST_ID,
                 bedset_id=BEDSET_TEST_ID,
             )
+            new_files = Files(**get_bedset_files())
+
             session.add(new_bedset)
             session.add(new_bed_bedset)
+            session.add(new_files)
+
             session.commit()

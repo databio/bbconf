@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Dict
 import logging
 
 from sqlalchemy import select, func, Numeric, Float, or_
@@ -100,6 +100,42 @@ class BedAgentBedSet:
         return BedSetPlots(
             **{plot[0].name: FileModel(**plot[0].model_dump()) for plot in plots}
         )
+
+    def get_objects(self, identifier: str) -> Dict[str, FileModel]:
+        """
+        Get objects for bedset by identifier.
+
+        :param identifier: bedset identifier
+        :return: bedset objects
+        """
+        statement = select(BedSets).where(BedSets.id == identifier)
+        return_dict = {}
+
+        with Session(self._db_engine.engine) as session:
+            bedset_object = session.scalar(statement)
+            if not bedset_object:
+                raise BedSetNotFoundError(f"Bedset with id: {identifier} not found.")
+            for result in bedset_object.files:
+                return_dict[result.name] = FileModel(**result.__dict__)
+
+        return return_dict
+
+    def get_statistics(self, identifier: str) -> BedSetStats:
+        """
+        Get statistics for bedset by identifier.
+
+        :param identifier: bedset identifier
+        :return: bedset statistics
+        """
+        statement = select(BedSets).where(BedSets.id == identifier)
+        with Session(self._db_engine.engine) as session:
+            bedset_object = session.scalar(statement)
+            if not bedset_object:
+                raise BedSetNotFoundError(f"Bedset with id: {identifier} not found.")
+            return BedSetStats(
+                mean=BedStats(**bedset_object.bedset_means),
+                sd=BedStats(**bedset_object.bedset_standard_deviation),
+            )
 
     def create(
         self,

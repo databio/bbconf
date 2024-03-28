@@ -1,6 +1,6 @@
-from bbconf.bbagent import BedBaseAgent
-from bbconf.exceptions import BedSetNotFoundError
-from bbconf.db_utils import BedFileBedSetRelation, BedSets
+from bbconf.exceptions import BedSetNotFoundError, BedbaseS3ConnectionError
+from bbconf.db_utils import BedSets
+from bbconf.models.base_models import FileModel
 
 import os
 
@@ -96,6 +96,23 @@ class TestBedset:
             with pytest.raises(BedSetNotFoundError):
                 bbagent_obj.bedset.get("not_uid", full=True)
 
+    def test_get_object(self, bbagent_obj):
+        with ContextManagerDBTesting(
+            config=bbagent_obj.config, add_data=True, bedset=True
+        ):
+            result = bbagent_obj.bedset.get_objects(BEDSET_TEST_ID)
+
+            assert len(result) == 1
+
+    def test_get_stats(self, bbagent_obj):
+        with ContextManagerDBTesting(
+            config=bbagent_obj.config, add_data=True, bedset=True
+        ):
+            result = bbagent_obj.bedset.get_statistics(BEDSET_TEST_ID)
+
+            assert result.sd is not None
+            assert result.mean is not None
+
     def test_get_bedset_list(self, bbagent_obj):
         with ContextManagerDBTesting(
             config=bbagent_obj.config, add_data=True, bedset=True
@@ -154,21 +171,36 @@ class TestBedset:
             assert result.offset == 0
             assert len(result.results) == 1
 
-    def test_delete(self, bbagent_obj):
+    def test_delete(self, bbagent_obj, mocker):
         with ContextManagerDBTesting(
             config=bbagent_obj.config, add_data=True, bedset=True
         ):
+            mocker.patch(
+                "bbconf.config_parser.bedbaseconfig.BedBaseConfig.delete_s3",
+                return_value=True,
+            )
             bbagent_obj.bedset.delete(BEDSET_TEST_ID)
 
             assert not bbagent_obj.bedset.exists(BEDSET_TEST_ID)
 
-    def test_delete_not_existant(self, bbagent_obj):
+    def test_delete_none(self, bbagent_obj, mocker):
         with ContextManagerDBTesting(
             config=bbagent_obj.config, add_data=True, bedset=True
         ):
+            mocker.patch(
+                "bbconf.config_parser.bedbaseconfig.BedBaseConfig.delete_s3",
+                return_value=True,
+            )
             bbagent_obj.bedset.delete(BEDSET_TEST_ID)
 
             with pytest.raises(BedSetNotFoundError):
+                bbagent_obj.bedset.delete(BEDSET_TEST_ID)
+
+    def test_delete_s3_error(self, bbagent_obj):
+        with ContextManagerDBTesting(
+            config=bbagent_obj.config, add_data=True, bedset=True
+        ):
+            with pytest.raises(BedbaseS3ConnectionError):
                 bbagent_obj.bedset.delete(BEDSET_TEST_ID)
 
 

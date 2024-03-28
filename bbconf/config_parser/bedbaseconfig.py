@@ -12,7 +12,7 @@ import os
 
 from pephubclient import PEPHubClient
 import boto3
-
+from botocore.exceptions import EndpointConnectionError
 
 from bbconf.db_utils import BaseEngine
 from bbconf.const import (
@@ -315,9 +315,14 @@ class BedBaseConfig:
             raise BedbaseS3ConnectionError(
                 "Could not delete file from s3. Connection error."
             )
-        return self._boto3_client.delete_object(
-            Bucket=self.config.s3.bucket, Key=s3_path
-        )
+        try:
+            return self._boto3_client.delete_object(
+                Bucket=self.config.s3.bucket, Key=s3_path
+            )
+        except EndpointConnectionError as e:
+            raise BedbaseS3ConnectionError(
+                "Could not delete file from s3. Connection error."
+            )
 
     def delete_files_s3(self, files: List[FileModel]) -> None:
         """

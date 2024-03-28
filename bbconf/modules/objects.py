@@ -3,6 +3,7 @@ import os
 from typing import List, Union, Literal
 
 from bbconf.modules.bedfiles import BedAgentBedFile
+from bbconf.modules.bedsets import BedAgentBedSet
 from bbconf.config_parser.bedbaseconfig import BedBaseConfig
 from bbconf.const import PKG_NAME
 from bbconf.exceptions import (
@@ -28,6 +29,7 @@ class BBObjects:
         """
         self.config = config
         self.bed = BedAgentBedFile(self.config)
+        self.bedset = BedAgentBedSet(self.config)
 
     def _get_prefixed_uri(self, postfix: str, access_id: str) -> str:
         """
@@ -115,8 +117,13 @@ class BBObjects:
                     f"Result {result_id} is not defined for bed {record_id}"
                 )
         elif record_type == "bedset":
-            _LOGGER.error("Not implemented")
-            raise BedBaseConfError("ERROR NOT IMPLEMENTED YET")
+            try:
+                result = self.bedset.get_objects(identifier=record_id)[result_id]
+                _LOGGER.error(f"Result {result_id} is not defined for bed {record_id}")
+            except KeyError:
+                raise MissingObjectError(
+                    f"Result {result_id} is not defined for bed {record_id}"
+                )
 
         else:
             raise BedBaseConfError(

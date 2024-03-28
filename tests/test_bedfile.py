@@ -116,6 +116,13 @@ class Test_BedFile_Agent:
         assert "bed_file" in return_result
         assert "chrombins" in return_result
 
+    def test_get_classification(self, bbagent_obj):
+        with ContextManagerDBTesting(config=bbagent_obj.config, add_data=True):
+            return_result = bbagent_obj.bed.get_classification(BED_TEST_ID)
+
+        assert return_result is not None
+        assert return_result.bed_type == "bed6+4"
+
     def test_get_list(self, bbagent_obj):
         with ContextManagerDBTesting(config=bbagent_obj.config, add_data=True):
             return_result = bbagent_obj.bed.get_ids_list(limit=100, offset=0)
@@ -180,7 +187,7 @@ class Test_BedFile_Agent:
         assert return_result.offset == 1
 
     def test_bed_delete(self, bbagent_obj, mocker):
-        mocker.patch("bbconf.config_parser.bedbaseconfig.BedBaseConfig.delete_files_s3")
+        mocker.patch("bbconf.config_parser.bedbaseconfig.BedBaseConfig.delete_s3")
         with ContextManagerDBTesting(config=bbagent_obj.config, add_data=True):
             bbagent_obj.bed.delete(BED_TEST_ID)
 
