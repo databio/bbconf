@@ -38,5 +38,3 @@ class BedSetBedFiles(BaseModel):
     limit: int
     offset: int
     results: List[BedMetadata]
-
-

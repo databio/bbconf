@@ -27,6 +27,18 @@ def bbagent_obj():
 
 
 @pytest.fixture()
+def example_bedset_plot():
+    return {
+        "name": "chrombins",
+        "description": "Regions distribution over chromosomes",
+        "title": "Regions distribution over chromosomes",
+        "path": "data/plots/bbad85f21962bb8d972444f7f9a3a932_chrombins.pdf",
+        "path_thumbnail": "data/plots/bbad85f21962bb8d972444f7f9a3a932_chrombins.png",
+        "bedset_id": BED_TEST_ID,
+    }
+
+
+@pytest.fixture()
 def example_dict():
     plots = {
         "chrombins": {

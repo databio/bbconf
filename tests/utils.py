@@ -1,39 +1,45 @@
 from bbconf.config_parser.bedbaseconfig import BedBaseConfig
-from bbconf.db_utils import Bed, Files
+from bbconf.db_utils import Bed, Files, BedSets, BedFileBedSetRelation
 from typing import Union
 
 from sqlalchemy.orm import Session
 
 
 BED_TEST_ID = "test_id"
+BEDSET_TEST_ID = "test_bedset_id"
+
+
+stats = {
+    "number_of_regions": 1,
+    "median_tss_dist": 2,
+    "mean_region_width": 3,
+    "exon_frequency": 4,
+    "exon_percentage": 5,
+    "intron_frequency": 6,
+    "intron_percentage": 7,
+    "intergenic_percentage": 8,
+    "intergenic_frequency": 9,
+    "promotercore_frequency": 10,
+    "promotercore_percentage": 11,
+    "fiveutr_frequency": 12,
+    "fiveutr_percentage": 13,
+    "threeutr_frequency": 14,
+    "threeutr_percentage": 15,
+    "promoterprox_frequency": 16,
+    "promoterprox_percentage": 17,
+}
 
 
 def get_example_dict() -> dict:
     value = {
         "id": BED_TEST_ID,
-        "number_of_regions": 1,
-        "median_tss_dist": 2,
-        "mean_region_width": 3,
-        "exon_frequency": 4,
-        "exon_percentage": 5,
-        "intron_frequency": 6,
-        "intron_percentage": 7,
-        "intergenic_percentage": 8,
-        "intergenic_frequency": 9,
-        "promotercore_frequency": 10,
-        "promotercore_percentage": 11,
-        "fiveutr_frequency": 12,
-        "fiveutr_percentage": 13,
-        "threeutr_frequency": 14,
-        "threeutr_percentage": 15,
-        "promoterprox_frequency": 16,
-        "promoterprox_percentage": 17,
         "bed_format": "narrowpeak",
         "bed_type": "bed6+4",
         "genome_alias": "hg38",
         "genome_digest": "2230c535660fb4774114bfa966a62f823fdb6d21acf138d4",
         "name": "random_name",
     }
+    value.update(stats)
     return value
 
 
@@ -64,7 +70,12 @@ class ContextManagerDBTesting:
     the db is empty for each new test.
     """
 
-    def __init__(self, config: Union[str, BedBaseConfig], add_data: bool = False, bedset: bool = False):
+    def __init__(
+        self,
+        config: Union[str, BedBaseConfig],
+        add_data: bool = False,
+        bedset: bool = False,
+    ):
         """
         :param config: config object
         :param add_data: add data to the database
@@ -103,4 +114,19 @@ class ContextManagerDBTesting:
             session.commit()
 
     def _add_bedset_data(self):
-        pass
+        with Session(self.db_engine.engine) as session:
+            new_bedset = BedSets(
+                id=BEDSET_TEST_ID,
+                name=BEDSET_TEST_ID,
+                description="random desc",
+                bedset_means=stats,
+                bedset_standard_deviation=stats,
+                md5sum="bbad0000000000000000000000000000",
+            )
+            new_bed_bedset = BedFileBedSetRelation(
+                bedfile_id=BED_TEST_ID,
+                bedset_id=BEDSET_TEST_ID,
+            )
+            session.add(new_bedset)
+            session.add(new_bed_bedset)
+            session.commit()

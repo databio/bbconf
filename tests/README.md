@@ -1,6 +1,8 @@
 # How to setup the test environment
 
-### To create a test database for testing :
+# before running the tests, make sure you have the following installed:
+
+### Create database before running the tests:
 
 ```
 docker run --rm -it --name bedbase-test \

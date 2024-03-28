@@ -52,11 +52,9 @@ class BedAgentBedSet:
         statement = select(BedSets).where(BedSets.id == identifier)
 
         with Session(self._db_engine.engine) as session:
-            bedset_obj = session.execute(statement).one()
+            bedset_obj = session.scalar(statement)
             if not bedset_obj:
                 raise BedSetNotFoundError(identifier)
-            else:
-                bedset_obj = bedset_obj[0]
             list_of_bedfiles = [
                 bedset_obj.bedfile_id for bedset_obj in bedset_obj.bedfiles
             ]
@@ -254,7 +252,9 @@ class BedAgentBedSet:
                 raise e
         return None
 
-    def get_ids_list(self, query: str = None, limit: int = 10, offset: int = 0) -> BedSetListResult:
+    def get_ids_list(
+        self, query: str = None, limit: int = 10, offset: int = 0
+    ) -> BedSetListResult:
         """
         Get list of bedsets from the database.
 
@@ -383,7 +383,6 @@ class BedAgentBedSet:
         if result:
             return True
         return False
-
 
     def add_bedfile(self, identifier: str, bedfile: str) -> None:
         raise NotImplementedError
