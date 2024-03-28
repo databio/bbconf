@@ -3,8 +3,10 @@ import logging
 
 from sqlalchemy import select, func, Numeric, Float, or_
 from sqlalchemy.orm import Session
-from geniml.io.utils import compute_md5sum_bedset
 
+# TODO: will be available in the next geniml release
+# from geniml.io.utils import compute_md5sum_bedset
+from hashlib import md5
 
 from bbconf.config_parser import BedBaseConfig
 from bbconf.db_utils import BedFileBedSetRelation, Bed, BedSets, Files
@@ -148,7 +150,8 @@ class BedAgentBedSet:
             description=description,
             bedset_means=stats.mean.model_dump() if stats else None,
             bedset_standard_deviation=stats.sd.model_dump() if stats else None,
-            md5sum=compute_md5sum_bedset(bedid_list),
+            # md5sum=compute_md5sum_bedset(bedid_list),
+            md5sum=md5("".join(bedid_list).encode()).hexdigest(),
         )
 
         if upload_s3:
