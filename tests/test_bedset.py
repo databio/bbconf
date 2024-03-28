@@ -104,6 +104,14 @@ class TestBedset:
 
             assert len(result) == 1
 
+    def test_get_plots(self, bbagent_obj):
+        with ContextManagerDBTesting(
+            config=bbagent_obj.config, add_data=True, bedset=True
+        ):
+            result = bbagent_obj.bedset.get_plots(BEDSET_TEST_ID)
+
+            assert result is not None
+
     def test_get_stats(self, bbagent_obj):
         with ContextManagerDBTesting(
             config=bbagent_obj.config, add_data=True, bedset=True

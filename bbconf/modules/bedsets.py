@@ -92,14 +92,21 @@ class BedAgentBedSet:
         :param identifier: bedset identifier
         :return: bedset plots
         """
-        statement = select(Files).where(Files.bedset_id == identifier)
+        statement = select(BedSets).where(BedSets.id == identifier)
 
         with Session(self._db_engine.engine) as session:
-            plots = session.execute(statement).all()
-
-        return BedSetPlots(
-            **{plot[0].name: FileModel(**plot[0].model_dump()) for plot in plots}
-        )
+            bedset_object = session.scalar(statement)
+            if not bedset_object:
+                raise BedSetNotFoundError(f"Bed file with id: {identifier} not found.")
+            bedset_files = BedSetPlots()
+            for result in bedset_object.files:
+                if result.name in bedset_files.model_fields:
+                    setattr(
+                        bedset_files,
+                        result.name,
+                        FileModel(**result.__dict__),
+                    )
+        return bedset_files
 
     def get_objects(self, identifier: str) -> Dict[str, FileModel]:
         """
