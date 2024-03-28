@@ -115,7 +115,6 @@ class BBObjects:
                     f"Result {result_id} is not defined for bed {record_id}"
                 )
         elif record_type == "bedset":
-            # result = self.bedset.retrieve_one(record_id, result_id)
             _LOGGER.error("Not implemented")
             raise BedBaseConfError("ERROR NOT IMPLEMENTED YET")
 
@@ -171,7 +170,7 @@ class BBObjects:
         drs_dict = DRSModel(
             id=object_id,
             self_uri=f"drs://{base_uri}/{object_id}",
-            size=record_metadata.size or "unknown",
+            size=record_metadata.size or None,
             created_time=created_time,
             updated_time=modified_time,
             checksums=object_id,

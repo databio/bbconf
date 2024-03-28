@@ -5,9 +5,12 @@ from typing import Union
 from sqlalchemy.orm import Session
 
 
+BED_TEST_ID = "test_id"
+
+
 def get_example_dict() -> dict:
     value = {
-        "id": "test_id",
+        "id": BED_TEST_ID,
         "number_of_regions": 1,
         "median_tss_dist": 2,
         "mean_region_width": 3,
@@ -40,6 +43,7 @@ def get_files() -> dict:
         "name": "bed_file",
         "path": "data/files/bbad85f21962bb8d972444f7f9a3a932.bed.gz",
         "description": "Bed file with regions",
+        "bedfile_id": BED_TEST_ID,
     }
 
 
@@ -50,6 +54,7 @@ def get_plots() -> dict:
         "title": "Regions distribution over chromosomes",
         "path": "data/plots/bbad85f21962bb8d972444f7f9a3a932_chrombins.pdf",
         "path_thumbnail": "data/plots/bbad85f21962bb8d972444f7f9a3a932_chrombins.png",
+        "bedfile_id": BED_TEST_ID,
     }
 
 
@@ -59,10 +64,11 @@ class ContextManagerDBTesting:
     the db is empty for each new test.
     """
 
-    def __init__(self, config: Union[str, BedBaseConfig], add_data: bool = False):
+    def __init__(self, config: Union[str, BedBaseConfig], add_data: bool = False, bedset: bool = False):
         """
-        :param config_path: path to the config file
+        :param config: config object
         :param add_data: add data to the database
+        :param bedset: add bedset data to the database
         """
         if isinstance(config, BedBaseConfig):
             self.config = config
@@ -70,6 +76,7 @@ class ContextManagerDBTesting:
             self.config = BedBaseConfig(config)
 
         self.add_data = add_data
+        self.bedset = bedset
 
     def __enter__(self):
 
@@ -77,6 +84,8 @@ class ContextManagerDBTesting:
 
         if self.add_data:
             self._add_data()
+            if self.bedset:
+                self._add_bedset_data()
 
     def __exit__(self, exc_type, exc_value, exc_traceback):
         self.db_engine.delete_schema()
@@ -92,3 +101,6 @@ class ContextManagerDBTesting:
             session.add(new_files)
             session.add(new_plots)
             session.commit()
+
+    def _add_bedset_data(self):
+        pass

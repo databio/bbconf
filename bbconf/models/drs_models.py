@@ -1,5 +1,5 @@
 import datetime
-from typing import Optional, List
+from typing import Optional, List, Union
 from pydantic import BaseModel
 
 
@@ -20,7 +20,7 @@ class DRSModel(BaseModel):
     id: str
     name: Optional[str] = None
     self_uri: str
-    size: int
+    size: Union[int, None] = None
     created_time: Optional[datetime.datetime] = None
     updated_time: Optional[datetime.datetime] = None
     checksums: str

@@ -93,10 +93,10 @@ class BedAgentBedFile:
                             FileModel(**result.__dict__),
                         )
 
-                else:
-                    _LOGGER.error(
-                        f"Unknown file type: {result.name}. And is not in the model fields. Skipping.."
-                    )
+                    else:
+                        _LOGGER.error(
+                            f"Unknown file type: {result.name}. And is not in the model fields. Skipping.."
+                        )
                 bed_stats = BedStats(**bed_object.__dict__)
             else:
                 bed_plots = None
@@ -274,7 +274,6 @@ class BedAgentBedFile:
 
         :return: list of bed file identifiers
         """
-        # TODO: add filter (e.g. bed_type, genome...), search by description
         # TODO: question: Return Annotation?
         statement = select(Bed.id)
 
@@ -283,7 +282,7 @@ class BedAgentBedFile:
             statement = statement.where(Bed.genome_alias == genome)
 
         if bed_type:
-            statement = statement.where(Bed.bed_format == bed_type)
+            statement = statement.where(Bed.bed_type == bed_type)
 
         statement = statement.limit(limit).offset(offset)
 
@@ -560,7 +559,7 @@ class BedAgentBedFile:
             overwrite=overwrite,
         )
 
-    def update_pephub(self, identifier: str, metadata: dict):
+    def update_pephub(self, identifier: str, metadata: dict, overwrite: bool = False):
         if not metadata:
             _LOGGER.warning("No metadata provided. Skipping pephub upload..")
             return False

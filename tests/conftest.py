@@ -1,7 +1,9 @@
 import os
 import pytest
 from bbconf.bbagent import BedBaseAgent
-from bbconf.db_utils import Bed
+from unittest.mock import patch
+
+from .utils import BED_TEST_ID
 
 TESTS_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -87,3 +89,11 @@ def example_dict():
 @pytest.fixture
 def load_test_data():
     db_engine = get_bbagent().config.db_engine()
+
+
+@pytest.fixture()
+def mocked_phc(mocker):
+    mocker.patch(
+        "pephubclient.modules.sample.PEPHubSample.get",
+        return_value={"sample_name": BED_TEST_ID, "other_metadata": "other_metadata_1"},
+    )

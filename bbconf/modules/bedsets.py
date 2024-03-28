@@ -40,11 +40,12 @@ class BedAgentBedSet:
         self.config = config
         self._db_engine = self.config.db_engine
 
-    def get(self, identifier: str) -> BedSetMetadata:
+    def get(self, identifier: str, full: bool = False) -> BedSetMetadata:
         """
         Get file metadata by identifier.
 
         :param identifier: bed file identifier
+        :param full: return full record with stats, plots, files and metadata
         :return: project metadata
         """
 
@@ -59,21 +60,46 @@ class BedAgentBedSet:
             list_of_bedfiles = [
                 bedset_obj.bedfile_id for bedset_obj in bedset_obj.bedfiles
             ]
+            if full:
+                plots = BedSetPlots()
+                for plot in bedset_obj.files:
+                    setattr(plots, plot.name, FileModel(**plot.__dict__))
+
+                stats = BedSetStats(
+                    mean=BedStats(**bedset_obj.bedset_means),
+                    sd=BedStats(**bedset_obj.bedset_standard_deviation),
+                ).model_dump()
+            else:
+                plots = None
+                stats = None
 
             bedset_metadata = BedSetMetadata(
                 id=bedset_obj.id,
                 name=bedset_obj.name,
                 description=bedset_obj.description,
                 md5sum=bedset_obj.md5sum,
-                statistics=BedSetStats(
-                    mean=BedStats(**bedset_obj.bedset_means),
-                    sd=BedStats(**bedset_obj.bedset_standard_deviation),
-                ).model_dump(),
-                plots=[FileModel(**plot.__dict__) for plot in bedset_obj.files],
+                statistics=stats,
+                plots=plots,
                 bed_ids=list_of_bedfiles,
             )
 
         return bedset_metadata
+
+    def get_plots(self, identifier: str) -> BedSetPlots:
+        """
+        Get plots for bedset by identifier.
+
+        :param identifier: bedset identifier
+        :return: bedset plots
+        """
+        statement = select(Files).where(Files.bedset_id == identifier)
+
+        with Session(self._db_engine.engine) as session:
+            plots = session.execute(statement).all()
+
+        return BedSetPlots(
+            **{plot[0].name: FileModel(**plot[0].model_dump()) for plot in plots}
+        )
 
     def create(
         self,
@@ -213,37 +239,50 @@ class BedAgentBedSet:
         """
 
         _LOGGER.info(f"Creating view in pephub for bedset '{bedset_id}'")
-        self.config.phc.view.create(
-            namespace=self.config.config.phc.namespace,
-            name=self.config.config.phc.name,
-            tag=self.config.config.phc.tag,
-            view_name=bedset_id,
-            # description=description,
-            sample_list=bed_ids,
-        )
+        try:
+            self.config.phc.view.create(
+                namespace=self.config.config.phc.namespace,
+                name=self.config.config.phc.name,
+                tag=self.config.config.phc.tag,
+                view_name=bedset_id,
+                # description=description,
+                sample_list=bed_ids,
+            )
+        except Exception as e:
+            _LOGGER.error(f"Failed to create view in pephub: {e}")
+            if not nofail:
+                raise e
         return None
 
-    def get_ids_list(self, limit: int = 10, offset: int = 0) -> BedSetListResult:
+    def get_ids_list(self, query: str = None, limit: int = 10, offset: int = 0) -> BedSetListResult:
         """
         Get list of bedsets from the database.
 
+        :param query: search query
         :param limit: limit of results
         :param offset: offset of results
         :return: list of bedsets
         """
-        # TODO: add search and some metadata here
-        statement = select(BedSets).limit(limit).offset(offset)
-
+        statement = select(BedSets.id)
+        if query:
+            sql_search_str = f"%{query}%"
+            statement = statement.where(
+                or_(
+                    BedSets.name.ilike(sql_search_str),
+                    BedSets.description.ilike(sql_search_str),
+                )
+            )
         with Session(self._db_engine.engine) as session:
-            bedset_list = session.execute(statement).all()
+            bedset_list = session.execute(statement.limit(limit).offset(offset))
 
-        results = [self.get(bedset[0].id) for bedset in bedset_list]
-
+        result_list = []
+        for bedset_id in bedset_list:
+            result_list.append(self.get(bedset_id[0]))
         return BedSetListResult(
-            count=len(results),
+            count=len(result_list),
             limit=limit,
             offset=offset,
-            results=results,
+            results=result_list,
         )
 
     def get_bedset_bedfiles(
@@ -284,45 +323,67 @@ class BedAgentBedSet:
             results=results,
         )
 
-    def search(self, query: str, limit: int = 10, offset: int = 0) -> BedSetListResult:
-        """
-        Search bedsets in the database.
-
-        :param query: search query
-        :param limit: limit of results
-        :param offset: offset of results
-        :return: list of bedsets
-        """
-        statement = select(BedSets.id)
-        if query:
-            sql_search_str = f"%{query}%"
-            statement = statement.where(
-                or_(
-                    BedSets.name.ilike(sql_search_str),
-                    BedSets.description.ilike(sql_search_str),
-                )
-            )
-        with Session(self._db_engine.engine) as session:
-            bedset_list = session.execute(statement.limit(limit).offset(offset))
-
-        result_list = []
-        for bedset_id in bedset_list:
-            result_list.append(self.get(bedset_id[0]))
-        return BedSetListResult(
-            count=len(result_list),
-            limit=limit,
-            offset=offset,
-            results=result_list,
-        )
-
-    def delete(self) -> None:
+    def delete(self, identifier: str) -> None:
         """
         Delete bed file from the database.
 
-        :param identifier: bed file identifier
+        :param identifier: bedset identifier
         :return: None
         """
-        raise NotImplementedError
+        if not self.exists(identifier):
+            raise BedSetNotFoundError(identifier)
+
+        _LOGGER.info(f"Deleting bedset '{identifier}'")
+
+        with Session(self._db_engine.engine) as session:
+            statement = select(BedSets).where(BedSets.id == identifier)
+
+            bedset_obj = session.scalar(statement)
+            files = [FileModel(**k.__dict__) for k in bedset_obj.files]
+
+            session.delete(bedset_obj)
+            session.commit()
+
+        self.delete_phc_view(identifier, nofail=True)
+        if files:
+            self.config.delete_files_s3(files)
+
+    def delete_phc_view(self, identifier: str, nofail: bool = False) -> None:
+        """
+        Delete view in pephub.
+
+        :param identifier: bedset identifier
+        :param nofail: do not raise an error if view not found
+        :return: None
+        """
+        _LOGGER.info(f"Deleting view in pephub for bedset '{identifier}'")
+        try:
+            self.config.phc.view.delete(
+                namespace=self.config.config.phc.namespace,
+                name=self.config.config.phc.name,
+                tag=self.config.config.phc.tag,
+                view_name=identifier,
+            )
+        except Exception as e:
+            _LOGGER.error(f"Failed to delete view in pephub: {e}")
+            if not nofail:
+                raise e
+        return None
+
+    def exists(self, identifier: str) -> bool:
+        """
+        Check if bedset exists in the database.
+
+        :param identifier: bedset identifier
+        :return: True if bedset exists, False otherwise
+        """
+        statement = select(BedSets).where(BedSets.id == identifier)
+        with Session(self._db_engine.engine) as session:
+            result = session.execute(statement).one_or_none()
+        if result:
+            return True
+        return False
+
 
     def add_bedfile(self, identifier: str, bedfile: str) -> None:
         raise NotImplementedError
