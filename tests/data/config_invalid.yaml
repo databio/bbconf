@@ -1,4 +1,0 @@
-# full config example. Refer to bbconf/const.py for key names and default values
-
-path:
-  pipeline_output_path:  $HOME/bedbase
