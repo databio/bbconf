@@ -1,13 +1,13 @@
 from pydantic import BaseModel, ConfigDict
 from typing import List, Union
 
-from .bed_models import BedStats, BedMetadata
+from .bed_models import BedStatsModel, BedMetadata
 from .base_models import FileModel
 
 
 class BedSetStats(BaseModel):
-    mean: BedStats = None
-    sd: BedStats = None
+    mean: BedStatsModel = None
+    sd: BedStatsModel = None
 
 
 class BedSetPlots(BaseModel):

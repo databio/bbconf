@@ -10,7 +10,6 @@ from qdrant_client.models import PointIdsList, VectorParams, Distance
 
 from sqlalchemy.orm import Session
 from sqlalchemy import select
-from sqlalchemy.exc import IntegrityError
 
 
 from bbconf.const import (
@@ -22,7 +21,7 @@ from bbconf.models.bed_models import (
     FileModel,
     BedPlots,
     BedClassification,
-    BedStats,
+    BedStatsModel,
     BedPEPHub,
     BedListResult,
     BedListSearchResult,
@@ -33,7 +32,7 @@ from bbconf.exceptions import (
     BEDFileNotFoundError,
     BedFIleExistsError,
 )
-from bbconf.db_utils import Bed, Files
+from bbconf.db_utils import Bed, Files, BedStats
 from bbconf.config_parser.bedbaseconfig import BedBaseConfig
 
 _LOGGER = getLogger(PKG_NAME)
@@ -97,7 +96,7 @@ class BedAgentBedFile:
                         _LOGGER.error(
                             f"Unknown file type: {result.name}. And is not in the model fields. Skipping.."
                         )
-                bed_stats = BedStats(**bed_object.__dict__)
+                bed_stats = BedStatsModel(**bed_object.stats.__dict__)
             else:
                 bed_plots = None
                 bed_files = None
@@ -136,7 +135,7 @@ class BedAgentBedFile:
             full_response=full,
         )
 
-    def get_stats(self, identifier: str) -> BedStats:
+    def get_stats(self, identifier: str) -> BedStatsModel:
         """
         Get file statistics by identifier.
 
@@ -144,13 +143,13 @@ class BedAgentBedFile:
 
         :return: project statistics as BedStats object
         """
-        statement = select(Bed).where(Bed.id == identifier)
+        statement = select(BedStats).where(BedStats.id == identifier)
 
         with Session(self._sa_engine) as session:
             bed_object = session.scalar(statement)
             if not bed_object:
                 raise BEDFileNotFoundError(f"Bed file with id: {identifier} not found.")
-            bed_stats = BedStats(**bed_object.__dict__)
+            bed_stats = BedStatsModel(**bed_object.__dict__)
 
         return bed_stats
 
@@ -342,7 +341,7 @@ class BedAgentBedFile:
             else:
                 self.delete(identifier)
 
-        stats = BedStats(**stats)
+        stats = BedStatsModel(**stats)
         # TODO: we should not check for specific keys, of the plots!
         plots = BedPlots(**plots)
         files = BedFiles(**files)
@@ -384,7 +383,6 @@ class BedAgentBedFile:
         with Session(self._sa_engine) as session:
             new_bed = Bed(
                 id=identifier,
-                **stats.model_dump(),
                 **classification.model_dump(),
                 indexed=upload_qdrant,
                 pephub=upload_pephub,
@@ -407,6 +405,9 @@ class BedAgentBedFile:
                             type="plot",
                         )
                         session.add(new_plot)
+
+            new_bedstat = BedStats(**stats.model_dump(), id=identifier)
+            session.add(new_bedstat)
 
             session.commit()
 
@@ -449,7 +450,7 @@ class BedAgentBedFile:
                 f"Bed file with id: {identifier} not found. Cannot update."
             )
 
-        stats = BedStats(**stats)
+        stats = BedStatsModel(**stats)
         plots = BedPlots(**plots)
         files = BedFiles(**files)
         classification = BedClassification(**classification)
@@ -655,6 +656,30 @@ class BedAgentBedFile:
         return BedListSearchResult(
             count=len(results), limit=limit, offset=offset, results=results_list
         )
+
+    def bed_to_bed_search(
+        self,
+        region_set: RegionSet,
+        limit: int = 10,
+        offset: int = 0,
+    ) -> BedListSearchResult:
+        # # results = self._config.b2bsi.(query, limit=limit, offset=offset)
+        # results_list = []
+        # for result in results:
+        #     result_id = result["id"].replace("-", "")
+        #     try:
+        #         result_meta = self.get(result_id)
+        #     except BEDFileNotFoundError as e:
+        #         _LOGGER.warning(
+        #             f"Could not retrieve metadata for bed file: {result_id}. Error: {e}"
+        #         )
+        #         continue
+        #     if result_meta:
+        #         results_list.append(QdrantSearchResult(**result, metadata=result_meta))
+        # return BedListSearchResult(
+        #     count=0, limit=limit, offset=offset, results=[]
+        # )
+        raise NotImplementedError
 
     def reindex_qdrant(self) -> None:
         """

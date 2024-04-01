@@ -9,9 +9,9 @@ from sqlalchemy.orm import Session
 from hashlib import md5
 
 from bbconf.config_parser import BedBaseConfig
-from bbconf.db_utils import BedFileBedSetRelation, Bed, BedSets, Files
+from bbconf.db_utils import BedFileBedSetRelation, BedSets, Files, BedStats
 
-from bbconf.models.bed_models import BedStats
+from bbconf.models.bed_models import BedStatsModel
 from bbconf.models.bedset_models import (
     BedSetStats,
     BedSetMetadata,
@@ -66,8 +66,8 @@ class BedAgentBedSet:
                     setattr(plots, plot.name, FileModel(**plot.__dict__))
 
                 stats = BedSetStats(
-                    mean=BedStats(**bedset_obj.bedset_means),
-                    sd=BedStats(**bedset_obj.bedset_standard_deviation),
+                    mean=BedStatsModel(**bedset_obj.bedset_means),
+                    sd=BedStatsModel(**bedset_obj.bedset_standard_deviation),
                 ).model_dump()
             else:
                 plots = None
@@ -140,8 +140,8 @@ class BedAgentBedSet:
             if not bedset_object:
                 raise BedSetNotFoundError(f"Bedset with id: {identifier} not found.")
             return BedSetStats(
-                mean=BedStats(**bedset_object.bedset_means),
-                sd=BedStats(**bedset_object.bedset_standard_deviation),
+                mean=BedStatsModel(**bedset_object.bedset_means),
+                sd=BedStatsModel(**bedset_object.bedset_standard_deviation),
             )
 
     def create(
@@ -234,7 +234,7 @@ class BedAgentBedSet:
         """
 
         _LOGGER.info("Calculating bedset statistics")
-        numeric_columns = BedStats.model_fields
+        numeric_columns = BedStatsModel.model_fields
 
         bedset_sd = {}
         bedset_mean = {}
@@ -242,16 +242,16 @@ class BedAgentBedSet:
             for column_name in numeric_columns:
                 mean_bedset_statement = select(
                     func.round(
-                        func.avg(getattr(Bed, column_name)).cast(Numeric), 4
+                        func.avg(getattr(BedStats, column_name)).cast(Numeric), 4
                     ).cast(Float)
-                ).where(Bed.id.in_(bed_ids))
+                ).where(BedStats.id.in_(bed_ids))
 
                 sd_bedset_statement = select(
                     func.round(
-                        func.stddev(getattr(Bed, column_name)).cast(Numeric),
+                        func.stddev(getattr(BedStats, column_name)).cast(Numeric),
                         4,
                     ).cast(Float)
-                ).where(Bed.id.in_(bed_ids))
+                ).where(BedStats.id.in_(bed_ids))
 
                 bedset_sd[column_name] = session.execute(mean_bedset_statement).one()[0]
                 bedset_mean[column_name] = session.execute(sd_bedset_statement).one()[0]

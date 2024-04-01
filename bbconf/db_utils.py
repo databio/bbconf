@@ -98,7 +98,27 @@ class Bed(Base):
         onupdate=deliver_update_date,
     )
 
-    # statistics:
+    files: Mapped[List["Files"]] = relationship(
+        "Files", back_populates="bedfile", cascade="all, delete-orphan"
+    )
+
+    bedsets: Mapped[List["BedFileBedSetRelation"]] = relationship(
+        "BedFileBedSetRelation", back_populates="bedfile", cascade="all, delete-orphan"
+    )
+
+    stats: Mapped["BedStats"] = relationship(
+        back_populates="bed", cascade="all, delete-orphan"
+    )
+
+
+class BedStats(Base):
+    __tablename__ = "bed_stats"
+
+    id: Mapped[str] = mapped_column(
+        ForeignKey("bed.id", ondelete="CASCADE"),
+        primary_key=True,
+        index=True,
+    )
     number_of_regions: Mapped[Optional[float]]
     gc_content: Mapped[Optional[float]]
     median_tss_dist: Mapped[Optional[float]]
@@ -119,15 +139,7 @@ class Bed(Base):
     promotercore_percentage: Mapped[Optional[float]]
     tssdist: Mapped[Optional[float]]
 
-    # relations:
-    # plots: Mapped[List["Plots"]] = relationship("Plots", back_populates="bedfile")
-    files: Mapped[List["Files"]] = relationship(
-        "Files", back_populates="bedfile", cascade="all, delete-orphan"
-    )
-
-    bedsets: Mapped[List["BedFileBedSetRelation"]] = relationship(
-        "BedFileBedSetRelation", back_populates="bedfile", cascade="all, delete-orphan"
-    )
+    bed: Mapped["Bed"] = relationship("Bed", back_populates="stats")
 
 
 class Files(Base):

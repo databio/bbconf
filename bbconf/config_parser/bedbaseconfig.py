@@ -5,6 +5,8 @@ import logging
 from geniml.search import QdrantBackend
 import qdrant_client
 from geniml.text2bednn import text2bednn
+
+# from geniml.search import BED2BEDSearchInterface
 from fastembed.embedding import FlagEmbedding
 from geniml.region2vec import Region2VecExModel
 import warnings
@@ -183,6 +185,27 @@ class BedBaseConfig:
                 UserWarning,
             )
             return None
+
+    # def _init_b2bsi_object(self) -> Union[text2bednn.BED2BEDSearchInterface, None]:
+    #     """
+    #     Create Bed 2 BED search interface and return this object
+    #
+    #     :return: Bed2BEDSearchInterface object
+    #       TODO: work in progress
+    #     """
+    #
+    #     try:
+    #         return text2bednn.BED2BEDSearchInterface(
+    #             bed2vec_model=self._config.path.bed2vec,
+    #             search_backend=self.qdrant_engine,
+    #         )
+    #     except Exception as e:
+    #         _LOGGER.error("Error in creating Bed2BEDSearchInterface object: " + str(e))
+    #         warnings.warn(
+    #             "Error in creating Bed2BEDSearchInterface object: " + str(e),
+    #             UserWarning,
+    #         )
+    #         return None
 
     @staticmethod
     def _init_pephubclient() -> Union[PEPHubClient, None]:

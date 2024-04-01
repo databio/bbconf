@@ -42,7 +42,7 @@ class BedClassification(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
 
-class BedStats(BaseModel):
+class BedStatsModel(BaseModel):
     number_of_regions: Optional[float] = Field(None, alias="regions_no")
     gc_content: Optional[float] = None
     median_tss_dist: Optional[float] = None
@@ -103,7 +103,7 @@ class BedMetadata(BedClassification):
     description: Optional[str] = None
     submission_date: datetime.datetime = None
     last_update_date: Optional[datetime.datetime] = None
-    stats: Union[BedStats, None] = None
+    stats: Union[BedStatsModel, None] = None
     # classification: BedClassification = None
     plots: Union[BedPlots, None] = None
     files: Union[BedFiles, None] = None

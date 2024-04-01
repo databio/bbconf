@@ -1,5 +1,5 @@
 from bbconf.config_parser.bedbaseconfig import BedBaseConfig
-from bbconf.db_utils import Bed, Files, BedSets, BedFileBedSetRelation
+from bbconf.db_utils import Bed, Files, BedSets, BedFileBedSetRelation, BedStats
 from typing import Union
 
 from sqlalchemy.orm import Session
@@ -10,6 +10,7 @@ BEDSET_TEST_ID = "test_bedset_id"
 
 
 stats = {
+    "id": BED_TEST_ID,
     "number_of_regions": 1,
     "median_tss_dist": 2,
     "mean_region_width": 3,
@@ -39,7 +40,6 @@ def get_example_dict() -> dict:
         "genome_digest": "2230c535660fb4774114bfa966a62f823fdb6d21acf138d4",
         "name": "random_name",
     }
-    value.update(stats)
     return value
 
 
@@ -117,10 +117,13 @@ class ContextManagerDBTesting:
             new_bed = Bed(**get_example_dict())
             new_files = Files(**get_files())
             new_plots = Files(**get_plots())
+            new_stats = BedStats(**stats)
 
             session.add(new_bed)
             session.add(new_files)
             session.add(new_plots)
+            session.add(new_stats)
+
             session.commit()
 
     def _add_bedset_data(self):
