@@ -13,6 +13,7 @@ from bbconf.exceptions import (
     BedBaseConfError,
 )
 
+import datetime
 from bbconf.models.drs_models import AccessMethod, AccessURL, DRSModel
 from bbconf.models.bed_models import FileModel
 
@@ -151,7 +152,6 @@ class BBObjects:
         :return: DRS metadata
         """
 
-        access_methods = []
         object_id = f"{record_type}.{record_id}.{result_id}"
         bed_result = self.bed.get(record_id)
         created_time = bed_result.submission_date
@@ -162,6 +162,35 @@ class BBObjects:
         if not record_metadata:
             raise MissingObjectError("Record not found")
 
+        drs_dict = self.construct_drs_metadata(
+            base_uri,
+            object_id,
+            record_metadata,
+            created_time,
+            modified_time,
+        )
+
+        return drs_dict
+
+    def construct_drs_metadata(
+        self,
+        base_uri: str,
+        object_id: str,
+        record_metadata: FileModel,
+        created_time: datetime.datetime = None,
+        modified_time: datetime.datetime = None,
+    ):
+        """
+        Construct DRS metadata object
+
+        :param base_uri: base uri to use for the self_uri field (server hostname of DRS broker)
+        :param object_id: record identifier
+        :param record_metadata: metadata of the record
+        :param created_time: time of creation
+        :param modified_time: time of last modification
+        :return: DRS metadata
+        """
+        access_methods = []
         for access_id in self.config.config.access_methods.model_dump().keys():
             access_dict = AccessMethod(
                 type=access_id,
@@ -183,5 +212,4 @@ class BBObjects:
             checksums=object_id,
             access_methods=access_methods,
         )
-
         return drs_dict
