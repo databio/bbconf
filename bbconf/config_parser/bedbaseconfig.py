@@ -30,7 +30,11 @@ from bbconf.config_parser.const import (
     S3_PLOTS_PATH_FOLDER,
     S3_BEDSET_PATH_FOLDER,
 )
-from bbconf.exceptions import BedbaseS3ConnectionError, BedBaseConfError
+from bbconf.exceptions import (
+    BedbaseS3ConnectionError,
+    BedBaseConfError,
+    BadAccessMethodError,
+)
 
 
 _LOGGER = logging.getLogger(PKG_NAME)
@@ -359,3 +363,19 @@ class BedBaseConfig:
             if file.path_thumbnail:
                 self.delete_s3(file.path_thumbnail)
         return None
+
+    def get_prefixed_uri(self, postfix: str, access_id: str) -> str:
+        """
+        Return uri with correct prefix (schema)
+
+        :param postfix: postfix of the uri (or everything after uri schema)
+        :param access_id: access method name, e.g. http, s3, etc.
+        :return: full uri path
+        """
+
+        try:
+            prefix = getattr(self.config.access_methods, access_id).prefix
+            return os.path.join(prefix, postfix)
+        except KeyError:
+            _LOGGER.error(f"Access method {access_id} is not defined.")
+            raise BadAccessMethodError(f"Access method {access_id} is not defined.")

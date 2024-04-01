@@ -38,6 +38,7 @@ from bbconf.config_parser.bedbaseconfig import BedBaseConfig
 _LOGGER = getLogger(PKG_NAME)
 
 QDRANT_GENOME = "hg38"
+ACCESS_ID = "http"
 
 
 class BedAgentBedFile:
@@ -82,14 +83,28 @@ class BedAgentBedFile:
                         setattr(
                             bed_plots,
                             result.name,
-                            FileModel(**result.__dict__),
+                            FileModel(
+                                **result.__dict__,
+                                object_id=f"bed.{identifier}.{result.name}",
+                                uri=self._config.get_prefixed_uri(
+                                    result.path,
+                                    access_id=ACCESS_ID,
+                                ),
+                            ),
                         )
                     # FILES
                     elif result.name in BedFiles.model_fields:
                         setattr(
                             bed_files,
                             result.name,
-                            FileModel(**result.__dict__),
+                            FileModel(
+                                **result.__dict__,
+                                object_id=f"bed.{identifier}.{result.name}",
+                                uri=self._config.get_prefixed_uri(
+                                    result.path,
+                                    access_id=ACCESS_ID,
+                                ),
+                            ),
                         )
 
                     else:
@@ -172,7 +187,14 @@ class BedAgentBedFile:
                     setattr(
                         bed_plots,
                         result.name,
-                        FileModel(**result.__dict__),
+                        FileModel(
+                            **result.__dict__,
+                            object_id=f"bed.{identifier}.{result.name}",
+                            uri=self._config.get_prefixed_uri(
+                                result.path,
+                                access_id=ACCESS_ID,
+                            ),
+                        ),
                     )
         return bed_plots
 
@@ -195,7 +217,14 @@ class BedAgentBedFile:
                     setattr(
                         bed_files,
                         result.name,
-                        FileModel(**result.__dict__),
+                        FileModel(
+                            **result.__dict__,
+                            object_id=f"bed.{identifier}.{result.name}",
+                            uri=self._config.get_prefixed_uri(
+                                result.path,
+                                access_id=ACCESS_ID,
+                            ),
+                        ),
                     )
         return bed_files
 
@@ -392,7 +421,11 @@ class BedAgentBedFile:
                 for k, v in files:
                     if v:
                         new_file = Files(
-                            **v.model_dump(exclude_none=True, exclude_unset=True),
+                            **v.model_dump(
+                                exclude_none=True,
+                                exclude_unset=True,
+                                exclude={"object_id", "uri"},
+                            ),
                             bedfile_id=identifier,
                             type="file",
                         )
@@ -400,7 +433,11 @@ class BedAgentBedFile:
                 for k, v in plots:
                     if v:
                         new_plot = Files(
-                            **v.model_dump(exclude_none=True, exclude_unset=True),
+                            **v.model_dump(
+                                exclude_none=True,
+                                exclude_unset=True,
+                                exclude={"object_id", "uri"},
+                            ),
                             bedfile_id=identifier,
                             type="plot",
                         )

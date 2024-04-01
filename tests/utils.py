@@ -5,7 +5,7 @@ from typing import Union
 from sqlalchemy.orm import Session
 
 
-BED_TEST_ID = "test_id"
+BED_TEST_ID = "bbad85f21962bb8d972444f7f9a3a932"
 BEDSET_TEST_ID = "test_bedset_id"
 
 

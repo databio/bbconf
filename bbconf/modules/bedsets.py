@@ -27,6 +27,8 @@ from bbconf.exceptions import BedSetNotFoundError, BEDFileNotFoundError
 
 _LOGGER = logging.getLogger(PKG_NAME)
 
+ACCESS_ID = "http"
+
 
 class BedAgentBedSet:
     """
@@ -104,7 +106,14 @@ class BedAgentBedSet:
                     setattr(
                         bedset_files,
                         result.name,
-                        FileModel(**result.__dict__),
+                        FileModel(
+                            **result.__dict__,
+                            object_id=f"bed.{identifier}.{result.name}",
+                            uri=self.config.get_prefixed_uri(
+                                result.path,
+                                access_id=ACCESS_ID,
+                            ),
+                        ),
                     )
         return bedset_files
 
@@ -123,7 +132,14 @@ class BedAgentBedSet:
             if not bedset_object:
                 raise BedSetNotFoundError(f"Bedset with id: {identifier} not found.")
             for result in bedset_object.files:
-                return_dict[result.name] = FileModel(**result.__dict__)
+                return_dict[result.name] = FileModel(
+                    **result.__dict__,
+                    object_id=f"bed.{identifier}.{result.name}",
+                    uri=self.config.get_prefixed_uri(
+                        result.path,
+                        access_id=ACCESS_ID,
+                    ),
+                )
 
         return return_dict
 

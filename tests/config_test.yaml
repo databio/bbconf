@@ -16,6 +16,7 @@ qdrant:
   collection: "bedbase"
 s3:
   bucket: bedbase
+  endpoint_url: "None"
 phc:
   namespace: bedbase
   name: bedbase

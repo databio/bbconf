@@ -9,6 +9,8 @@ class FileModel(BaseModel):
     path_thumbnail: Optional[Union[str, None]] = Field(None, alias="thumbnail_path")
     description: Optional[str] = None
     size: Optional[int] = None
+    object_id: Optional[str] = None
+    uri: Optional[str] = None
 
     model_config = ConfigDict(populate_by_name=True, extra="ignore")
 

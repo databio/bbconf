@@ -1,5 +1,4 @@
 import logging
-import os
 from typing import List, Union, Literal
 
 from bbconf.modules.bedfiles import BedAgentBedFile
@@ -7,7 +6,6 @@ from bbconf.modules.bedsets import BedAgentBedSet
 from bbconf.config_parser.bedbaseconfig import BedBaseConfig
 from bbconf.const import PKG_NAME
 from bbconf.exceptions import (
-    BadAccessMethodError,
     MissingThumbnailError,
     MissingObjectError,
     BedBaseConfError,
@@ -32,22 +30,6 @@ class BBObjects:
         self.bed = BedAgentBedFile(self.config)
         self.bedset = BedAgentBedSet(self.config)
 
-    def _get_prefixed_uri(self, postfix: str, access_id: str) -> str:
-        """
-        Return uri with correct prefix (schema)
-
-        :param postfix: postfix of the uri (or everything after uri schema)
-        :param access_id: access method name, e.g. http, s3, etc.
-        :return: full uri path
-        """
-
-        try:
-            prefix = getattr(self.config.config.access_methods, access_id).prefix
-            return os.path.join(prefix, postfix)
-        except KeyError:
-            _LOGGER.error(f"Access method {access_id} is not defined.")
-            raise BadAccessMethodError(f"Access method {access_id} is not defined.")
-
     def get_thumbnail_uri(
         self,
         record_type: Literal["bed", "bedset"],
@@ -66,7 +48,7 @@ class BBObjects:
         """
         result = self._get_result(record_type, record_id, result_id)
         if result.path_thumbnail:
-            return self._get_prefixed_uri(result.path_thumbnail, access_id)
+            return self.config.get_prefixed_uri(result.path_thumbnail, access_id)
 
         else:
             _LOGGER.error(
@@ -93,7 +75,7 @@ class BBObjects:
         :return:
         """
         result = self._get_result(record_type, record_id, result_id)
-        return self._get_prefixed_uri(result.path, access_id)
+        return self.config.get_prefixed_uri(result.path, access_id)
 
     def _get_result(
         self,
@@ -196,7 +178,7 @@ class BBObjects:
                 type=access_id,
                 access_id=access_id,
                 access_url=AccessURL(
-                    url=self._get_prefixed_uri(record_metadata.path, access_id)
+                    url=self.config.get_prefixed_uri(record_metadata.path, access_id)
                 ),
                 region=self.config.config.access_methods.model_dump()[access_id].get(
                     "region", None
