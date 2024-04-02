@@ -324,7 +324,6 @@ class BedAgentBedFile:
         self,
         identifier: str,
         stats: dict,
-        name: str = None,
         metadata: dict = None,
         plots: dict = None,
         files: dict = None,
@@ -341,7 +340,6 @@ class BedAgentBedFile:
 
         :param identifier: bed file identifier
         :param stats: bed file results {statistics, plots, files, metadata}
-        :param name: bed file human-readable name
         :param metadata: bed file metadata (will be saved in pephub)
         :param plots: bed file plots
         :param files: bed file files
@@ -406,7 +404,6 @@ class BedAgentBedFile:
                 plots = self._config.upload_files_s3(
                     identifier, files=plots, base_path=local_path, type="plots"
                 )
-        classification.name = name or identifier
         with Session(self._sa_engine) as session:
             new_bed = Bed(
                 id=identifier,
