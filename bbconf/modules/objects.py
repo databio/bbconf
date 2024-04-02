@@ -172,19 +172,7 @@ class BBObjects:
         :param modified_time: time of last modification
         :return: DRS metadata
         """
-        access_methods = []
-        for access_id in self.config.config.access_methods.model_dump().keys():
-            access_dict = AccessMethod(
-                type=access_id,
-                access_id=access_id,
-                access_url=AccessURL(
-                    url=self.config.get_prefixed_uri(record_metadata.path, access_id)
-                ),
-                region=self.config.config.access_methods.model_dump()[access_id].get(
-                    "region", None
-                ),
-            )
-            access_methods.append(access_dict)
+        access_methods = self.config.construct_access_method_list(record_metadata.path)
         drs_dict = DRSModel(
             id=object_id,
             self_uri=f"drs://{base_uri}/{object_id}",

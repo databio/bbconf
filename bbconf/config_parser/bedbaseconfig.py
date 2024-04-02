@@ -35,6 +35,7 @@ from bbconf.exceptions import (
     BedBaseConfError,
     BadAccessMethodError,
 )
+from bbconf.models.drs_models import AccessMethod, AccessURL
 
 
 _LOGGER = logging.getLogger(PKG_NAME)
@@ -379,3 +380,23 @@ class BedBaseConfig:
         except KeyError:
             _LOGGER.error(f"Access method {access_id} is not defined.")
             raise BadAccessMethodError(f"Access method {access_id} is not defined.")
+
+    def construct_access_method_list(self, rel_path: str) -> List[AccessMethod]:
+        """
+        Construct access method list for a given record
+
+        :param rel_path: relative path to the record
+        :return: list of access methods
+        """
+        access_methods = []
+        for access_id in self.config.access_methods.model_dump().keys():
+            access_dict = AccessMethod(
+                type=access_id,
+                access_id=access_id,
+                access_url=AccessURL(url=self.get_prefixed_uri(rel_path, access_id)),
+                region=self.config.access_methods.model_dump()[access_id].get(
+                    "region", None
+                ),
+            )
+            access_methods.append(access_dict)
+        return access_methods

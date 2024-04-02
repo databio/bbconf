@@ -86,9 +86,8 @@ class BedAgentBedFile:
                             FileModel(
                                 **result.__dict__,
                                 object_id=f"bed.{identifier}.{result.name}",
-                                uri=self._config.get_prefixed_uri(
-                                    result.path,
-                                    access_id=ACCESS_ID,
+                                access_methods=self._config.construct_access_method_list(
+                                    result.path
                                 ),
                             ),
                         )
@@ -100,12 +99,11 @@ class BedAgentBedFile:
                             FileModel(
                                 **result.__dict__,
                                 object_id=f"bed.{identifier}.{result.name}",
-                                uri=self._config.get_prefixed_uri(
-                                    result.path,
-                                    access_id=ACCESS_ID,
+                                access_methods=self._config.construct_access_method_list(
+                                    result.path
                                 ),
                             ),
-                        )
+                        ),
 
                     else:
                         _LOGGER.error(
@@ -190,9 +188,8 @@ class BedAgentBedFile:
                         FileModel(
                             **result.__dict__,
                             object_id=f"bed.{identifier}.{result.name}",
-                            uri=self._config.get_prefixed_uri(
-                                result.path,
-                                access_id=ACCESS_ID,
+                            access_methods=self._config.construct_access_method_list(
+                                result.path
                             ),
                         ),
                     )
@@ -220,9 +217,8 @@ class BedAgentBedFile:
                         FileModel(
                             **result.__dict__,
                             object_id=f"bed.{identifier}.{result.name}",
-                            uri=self._config.get_prefixed_uri(
-                                result.path,
-                                access_id=ACCESS_ID,
+                            access_methods=self._config.construct_access_method_list(
+                                result.path
                             ),
                         ),
                     )
@@ -424,7 +420,7 @@ class BedAgentBedFile:
                             **v.model_dump(
                                 exclude_none=True,
                                 exclude_unset=True,
-                                exclude={"object_id", "uri"},
+                                exclude={"object_id", "access_methods"},
                             ),
                             bedfile_id=identifier,
                             type="file",
@@ -436,7 +432,7 @@ class BedAgentBedFile:
                             **v.model_dump(
                                 exclude_none=True,
                                 exclude_unset=True,
-                                exclude={"object_id", "uri"},
+                                exclude={"object_id", "access_methods"},
                             ),
                             bedfile_id=identifier,
                             type="plot",

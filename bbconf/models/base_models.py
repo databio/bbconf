@@ -1,5 +1,7 @@
 from pydantic import BaseModel, ConfigDict, Field
-from typing import Optional, Union
+from typing import Optional, Union, List
+
+from .drs_models import AccessMethod
 
 
 class FileModel(BaseModel):
@@ -10,7 +12,7 @@ class FileModel(BaseModel):
     description: Optional[str] = None
     size: Optional[int] = None
     object_id: Optional[str] = None
-    uri: Optional[str] = None
+    access_methods: List[AccessMethod] = None
 
     model_config = ConfigDict(populate_by_name=True, extra="ignore")
 
