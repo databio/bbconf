@@ -40,3 +40,8 @@ class TestObjects:
                 "bed", BED_TEST_ID, "bed_file", "localhost"
             )
             assert result is not None
+
+
+@pytest.mark.skip("Used to visualize the schema")
+def test_create_schema_graph(bbagent_obj):
+    bbagent_obj.config.db_engine.create_schema_graph()

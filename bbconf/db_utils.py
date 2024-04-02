@@ -22,6 +22,7 @@ from sqlalchemy.orm import (
     mapped_column,
     relationship,
 )
+from sqlalchemy_schemadisplay import create_schema_graph
 
 from bbconf.const import PKG_NAME
 
@@ -345,3 +346,14 @@ class BaseEngine:
             self.session_execute(select(Bed).limit(1))
         except ProgrammingError:
             raise SchemaError()
+
+    def create_schema_graph(self, output_file: str = "schema.svg"):
+        """
+        Create schema graph of the database.
+
+        :param output_file: path to the output file
+        :return: None
+        """
+        graph = create_schema_graph(engine=self.engine, metadata=Base.metadata)
+        graph.write(output_file, format="svg", prog="dot")
+        return None
