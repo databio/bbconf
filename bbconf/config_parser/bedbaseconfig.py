@@ -1,49 +1,47 @@
-from pathlib import Path
-from typing import Union, List
-import yacman
 import logging
-from geniml.search import QdrantBackend
+import os
+import warnings
+from pathlib import Path
+from typing import List, Literal, Union
+
+import boto3
 import qdrant_client
-from geniml.text2bednn import text2bednn
+import yacman
+from botocore.exceptions import EndpointConnectionError
 
 # from geniml.search import BED2BEDSearchInterface
 from fastembed.embedding import FlagEmbedding
 from geniml.region2vec import Region2VecExModel
-import warnings
-import os
-
+from geniml.search import QdrantBackend
+from geniml.text2bednn import text2bednn
 from pephubclient import PEPHubClient
-import boto3
-from botocore.exceptions import EndpointConnectionError
 
-from bbconf.db_utils import BaseEngine
+from bbconf.config_parser.const import (
+    S3_BEDSET_PATH_FOLDER,
+    S3_FILE_PATH_FOLDER,
+    S3_PLOTS_PATH_FOLDER,
+)
+from bbconf.config_parser.models import ConfigFile
 from bbconf.const import (
     PKG_NAME,
 )
+from bbconf.db_utils import BaseEngine
+from bbconf.exceptions import (
+    BadAccessMethodError,
+    BedBaseConfError,
+    BedbaseS3ConnectionError,
+)
+from bbconf.helpers import get_absolute_path, get_bedbase_cfg
+from bbconf.models.base_models import FileModel
 from bbconf.models.bed_models import BedFiles, BedPlots
 from bbconf.models.bedset_models import BedSetPlots
-from bbconf.models.base_models import FileModel
-from bbconf.helpers import get_bedbase_cfg, get_absolute_path
-from bbconf.config_parser.models import ConfigFile
-from bbconf.config_parser.const import (
-    S3_FILE_PATH_FOLDER,
-    S3_PLOTS_PATH_FOLDER,
-    S3_BEDSET_PATH_FOLDER,
-)
-from bbconf.exceptions import (
-    BedbaseS3ConnectionError,
-    BedBaseConfError,
-    BadAccessMethodError,
-)
 from bbconf.models.drs_models import AccessMethod, AccessURL
-
 
 _LOGGER = logging.getLogger(PKG_NAME)
 
 
 class BedBaseConfig:
     def __init__(self, config: Union[Path, str]):
-
         self.cfg_path = get_bedbase_cfg(config)
         self._config = self._read_config_file(self.cfg_path)
 
@@ -148,7 +146,7 @@ class BedBaseConfig:
             database=self._config.database.database,
             user=self._config.database.user,
             password=self._config.database.password,
-            drivername="postgresql+psycopg",
+            drivername=f"{self._config.database.dialect}+{self._config.database.driver}",
         )
 
     def _init_qdrant_backend(self) -> QdrantBackend:
@@ -277,7 +275,7 @@ class BedBaseConfig:
         identifier: str,
         files: Union[BedFiles, BedPlots, BedSetPlots],
         base_path: str,
-        type: str = "files",
+        type: Literal["files", "plots", "bedsets"] = "files",
     ) -> Union[BedFiles, BedPlots, BedSetPlots]:
         """
         Upload files to s3.
@@ -297,7 +295,7 @@ class BedBaseConfig:
             s3_output_base_folder = S3_BEDSET_PATH_FOLDER
         else:
             raise BedBaseConfError(
-f"Invalid type: {type}. Should be 'files', 'plots', or 'bedsets'"
+                f"Invalid type: {type}. Should be 'files', 'plots', or 'bedsets'"
             )
 
         for key, value in files:
@@ -346,10 +344,11 @@ f"Invalid type: {type}. Should be 'files', 'plots', or 'bedsets'"
                 "Could not delete file from s3. Connection error."
             )
         try:
+            _LOGGER.info(f"Deleting file from s3: {s3_path}")
             return self._boto3_client.delete_object(
                 Bucket=self.config.s3.bucket, Key=s3_path
             )
-        except EndpointConnectionError as e:
+        except EndpointConnectionError:
             raise BedbaseS3ConnectionError(
                 "Could not delete file from s3. Connection error."
             )

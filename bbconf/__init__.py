@@ -1,9 +1,11 @@
 import logging
+
 import coloredlogs
+
+from bbconf.bbagent import BedBaseAgent
 
 from ._version import __version__
 from .const import PKG_NAME
-from bbconf.bbagent import BedBaseAgent
 
 __all__ = ["BedBaseAgent", "__version__"]
 

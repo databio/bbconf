@@ -1,8 +1,9 @@
-from pydantic import BaseModel, ConfigDict
 from typing import List, Union
 
-from .bed_models import BedStatsModel, BedMetadata
+from pydantic import BaseModel, ConfigDict
+
 from .base_models import FileModel
+from .bed_models import BedMetadata, BedStatsModel
 
 
 class BedSetStats(BaseModel):

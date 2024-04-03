@@ -1,39 +1,36 @@
 from logging import getLogger
 from typing import Dict, Union
+
 import numpy as np
-
-from geniml.io import RegionSet
 from geniml.bbclient import BBClient
+from geniml.io import RegionSet
 from pephubclient.exceptions import ResponseError
-
-from qdrant_client.models import PointIdsList, VectorParams, Distance
-
-from sqlalchemy.orm import Session
+from qdrant_client.models import Distance, PointIdsList, VectorParams
 from sqlalchemy import select
+from sqlalchemy.orm import Session
 
-
+from bbconf.config_parser.bedbaseconfig import BedBaseConfig
 from bbconf.const import (
     PKG_NAME,
 )
-from bbconf.models.bed_models import (
-    BedMetadata,
-    BedFiles,
-    FileModel,
-    BedPlots,
-    BedClassification,
-    BedStatsModel,
-    BedPEPHub,
-    BedListResult,
-    BedListSearchResult,
-    QdrantSearchResult,
-)
+from bbconf.db_utils import Bed, BedStats, Files
 from bbconf.exceptions import (
     BedBaseConfError,
-    BEDFileNotFoundError,
     BedFIleExistsError,
+    BEDFileNotFoundError,
 )
-from bbconf.db_utils import Bed, Files, BedStats
-from bbconf.config_parser.bedbaseconfig import BedBaseConfig
+from bbconf.models.bed_models import (
+    BedClassification,
+    BedFiles,
+    BedListResult,
+    BedListSearchResult,
+    BedMetadata,
+    BedPEPHub,
+    BedPlots,
+    BedStatsModel,
+    FileModel,
+    QdrantSearchResult,
+)
 
 _LOGGER = getLogger(PKG_NAME)
 
@@ -93,17 +90,19 @@ class BedAgentBedFile:
                         )
                     # FILES
                     elif result.name in BedFiles.model_fields:
-                        setattr(
-                            bed_files,
-                            result.name,
-                            FileModel(
-                                **result.__dict__,
-                                object_id=f"bed.{identifier}.{result.name}",
-                                access_methods=self._config.construct_access_method_list(
-                                    result.path
+                        (
+                            setattr(
+                                bed_files,
+                                result.name,
+                                FileModel(
+                                    **result.__dict__,
+                                    object_id=f"bed.{identifier}.{result.name}",
+                                    access_methods=self._config.construct_access_method_list(
+                                        result.path
+                                    ),
                                 ),
                             ),
-                        ),
+                        )
 
                     else:
                         _LOGGER.error(

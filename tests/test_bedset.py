@@ -1,22 +1,17 @@
-from bbconf.exceptions import BedSetNotFoundError, BedbaseS3ConnectionError
-from bbconf.db_utils import BedSets
-from bbconf.models.base_models import FileModel
-
 import os
 
+import pytest
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import select
 
-import pytest
+from bbconf.db_utils import BedSets
+from bbconf.exceptions import BedbaseS3ConnectionError, BedSetNotFoundError
 
-from .utils import ContextManagerDBTesting
-
-from .utils import BED_TEST_ID, BEDSET_TEST_ID
 from .conftest import DATA_PATH
+from .utils import BED_TEST_ID, BEDSET_TEST_ID, ContextManagerDBTesting
 
 
 class TestBedset:
-
     def test_calculate_stats(self, bbagent_obj):
         with ContextManagerDBTesting(config=bbagent_obj.config, add_data=True):
             results = bbagent_obj.bedset._calculate_statistics([BED_TEST_ID])
@@ -29,7 +24,7 @@ class TestBedset:
         with ContextManagerDBTesting(
             config=bbagent_obj.config, add_data=True, bedset=False
         ):
-            upload_s3_mock = mocker.patch(
+            mocker.patch(
                 "bbconf.config_parser.bedbaseconfig.BedBaseConfig.upload_s3",
                 return_value=True,
             )

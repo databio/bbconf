@@ -1,18 +1,18 @@
 import datetime
 import logging
-from typing import Optional, List
+from typing import List, Optional
 
 from sqlalchemy import (
+    TIMESTAMP,
     BigInteger,
+    ForeignKey,
     Result,
     Select,
     event,
     select,
-    TIMESTAMP,
-    ForeignKey,
 )
 from sqlalchemy.dialects.postgresql import JSON
-from sqlalchemy.engine import URL, create_engine, Engine
+from sqlalchemy.engine import URL, Engine, create_engine
 from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.orm import (
@@ -25,7 +25,6 @@ from sqlalchemy.orm import (
 from sqlalchemy_schemadisplay import create_schema_graph
 
 from bbconf.const import PKG_NAME
-
 
 _LOGGER = logging.getLogger(PKG_NAME)
 
@@ -74,7 +73,6 @@ def deliver_update_date(context):
 
 
 class Bed(Base):
-
     __tablename__ = "bed"
 
     id: Mapped[str] = mapped_column(primary_key=True, index=True)

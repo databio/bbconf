@@ -1,5 +1,6 @@
+from typing import List, Optional, Union
+
 from pydantic import BaseModel, ConfigDict, Field
-from typing import Optional, Union, List
 
 from .drs_models import AccessMethod
 

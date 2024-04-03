@@ -1,6 +1,7 @@
 import logging
-from yacman import select_config
 import os
+
+from yacman import select_config
 
 from bbconf.exceptions import BedBaseConnectionError
 

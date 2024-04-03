@@ -1,17 +1,13 @@
-from bbconf.bbagent import BedBaseAgent
-from bbconf.exceptions import BedFIleExistsError, BEDFileNotFoundError
-from bbconf.db_utils import Bed, Files
-
+import pytest
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import select
 
-from unittest.mock import Mock
-import pytest
+from bbconf.bbagent import BedBaseAgent
+from bbconf.db_utils import Bed, Files
+from bbconf.exceptions import BedFIleExistsError, BEDFileNotFoundError
 
-from .utils import ContextManagerDBTesting
 from .conftest import get_bbagent
-
-from .utils import BED_TEST_ID
+from .utils import BED_TEST_ID, ContextManagerDBTesting
 
 
 def test_bb_database():
@@ -20,7 +16,6 @@ def test_bb_database():
 
 
 class Test_BedFile_Agent:
-
     def test_upload(self, bbagent_obj, example_dict, mocker):
         upload_s3_mock = mocker.patch(
             "bbconf.config_parser.bedbaseconfig.BedBaseConfig.upload_s3",
@@ -33,7 +28,7 @@ class Test_BedFile_Agent:
             assert bbagent_obj.bed.exists(example_dict["identifier"])
 
     def test_upload_exists(self, bbagent_obj, example_dict, mocker):
-        upload_s3_mock = mocker.patch(
+        mocker.patch(
             "bbconf.config_parser.bedbaseconfig.BedBaseConfig.upload_s3",
             return_value=True,
         )
@@ -43,7 +38,7 @@ class Test_BedFile_Agent:
                 bbagent_obj.bed.add(**example_dict)
 
     def test_add_nofail(self, bbagent_obj, example_dict, mocker):
-        upload_s3_mock = mocker.patch(
+        mocker.patch(
             "bbconf.config_parser.bedbaseconfig.BedBaseConfig.upload_s3",
             return_value=True,
         )
@@ -216,7 +211,6 @@ class Test_BedFile_Agent:
 
 @pytest.mark.skip("Skipped, because ML models and qdrant needed")
 class TestVectorSearch:
-
     def test_qdrant_search(self, bbagent_obj, mocker):
         mocker.patch(
             "geniml.text2bednn.text2bednn.Text2BEDSearchInterface.nl_vec_search",

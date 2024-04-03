@@ -1,20 +1,18 @@
+import datetime
 import logging
-from typing import List, Union, Literal
+from typing import List, Literal, Union
 
-from bbconf.modules.bedfiles import BedAgentBedFile
-from bbconf.modules.bedsets import BedAgentBedSet
 from bbconf.config_parser.bedbaseconfig import BedBaseConfig
 from bbconf.const import PKG_NAME
 from bbconf.exceptions import (
-    MissingThumbnailError,
-    MissingObjectError,
     BedBaseConfError,
+    MissingObjectError,
+    MissingThumbnailError,
 )
-
-import datetime
-from bbconf.models.drs_models import AccessMethod, AccessURL, DRSModel
 from bbconf.models.bed_models import FileModel
-
+from bbconf.models.drs_models import DRSModel
+from bbconf.modules.bedfiles import BedAgentBedFile
+from bbconf.modules.bedsets import BedAgentBedSet
 
 _LOGGER = logging.getLogger(PKG_NAME)
 

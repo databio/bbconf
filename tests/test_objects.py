@@ -1,9 +1,8 @@
-from bbconf.exceptions import BEDFileNotFoundError, MissingThumbnailError
 import pytest
 
-from .utils import ContextManagerDBTesting
+from bbconf.exceptions import BEDFileNotFoundError, MissingThumbnailError
 
-from .utils import BED_TEST_ID
+from .utils import BED_TEST_ID, ContextManagerDBTesting
 
 
 class TestObjects:

@@ -1,29 +1,27 @@
-from typing import List, Dict
 import logging
-
-from sqlalchemy import select, func, Numeric, Float, or_
-from sqlalchemy.orm import Session
 
 # TODO: will be available in the next geniml release
 # from geniml.io.utils import compute_md5sum_bedset
 from hashlib import md5
+from typing import Dict, List
+
+from sqlalchemy import Float, Numeric, func, or_, select
+from sqlalchemy.orm import Session
 
 from bbconf.config_parser import BedBaseConfig
-from bbconf.db_utils import BedFileBedSetRelation, BedSets, Files, BedStats
-
+from bbconf.const import PKG_NAME
+from bbconf.db_utils import BedFileBedSetRelation, BedSets, BedStats, Files
+from bbconf.exceptions import BEDFileNotFoundError, BedSetNotFoundError
 from bbconf.models.bed_models import BedStatsModel
 from bbconf.models.bedset_models import (
-    BedSetStats,
-    BedSetMetadata,
-    BedSetListResult,
-    FileModel,
     BedSetBedFiles,
+    BedSetListResult,
+    BedSetMetadata,
     BedSetPlots,
+    BedSetStats,
+    FileModel,
 )
 from bbconf.modules.bedfiles import BedAgentBedFile
-from bbconf.const import PKG_NAME
-from bbconf.exceptions import BedSetNotFoundError, BEDFileNotFoundError
-
 
 _LOGGER = logging.getLogger(PKG_NAME)
 

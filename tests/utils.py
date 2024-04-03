@@ -1,9 +1,9 @@
-from bbconf.config_parser.bedbaseconfig import BedBaseConfig
-from bbconf.db_utils import Bed, Files, BedSets, BedFileBedSetRelation, BedStats
 from typing import Union
 
 from sqlalchemy.orm import Session
 
+from bbconf.config_parser.bedbaseconfig import BedBaseConfig
+from bbconf.db_utils import Bed, BedFileBedSetRelation, BedSets, BedStats, Files
 
 BED_TEST_ID = "bbad85f21962bb8d972444f7f9a3a932"
 BEDSET_TEST_ID = "test_bedset_id"
@@ -100,7 +100,6 @@ class ContextManagerDBTesting:
         self.bedset = bedset
 
     def __enter__(self):
-
         self.db_engine = self.config.db_engine
 
         if self.add_data:
@@ -113,7 +112,6 @@ class ContextManagerDBTesting:
 
     def _add_data(self):
         with Session(self.db_engine.engine) as session:
-
             new_bed = Bed(**get_example_dict())
             new_files = Files(**get_files())
             new_plots = Files(**get_plots())

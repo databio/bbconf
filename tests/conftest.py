@@ -1,7 +1,8 @@
 import os
+
 import pytest
+
 from bbconf.bbagent import BedBaseAgent
-from unittest.mock import patch
 
 from .utils import BED_TEST_ID
 
@@ -100,7 +101,7 @@ def example_dict():
 
 @pytest.fixture
 def load_test_data():
-    db_engine = get_bbagent().config.db_engine()
+    get_bbagent().config.db_engine()
 
 
 @pytest.fixture()

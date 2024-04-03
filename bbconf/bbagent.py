@@ -2,15 +2,14 @@ from pathlib import Path
 from typing import Union
 
 from sqlalchemy.orm import Session
-from sqlalchemy.sql import select, func, distinct
+from sqlalchemy.sql import distinct, func, select
 
 from bbconf.config_parser.bedbaseconfig import BedBaseConfig
 from bbconf.db_utils import Bed, BedSets
-
+from bbconf.models.base_models import StatsReturn
 from bbconf.modules.bedfiles import BedAgentBedFile
 from bbconf.modules.bedsets import BedAgentBedSet
 from bbconf.modules.objects import BBObjects
-from bbconf.models.base_models import StatsReturn
 
 
 class BedBaseAgent(object):
