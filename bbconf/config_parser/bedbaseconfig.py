@@ -297,7 +297,7 @@ class BedBaseConfig:
             s3_output_base_folder = S3_BEDSET_PATH_FOLDER
         else:
             raise BedBaseConfError(
-                f"Invalid type: {type}. Should be 'files' or 'plots'"
+f"Invalid type: {type}. Should be 'files', 'plots', or 'bedsets'"
             )
 
         for key, value in files:
