@@ -313,6 +313,7 @@ class BedBaseConfig:
             )
             self.upload_s3(file_path, s3_path=s3_path)
 
+            setattr(value, "name", key)
             setattr(value, "size", os.path.getsize(file_path))
             setattr(value, "path", s3_path)
 
