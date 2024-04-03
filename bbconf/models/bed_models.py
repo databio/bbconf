@@ -21,8 +21,8 @@ class BedPlots(BaseModel):
 
 
 class BedFiles(BaseModel):
-    bed_file: Union[FileModel, None] = Field(None, alias="bedfile")
-    bigbed_file: Union[FileModel, None] = Field(None, alias="bigbedfile")
+    bedfile: Union[FileModel, None] = Field(None, alias="bed_file")
+    bigbedfile: Union[FileModel, None] = Field(None, alias="bigbed_file")
 
     model_config = ConfigDict(
         populate_by_name=True,

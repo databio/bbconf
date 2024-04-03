@@ -269,6 +269,7 @@ class BedBaseConfig:
             )
         if not os.path.exists(file_path):
             raise BedBaseConfError(f"File {file_path} does not exist.")
+        _LOGGER.info(f"Uploading file to s3: {s3_path}")
         return self._boto3_client.upload_file(file_path, self.config.s3.bucket, s3_path)
 
     def upload_files_s3(
