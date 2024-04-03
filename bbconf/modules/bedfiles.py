@@ -35,7 +35,6 @@ from bbconf.models.bed_models import (
 _LOGGER = getLogger(PKG_NAME)
 
 QDRANT_GENOME = "hg38"
-ACCESS_ID = "http"
 
 
 class BedAgentBedFile:

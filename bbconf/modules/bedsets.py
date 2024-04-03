@@ -25,8 +25,6 @@ from bbconf.modules.bedfiles import BedAgentBedFile
 
 _LOGGER = logging.getLogger(PKG_NAME)
 
-ACCESS_ID = "http"
-
 
 class BedAgentBedSet:
     """
@@ -107,9 +105,8 @@ class BedAgentBedSet:
                         FileModel(
                             **result.__dict__,
                             object_id=f"bed.{identifier}.{result.name}",
-                            uri=self.config.get_prefixed_uri(
-                                result.path,
-                                access_id=ACCESS_ID,
+                            access_methods=self.config.construct_access_method_list(
+                                result.path
                             ),
                         ),
                     )
