@@ -9,11 +9,10 @@ import qdrant_client
 import yacman
 from botocore.exceptions import EndpointConnectionError
 
-# from geniml.search import BED2BEDSearchInterface
-from fastembed.embedding import FlagEmbedding
+from geniml.search import QdrantBackend, BED2BEDSearchInterface, Text2BEDSearchInterface
+from geniml.search.query2vec import BED2Vec, Text2Vec
 from geniml.region2vec import Region2VecExModel
-from geniml.search import QdrantBackend
-from geniml.text2bednn import text2bednn
+
 from pephubclient import PEPHubClient
 
 from bbconf.config_parser.const import (
@@ -48,7 +47,8 @@ class BedBaseConfig:
         self._db_engine = self._init_db_engine()
         self._qdrant_engine = self._init_qdrant_backend()
         self._t2bsi = self._init_t2bsi_object()
-        self._r2v = self._init_r2v_object()
+        self._b2bsi = self._init_b2bsi_object()
+        # self._r2v = self._init_r2v_object()
 
         self._phc = self._init_pephubclient()
         self._boto3_client = self._init_boto3_client()
@@ -95,7 +95,7 @@ class BedBaseConfig:
         return self._db_engine
 
     @property
-    def t2bsi(self) -> Union[text2bednn.Text2BEDSearchInterface, None]:
+    def t2bsi(self) -> Union[Text2BEDSearchInterface, None]:
         """
         Get text2bednn object
 
@@ -104,13 +104,23 @@ class BedBaseConfig:
         return self._t2bsi
 
     @property
-    def r2v(self) -> Region2VecExModel:
+    def b2bsi(self) -> Union[BED2BEDSearchInterface, None]:
         """
-        Get region2vec object
+        Get bed2bednn object
 
-        :return: region2vec object
+        :return: bed2bednn object
         """
-        return self._r2v
+        return self._b2bsi
+
+    #
+    # @property
+    # def r2v(self) -> Region2VecExModel:
+    #     """
+    #     Get region2vec object
+    #
+    #     :return: region2vec object
+    #     """
+    #     return self._r2v
 
     @property
     def qdrant_engine(self) -> QdrantBackend:
@@ -168,7 +178,7 @@ class BedBaseConfig:
                 f"error in Connection to qdrant! skipping... Error: {err}", UserWarning
             )
 
-    def _init_t2bsi_object(self) -> Union[text2bednn.Text2BEDSearchInterface, None]:
+    def _init_t2bsi_object(self) -> Union[Text2BEDSearchInterface, None]:
         """
         Create Text 2 BED search interface and return this object
 
@@ -176,10 +186,12 @@ class BedBaseConfig:
         """
 
         try:
-            return text2bednn.Text2BEDSearchInterface(
-                nl2vec_model=FlagEmbedding(model_name=self._config.path.text2vec),
-                vec2vec_model=self._config.path.vec2vec,
-                search_backend=self.qdrant_engine,
+            return Text2BEDSearchInterface(
+                backend=self.qdrant_engine,
+                query2vec=Text2Vec(
+                    text_embedder=self._config.path.text2vec,
+                    v2v=self._config.path.vec2vec,
+                ),
             )
         except Exception as e:
             _LOGGER.error("Error in creating Text2BEDSearchInterface object: " + str(e))
@@ -189,26 +201,24 @@ class BedBaseConfig:
             )
             return None
 
-    # def _init_b2bsi_object(self) -> Union[text2bednn.BED2BEDSearchInterface, None]:
-    #     """
-    #     Create Bed 2 BED search interface and return this object
-    #
-    #     :return: Bed2BEDSearchInterface object
-    #       TODO: work in progress
-    #     """
-    #
-    #     try:
-    #         return text2bednn.BED2BEDSearchInterface(
-    #             bed2vec_model=self._config.path.bed2vec,
-    #             search_backend=self.qdrant_engine,
-    #         )
-    #     except Exception as e:
-    #         _LOGGER.error("Error in creating Bed2BEDSearchInterface object: " + str(e))
-    #         warnings.warn(
-    #             "Error in creating Bed2BEDSearchInterface object: " + str(e),
-    #             UserWarning,
-    #         )
-    #         return None
+    def _init_b2bsi_object(self) -> Union[BED2BEDSearchInterface, None]:
+        """
+        Create Bed 2 BED search interface and return this object
+
+        :return: Bed2BEDSearchInterface object
+        """
+        try:
+            return BED2BEDSearchInterface(
+                backend=self.qdrant_engine,
+                query2vec=BED2Vec(model=self._config.path.region2vec),
+            )
+        except Exception as e:
+            _LOGGER.error("Error in creating BED2BEDSearchInterface object: " + str(e))
+            warnings.warn(
+                "Error in creating BED2BEDSearchInterface object: " + str(e),
+                UserWarning,
+            )
+            return None
 
     @staticmethod
     def _init_pephubclient() -> Union[PEPHubClient, None]:
@@ -244,11 +254,11 @@ class BedBaseConfig:
             warnings.warn(f"Error in creating boto3 client object: {e}", UserWarning)
             return None
 
-    def _init_r2v_object(self) -> Region2VecExModel:
-        """
-        Create Region2VecExModel object using credentials provided in config file
-        """
-        return Region2VecExModel(self.config.path.region2vec)
+    # def _init_r2v_object(self) -> Region2VecExModel:
+    #     """
+    #     Create Region2VecExModel object using credentials provided in config file
+    #     """
+    #     return Region2VecExModel(self.config.path.region2vec)
 
     def upload_s3(self, file_path: str, s3_path: Union[Path, str]) -> None:
         """

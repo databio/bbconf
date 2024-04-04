@@ -670,7 +670,7 @@ class BedAgentBedFile:
         _LOGGER.info(f"Looking for: {query}")
         _LOGGER.info(f"Using backend: {self._config.t2bsi}")
 
-        results = self._config.t2bsi.nl_vec_search(query, limit=limit, offset=offset)
+        results = self._config.t2bsi.query_search(query, limit=limit, offset=offset)
         results_list = []
         for result in results:
             result_id = result["id"].replace("-", "")
@@ -693,23 +693,27 @@ class BedAgentBedFile:
         limit: int = 10,
         offset: int = 0,
     ) -> BedListSearchResult:
-        # # results = self._config.b2bsi.(query, limit=limit, offset=offset)
-        # results_list = []
-        # for result in results:
-        #     result_id = result["id"].replace("-", "")
-        #     try:
-        #         result_meta = self.get(result_id)
-        #     except BEDFileNotFoundError as e:
-        #         _LOGGER.warning(
-        #             f"Could not retrieve metadata for bed file: {result_id}. Error: {e}"
-        #         )
-        #         continue
-        #     if result_meta:
-        #         results_list.append(QdrantSearchResult(**result, metadata=result_meta))
-        # return BedListSearchResult(
-        #     count=0, limit=limit, offset=offset, results=[]
-        # )
-        raise NotImplementedError
+        results = self._config.b2bsi.query_search(
+            region_set, limit=limit, offset=offset
+        )
+        results_list = []
+        for result in results:
+            result_id = result["id"].replace("-", "")
+            try:
+                result_meta = self.get(result_id)
+            except BEDFileNotFoundError as e:
+                _LOGGER.warning(
+                    f"Could not retrieve metadata for bed file: {result_id}. Error: {e}"
+                )
+                continue
+            if result_meta:
+                results_list.append(QdrantSearchResult(**result, metadata=result_meta))
+        return BedListSearchResult(
+            count=len(results_list),
+            limit=limit,
+            offset=offset,
+            results=results_list,
+        )
 
     def reindex_qdrant(self) -> None:
         """
