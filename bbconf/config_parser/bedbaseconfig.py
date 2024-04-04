@@ -48,7 +48,7 @@ class BedBaseConfig:
         self._qdrant_engine = self._init_qdrant_backend()
         self._t2bsi = self._init_t2bsi_object()
         self._b2bsi = self._init_b2bsi_object()
-        # self._r2v = self._init_r2v_object()
+        self._r2v = self._init_r2v_object()
 
         self._phc = self._init_pephubclient()
         self._boto3_client = self._init_boto3_client()
@@ -112,15 +112,15 @@ class BedBaseConfig:
         """
         return self._b2bsi
 
-    #
-    # @property
-    # def r2v(self) -> Region2VecExModel:
-    #     """
-    #     Get region2vec object
-    #
-    #     :return: region2vec object
-    #     """
-    #     return self._r2v
+
+    @property
+    def r2v(self) -> Region2VecExModel:
+        """
+        Get region2vec object
+
+        :return: region2vec object
+        """
+        return self._r2v
 
     @property
     def qdrant_engine(self) -> QdrantBackend:
@@ -254,11 +254,11 @@ class BedBaseConfig:
             warnings.warn(f"Error in creating boto3 client object: {e}", UserWarning)
             return None
 
-    # def _init_r2v_object(self) -> Region2VecExModel:
-    #     """
-    #     Create Region2VecExModel object using credentials provided in config file
-    #     """
-    #     return Region2VecExModel(self.config.path.region2vec)
+    def _init_r2v_object(self) -> Region2VecExModel:
+        """
+        Create Region2VecExModel object using credentials provided in config file
+        """
+        return Region2VecExModel(self.config.path.region2vec)
 
     def upload_s3(self, file_path: str, s3_path: Union[Path, str]) -> None:
         """
