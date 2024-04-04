@@ -1,13 +1,10 @@
 import datetime
-from typing import Optional, List
-import os
-import pathlib
+from typing import List, Optional, Union
 
 from pydantic import BaseModel
 
-from bbconf.model_parser import yaml_to_pydantic
 
-
+# DRS Models
 class AccessURL(BaseModel):
     url: str
     headers: Optional[dict] = None
@@ -24,23 +21,9 @@ class DRSModel(BaseModel):
     id: str
     name: Optional[str] = None
     self_uri: str
-    size: str
+    size: Union[int, None] = None
     created_time: Optional[datetime.datetime] = None
     updated_time: Optional[datetime.datetime] = None
     checksums: str
     access_methods: List[AccessMethod]
     description: Optional[str] = None
-
-
-BedFileTableModel = yaml_to_pydantic(
-    "BedFile",
-    os.path.join(
-        pathlib.Path(__file__).parent.resolve(), "schemas", "bedfiles_schema.yaml"
-    ),
-)
-BedSetTableModel = yaml_to_pydantic(
-    "BedSet",
-    os.path.join(
-        pathlib.Path(__file__).parent.resolve(), "schemas", "bedsets_schema.yaml"
-    ),
-)

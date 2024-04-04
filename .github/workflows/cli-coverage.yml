@@ -16,8 +16,8 @@ jobs:
         image: postgres
         env:
           POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: dockerpassword
-          POSTGRES_DB: pipestat-test
+          POSTGRES_PASSWORD: docker
+          POSTGRES_DB: bedbase
           POSTGRES_HOST: localhost
         ports:
           - 5432:5432
