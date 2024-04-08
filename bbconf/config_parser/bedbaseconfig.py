@@ -112,7 +112,6 @@ class BedBaseConfig:
         """
         return self._b2bsi
 
-
     @property
     def r2v(self) -> Region2VecExModel:
         """
