@@ -2,10 +2,15 @@
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) and [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) format.
 
-# [0.5.0] - 2024-XX-XX
-### Added 
+# [0.5.0] - 2024-04-08
+### Changed
 
-- pydantic schema for bedfile and bedset table
+- Rebuild bbconf
+- Introduced new DB schema
+- Added bbagent that will be used to interact with the database
+- Updated config schema
+- Added new functionality to the bbagent
+- New tests
 
 
 ## [0.4.2] - 2024-03-12
