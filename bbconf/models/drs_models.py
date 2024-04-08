@@ -1,9 +1,10 @@
 import datetime
-from typing import Optional, List
+from typing import List, Optional, Union
 
 from pydantic import BaseModel
 
 
+# DRS Models
 class AccessURL(BaseModel):
     url: str
     headers: Optional[dict] = None
@@ -20,7 +21,7 @@ class DRSModel(BaseModel):
     id: str
     name: Optional[str] = None
     self_uri: str
-    size: str
+    size: Union[int, None] = None
     created_time: Optional[datetime.datetime] = None
     updated_time: Optional[datetime.datetime] = None
     checksums: str
