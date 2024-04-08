@@ -13,7 +13,7 @@
 ## What is this?
 
 `bbconf` is a configuration and management tool for BEDbase, facilitating the reading of configuration files, 
-setting up connections to PostgreSQL and Qdrant databases, managing file paths, and storing transformer models. 
+setting up connections to PostgreSQL, PEPhub, S3, and Qdrant databases, managing file paths, and storing transformer models. 
 It formalizes communication pathways for pipelines and downstream tools, ensuring seamless interaction."
 
 ---
