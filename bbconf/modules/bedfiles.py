@@ -384,10 +384,15 @@ class BedAgentBedFile:
             _LOGGER.info("upload_pephub set to false. Skipping pephub..")
 
         if upload_qdrant:
-            self.upload_file_qdrant(
-                identifier, files.bed_file.path, {"bed_id": identifier}
-            )
-            _LOGGER.info(f"File uploaded to qdrant. {identifier}")
+            if classification.genome_alias == "hg38":
+                self.upload_file_qdrant(
+                    identifier, files.bed_file.path, {"bed_id": identifier}
+                )
+                _LOGGER.info(f"File uploaded to qdrant. {identifier}")
+            else:
+                _LOGGER.warning(
+                    f"Could not upload to qdrant. Genome: {classification.genome_alias} is not supported."
+                )
         else:
             _LOGGER.info("upload_qdrant set to false. Skipping qdrant..")
 
