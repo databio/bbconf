@@ -216,6 +216,8 @@ class BedAgentBedSet:
         with Session(self._db_engine.engine) as session:
             session.add(new_bedset)
 
+            if no_fail:
+                bedid_list = list(set(bedid_list))
             for bedfile in bedid_list:
                 session.add(
                     BedFileBedSetRelation(bedset_id=identifier, bedfile_id=bedfile)
