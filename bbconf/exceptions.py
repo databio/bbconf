@@ -53,3 +53,9 @@ class BedSetNotFoundError(BedBaseConfError):
     """Error type for missing bedset"""
 
     pass
+
+
+class BedSetExistsError(BedBaseConfError):
+    """Error type for existing bedset"""
+
+    pass
