@@ -10,7 +10,6 @@ from bbconf.config_parser import BedBaseConfig
 from bbconf.const import PKG_NAME
 from bbconf.db_utils import BedFileBedSetRelation, BedSets, BedStats, Files
 from bbconf.exceptions import (
-    BEDFileNotFoundError,
     BedSetNotFoundError,
     BedSetExistsError,
 )
@@ -22,8 +21,8 @@ from bbconf.models.bedset_models import (
     BedSetPlots,
     BedSetStats,
     FileModel,
+    BedMetadata,
 )
-from bbconf.modules.bedfiles import BedAgentBedFile
 
 _LOGGER = logging.getLogger(PKG_NAME)
 
@@ -357,41 +356,28 @@ class BedAgentBedSet:
             results=result_list,
         )
 
-    def get_bedset_bedfiles(
-        self, identifier: str, full: bool = False, limit: int = 100, offset: int = 0
-    ) -> BedSetBedFiles:
+    def get_bedset_bedfiles(self, identifier: str) -> BedSetBedFiles:
         """
         Get list of bedfiles in bedset.
 
         :param identifier: bedset identifier
-        :param full: return full records with stats, plots, files and metadata
-        :param limit: limit of results
-        :param offset: offset of results
 
         :return: list of bedfiles
         """
-        bed_object = BedAgentBedFile(self.config)
-
-        statement = (
-            select(BedFileBedSetRelation)
-            .where(BedFileBedSetRelation.bedset_id == identifier)
-            .limit(limit)
-            .offset(offset)
-        )
+        statement = select(BedSets).where(BedSets.id == identifier)
 
         with Session(self._db_engine.engine) as session:
-            bedfiles = session.execute(statement).all()
-        results = []
-        for bedfile in bedfiles:
-            try:
-                results.append(bed_object.get(bedfile[0].bedfile_id, full=full))
-            except BEDFileNotFoundError as _:
-                _LOGGER.error(f"Bedfile {bedfile[0].bedfile_id} not found")
+            bedset_obj = session.scalar(statement)
+            bedfiles_list = bedset_obj.bedfiles
+
+            results = [
+                BedMetadata(**bedfile.bedfile.__dict__) for bedfile in bedfiles_list
+            ]
 
         return BedSetBedFiles(
-            count=len(results),
-            limit=limit,
-            offset=offset,
+            count=0,
+            limit=0,
+            offset=0,
             results=results,
         )
 
