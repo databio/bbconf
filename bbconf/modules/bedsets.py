@@ -1,8 +1,6 @@
 import logging
 
-# TODO: will be available in the next geniml release
-# from geniml.io.utils import compute_md5sum_bedset
-from hashlib import md5
+from geniml.io.utils import compute_md5sum_bedset
 from typing import Dict, List
 
 from sqlalchemy import Float, Numeric, func, or_, select
@@ -213,8 +211,7 @@ class BedAgentBedSet:
             description=description,
             bedset_means=stats.mean.model_dump() if stats else None,
             bedset_standard_deviation=stats.sd.model_dump() if stats else None,
-            # md5sum=compute_md5sum_bedset(bedid_list),
-            md5sum=md5("".join(bedid_list).encode()).hexdigest(),
+            md5sum=compute_md5sum_bedset(bedid_list),
         )
 
         if upload_s3:
