@@ -2,6 +2,13 @@
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) and [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) format.
 
+# [0.5.1] - 2024-04-09
+## Changed
+
+- updated qdrant uploader
+- bedset bedfile list query improvement
+- other minor fixes in uploading
+
 # [0.5.0] - 2024-04-08
 ### Changed
 

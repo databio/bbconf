@@ -1,8 +1,6 @@
 import logging
 
-# TODO: will be available in the next geniml release
-# from geniml.io.utils import compute_md5sum_bedset
-from hashlib import md5
+from geniml.io.utils import compute_md5sum_bedset
 from typing import Dict, List
 
 from sqlalchemy import Float, Numeric, func, or_, select
@@ -11,7 +9,10 @@ from sqlalchemy.orm import Session
 from bbconf.config_parser import BedBaseConfig
 from bbconf.const import PKG_NAME
 from bbconf.db_utils import BedFileBedSetRelation, BedSets, BedStats, Files
-from bbconf.exceptions import BEDFileNotFoundError, BedSetNotFoundError
+from bbconf.exceptions import (
+    BedSetNotFoundError,
+    BedSetExistsError,
+)
 from bbconf.models.bed_models import BedStatsModel
 from bbconf.models.bedset_models import (
     BedSetBedFiles,
@@ -20,8 +21,8 @@ from bbconf.models.bedset_models import (
     BedSetPlots,
     BedSetStats,
     FileModel,
+    BedMetadata,
 )
-from bbconf.modules.bedfiles import BedAgentBedFile
 
 _LOGGER = logging.getLogger(PKG_NAME)
 
@@ -166,6 +167,7 @@ class BedAgentBedSet:
         upload_s3: bool = False,
         local_path: str = "",
         no_fail: bool = False,
+        overwrite: bool = False,
     ) -> None:
         """
         Create bedset in the database.
@@ -180,6 +182,7 @@ class BedAgentBedSet:
         :param upload_s3: upload bedset to s3
         :param local_path: local path to the output files
         :param no_fail: do not raise an error if bedset already exists
+        :param overwrite: overwrite the record in the database
         :return: None
         """
         _LOGGER.info(f"Creating bedset '{identifier}'")
@@ -188,6 +191,10 @@ class BedAgentBedSet:
             stats = self._calculate_statistics(bedid_list)
         else:
             stats = None
+        if self.exists(identifier):
+            if not overwrite and not no_fail:
+                raise BedSetExistsError(identifier)
+            self.delete(identifier)
 
         if upload_pephub:
             try:
@@ -203,8 +210,7 @@ class BedAgentBedSet:
             description=description,
             bedset_means=stats.mean.model_dump() if stats else None,
             bedset_standard_deviation=stats.sd.model_dump() if stats else None,
-            # md5sum=compute_md5sum_bedset(bedid_list),
-            md5sum=md5("".join(bedid_list).encode()).hexdigest(),
+            md5sum=compute_md5sum_bedset(bedid_list),
         )
 
         if upload_s3:
@@ -213,24 +219,31 @@ class BedAgentBedSet:
                 identifier, files=plots, base_path=local_path, type="bedsets"
             )
 
-        with Session(self._db_engine.engine) as session:
-            session.add(new_bedset)
+        try:
+            with Session(self._db_engine.engine) as session:
+                session.add(new_bedset)
 
-            for bedfile in bedid_list:
-                session.add(
-                    BedFileBedSetRelation(bedset_id=identifier, bedfile_id=bedfile)
-                )
-            if upload_s3:
-                for k, v in plots:
-                    if v:
-                        new_file = Files(
-                            **v.model_dump(exclude_none=True, exclude_unset=True),
-                            bedset_id=identifier,
-                            type="plot",
-                        )
-                        session.add(new_file)
+                if no_fail:
+                    bedid_list = list(set(bedid_list))
+                for bedfile in bedid_list:
+                    session.add(
+                        BedFileBedSetRelation(bedset_id=identifier, bedfile_id=bedfile)
+                    )
+                if upload_s3:
+                    for k, v in plots:
+                        if v:
+                            new_file = Files(
+                                **v.model_dump(exclude_none=True, exclude_unset=True),
+                                bedset_id=identifier,
+                                type="plot",
+                            )
+                            session.add(new_file)
 
-            session.commit()
+                session.commit()
+        except Exception as e:
+            _LOGGER.error(f"Failed to create bedset: {e}")
+            if not no_fail:
+                raise e
 
         _LOGGER.info(f"Bedset '{identifier}' was created successfully")
         return None
@@ -263,8 +276,10 @@ class BedAgentBedSet:
                     ).cast(Float)
                 ).where(BedStats.id.in_(bed_ids))
 
-                bedset_sd[column_name] = session.execute(mean_bedset_statement).one()[0]
-                bedset_mean[column_name] = session.execute(sd_bedset_statement).one()[0]
+                bedset_sd[column_name] = session.execute(sd_bedset_statement).one()[0]
+                bedset_mean[column_name] = session.execute(mean_bedset_statement).one()[
+                    0
+                ]
 
             bedset_stats = BedSetStats(
                 mean=bedset_mean,
@@ -341,41 +356,26 @@ class BedAgentBedSet:
             results=result_list,
         )
 
-    def get_bedset_bedfiles(
-        self, identifier: str, full: bool = False, limit: int = 100, offset: int = 0
-    ) -> BedSetBedFiles:
+    def get_bedset_bedfiles(self, identifier: str) -> BedSetBedFiles:
         """
         Get list of bedfiles in bedset.
 
         :param identifier: bedset identifier
-        :param full: return full records with stats, plots, files and metadata
-        :param limit: limit of results
-        :param offset: offset of results
 
         :return: list of bedfiles
         """
-        bed_object = BedAgentBedFile(self.config)
-
-        statement = (
-            select(BedFileBedSetRelation)
-            .where(BedFileBedSetRelation.bedset_id == identifier)
-            .limit(limit)
-            .offset(offset)
-        )
+        statement = select(BedSets).where(BedSets.id == identifier)
 
         with Session(self._db_engine.engine) as session:
-            bedfiles = session.execute(statement).all()
-        results = []
-        for bedfile in bedfiles:
-            try:
-                results.append(bed_object.get(bedfile[0].bedfile_id, full=full))
-            except BEDFileNotFoundError as _:
-                _LOGGER.error(f"Bedfile {bedfile[0].bedfile_id} not found")
+            bedset_obj = session.scalar(statement)
+            bedfiles_list = bedset_obj.bedfiles
+
+            results = [
+                BedMetadata(**bedfile.bedfile.__dict__) for bedfile in bedfiles_list
+            ]
 
         return BedSetBedFiles(
             count=len(results),
-            limit=limit,
-            offset=offset,
             results=results,
         )
 
