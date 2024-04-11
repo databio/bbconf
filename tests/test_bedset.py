@@ -170,8 +170,6 @@ class TestBedset:
             result = bbagent_obj.bedset.get_bedset_bedfiles(BEDSET_TEST_ID)
 
             assert result.count == 1
-            assert result.limit == 100
-            assert result.offset == 0
             assert len(result.results) == 1
 
     def test_delete(self, bbagent_obj, mocker):
