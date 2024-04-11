@@ -375,9 +375,7 @@ class BedAgentBedSet:
             ]
 
         return BedSetBedFiles(
-            count=0,
-            limit=0,
-            offset=0,
+            count=len(results),
             results=results,
         )
 

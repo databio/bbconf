@@ -36,6 +36,4 @@ class BedSetListResult(BaseModel):
 
 class BedSetBedFiles(BaseModel):
     count: int
-    limit: int
-    offset: int
     results: List[BedMetadata]
