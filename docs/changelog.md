@@ -5,7 +5,9 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 # [0.5.1] - 2024-04-09
 ## Changed
 
-- updaed qdrant uploader
+- updated qdrant uploader
+- bedset bedfile list query improvement
+- other minor fixes in uploading
 
 # [0.5.0] - 2024-04-08
 ### Changed
