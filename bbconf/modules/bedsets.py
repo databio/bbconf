@@ -214,7 +214,7 @@ class BedAgentBedSet:
         )
 
         if upload_s3:
-            plots = BedSetPlots(**plots)
+            plots = BedSetPlots(**plots) if plots else BedSetPlots()
             plots = self.config.upload_files_s3(
                 identifier, files=plots, base_path=local_path, type="bedsets"
             )
