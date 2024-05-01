@@ -2,22 +2,30 @@ from logging import getLogger
 from typing import Dict, Union
 
 import numpy as np
+import os
 from geniml.bbclient import BBClient
 from geniml.io import RegionSet
+
 from pephubclient.exceptions import ResponseError
+
 from qdrant_client.models import Distance, PointIdsList, VectorParams
-from sqlalchemy import select
+
+from sqlalchemy import select, delete
 from sqlalchemy.orm import Session
 
 from bbconf.config_parser.bedbaseconfig import BedBaseConfig
 from bbconf.const import (
     PKG_NAME,
+    ZARR_TOKENIZED_FOLDER,
 )
-from bbconf.db_utils import Bed, BedStats, Files
+from bbconf.db_utils import Bed, BedStats, Files, Universes, TokenizedBed
 from bbconf.exceptions import (
     BedBaseConfError,
     BedFIleExistsError,
     BEDFileNotFoundError,
+    UniverseNotFoundError,
+    TokenizeFileExistsError,
+    TokenizeFileNotExistError,
 )
 from bbconf.models.bed_models import (
     BedClassification,
@@ -30,6 +38,7 @@ from bbconf.models.bed_models import (
     BedStatsModel,
     FileModel,
     QdrantSearchResult,
+    UniverseMetadata,
 )
 
 _LOGGER = getLogger(PKG_NAME)
@@ -786,5 +795,219 @@ class BedAgentBedFile:
         with Session(self._sa_engine) as session:
             bed_object = session.scalar(statement)
             if not bed_object:
+                return False
+            return True
+
+    def get_universe(self, identifier: str, full: bool = False) -> UniverseMetadata:
+        """
+        Get universe metadata
+
+        :param identifier: universe identifier
+        :param full: if True, return full metadata, including statistics, files, and raw metadata from pephub
+
+        :return: universe metadata
+        """
+        if not self.exists_universe(identifier):
+            raise ValueError(f"Universe with id: {identifier} not found.")
+
+        with Session(self._sa_engine) as session:
+            statement = select(Universes).where(Universes.id == identifier)
+            universe_object = session.scalar(statement)
+
+            bedset_id = universe_object.bedset_id
+            method = universe_object.method
+
+        return UniverseMetadata(
+            **self.get(identifier, full=full).__dict__,
+            bedset_id=bedset_id,
+            method=method,
+        )
+
+    def exists_universe(self, identifier: str) -> bool:
+        """
+        Check if universe exists in the database.
+
+        :param identifier: universe identifier
+
+        :return: True if universe exists, False otherwise
+        """
+        statement = select(Universes).where(Universes.id == identifier)
+
+        with Session(self._sa_engine) as session:
+            bed_object = session.scalar(statement)
+            if not bed_object:
+                return False
+            return True
+
+    def add_universe(
+        self, bedfile_id: str, bedset_id: str, construct_method: str
+    ) -> str:
+        """
+        Add universe to the database.
+
+        :param bedfile_id: bed file identifier
+        :param bedset_id: bedset identifier
+        :param construct_method: method used to construct the universe
+
+        :return: universe identifier.
+        """
+
+        if not self.exists(bedfile_id):
+            raise BEDFileNotFoundError
+        with Session(self._sa_engine) as session:
+            new_univ = Universes(
+                id=bedfile_id, bedset_id=bedset_id, method=construct_method
+            )
+            session.add(new_univ)
+            session.commit()
+        return bedfile_id
+
+    def delete_universe(self, identifier: str) -> None:
+        """
+        Delete universe from the database.
+
+        :param identifier: universe identifier
+        :return: None
+        """
+        if not self.exists_universe(identifier):
+            raise UniverseNotFoundError(f"Universe not found. id: {identifier}")
+
+        with Session(self._sa_engine) as session:
+            statement = delete(Universes).where(Universes.id == identifier)
+            session.execute(statement)
+            session.commit()
+
+    def add_tokenized(self, bed_id: str, universe_id: str, token_vector: list) -> str:
+        """
+        Add tokenized bed file to the database
+
+        :param bed_id: bed file identifier
+        :param universe_id: universe identifier
+        :param token_vector: list of tokens
+
+        :return: token path
+        """
+
+        path = self._add_zarr_s3(bed_id, universe_id, token_vector)
+
+        with Session(self._sa_engine) as session:
+            new_token = TokenizedBed(bed_id=bed_id, universe_id=universe_id, path=path)
+            session.add(new_token)
+            session.commit()
+        return path
+
+    def _add_zarr_s3(
+        self,
+        universe_id: str,
+        bed_id: str,
+        tokenized_vector: list,
+        overwrite: bool = False,
+    ) -> str:
+        """
+        Add zarr file to the database
+
+        :param universe_id: universe identifier
+        :param bed_id: bed file identifier
+        :param tokenized_vector: tokenized vector
+
+        :return: zarr path
+        """
+        univers_group = self._config.zarr_root.require_group(universe_id)
+
+        if not univers_group.get(bed_id):
+            _LOGGER.info("Saving tokenized vector to s3")
+            path = univers_group.create_dataset(bed_id, data=tokenized_vector).path
+        elif overwrite:
+            _LOGGER.info("Overwriting tokenized vector in s3")
+            path = univers_group.create_dataset(
+                bed_id, data=tokenized_vector, overwrite=True
+            ).path
+        else:
+            raise TokenizeFileExistsError(
+                "Tokenized file already exists in the database. "
+                "Set overwrite to True to overwrite it."
+            )
+
+        return os.path.join(ZARR_TOKENIZED_FOLDER, path)
+
+    def get_tokenized(self, bed_id: str, universe_id: str) -> list:
+        """
+        Get zarr file from the database
+
+        :param bed_id: bed file identifier
+        :param universe_id: universe identifier
+
+        :return: zarr path
+        """
+        if not self.exist_tokenized(bed_id, universe_id):
+            raise TokenizeFileNotExistError(
+                f"Tokenized file not found in the database."
+            )
+        univers_group = self._config.zarr_root.require_group(universe_id)
+
+        return list(univers_group[bed_id])
+
+    def delete_tokenized(self, bed_id: str, universe_id: str) -> None:
+        """
+        Delete tokenized bed file from the database
+
+        :param bed_id: bed file identifier
+        :param universe_id: universe identifier
+
+        :return: None
+        """
+        if not self.exist_tokenized(bed_id, universe_id):
+            raise TokenizeFileNotExistError(
+                f"Tokenized file not found in the database."
+            )
+        univers_group = self._config.zarr_root.require_group(universe_id)
+
+        del univers_group[bed_id]
+
+        with Session(self._sa_engine) as session:
+            statement = delete(TokenizedBed).where(
+                TokenizedBed.bed_id == bed_id, TokenizedBed.universe_id == universe_id
+            )
+            session.execute(statement)
+            session.commit()
+
+        return None
+
+    def get_tokenized_path(self, bed_id: str, universe_id: str) -> str:
+        """
+        Get tokenized path to tokenized file
+
+        :param bed_id: bed file identifier
+        :param universe_id: universe identifier
+
+        :return: token path
+        """
+        if not self.exist_tokenized(bed_id, universe_id):
+            raise TokenizeFileNotExistError(
+                f"Tokenized file not found in the database."
+            )
+
+        with Session(self._sa_engine) as session:
+            statement = select(TokenizedBed).where(
+                TokenizedBed.bed_id == bed_id, TokenizedBed.universe_id == universe_id
+            )
+            tokenized_object = session.scalar(statement)
+            return tokenized_object.path
+
+    def exist_tokenized(self, bed_id: str, universe_id: str) -> bool:
+        """
+        Check if tokenized bed file exists in the database
+
+        :param bed_id: bed file identifier
+        :param universe_id: universe identifier
+
+        :return: bool
+        """
+        with Session(self._sa_engine) as session:
+            statement = select(TokenizedBed).where(
+                TokenizedBed.bed_id == bed_id, TokenizedBed.universe_id == universe_id
+            )
+            tokenized_object = session.scalar(statement)
+            if not tokenized_object:
                 return False
             return True

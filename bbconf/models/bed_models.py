@@ -136,3 +136,8 @@ class BedListSearchResult(BaseModel):
     limit: int
     offset: int
     results: List[QdrantSearchResult] = None
+
+
+class UniverseMetadata(BedMetadata):
+    construct_method: Union[str, None] = None
+    bedset_id: Union[str, None] = None

@@ -99,9 +99,9 @@ class ContextManagerDBTesting:
         self.add_data = add_data
         self.bedset = bedset
 
-    def __enter__(self):
         self.db_engine = self.config.db_engine
 
+    def __enter__(self):
         if self.add_data:
             self._add_data()
             if self.bedset:
@@ -144,4 +144,14 @@ class ContextManagerDBTesting:
             session.add(new_bed_bedset)
             session.add(new_files)
 
+            session.commit()
+
+    def _add_universe(self):
+        from bbconf.db_utils import Universes
+
+        with Session(self.db_engine.engine) as session:
+            new_univ = Universes(
+                id=BED_TEST_ID,
+            )
+            session.add(new_univ)
             session.commit()

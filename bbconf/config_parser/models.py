@@ -1,6 +1,9 @@
 from typing import Optional, Union
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, computed_field
+from yacman import load_yaml
+from pathlib import Path
+
 
 from bbconf.config_parser.const import (
     DEFAULT_DB_DIALECT,
@@ -31,6 +34,16 @@ class ConfigDB(BaseModel):
     driver: Optional[str] = DEFAULT_DB_DRIVER
 
     model_config = ConfigDict(extra="forbid")
+
+    @computed_field
+    @property
+    def url(self) -> str:
+        """
+        The URL of the database.
+
+        :return str: The URL of the database.
+        """
+        return f"{self.dialect}+{self.driver}://{self.user}:{self.password}@{self.host}:{self.port}/{self.name}"
 
 
 class ConfigQdrant(BaseModel):
@@ -86,3 +99,14 @@ class ConfigFile(BaseModel):
     phc: ConfigPepHubClient = None
 
     model_config = ConfigDict(extra="allow")
+
+    @classmethod
+    def from_yaml(cls, path: Path):
+        """
+        Load the database configuration from a YAML file.
+
+        :param path: The path to the YAML file.
+
+        :returns: DatabaseConfig: The database configuration.
+        """
+        return cls.model_validate(load_yaml(path.as_posix()))
