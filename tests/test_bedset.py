@@ -207,7 +207,7 @@ class TestBedset:
 
 def test_get_stats(bbagent_obj):
     with ContextManagerDBTesting(config=bbagent_obj.config, add_data=True, bedset=True):
-        return_result = bbagent_obj.get_stats()
+        return_result = bbagent_obj.get_stats
 
         assert return_result
         assert return_result.bedfiles_number == 1

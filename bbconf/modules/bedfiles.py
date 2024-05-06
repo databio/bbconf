@@ -707,7 +707,7 @@ class BedAgentBedFile:
             if result_meta:
                 results_list.append(QdrantSearchResult(**result, metadata=result_meta))
         return BedListSearchResult(
-            count=self.bb_agent.get_stats().bedfiles_number,
+            count=self.bb_agent.get_stats.bedfiles_number,
             limit=limit,
             offset=offset,
             results=results_list,
@@ -735,7 +735,7 @@ class BedAgentBedFile:
             if result_meta:
                 results_list.append(QdrantSearchResult(**result, metadata=result_meta))
         return BedListSearchResult(
-            count=self.bb_agent.get_stats().bedfiles_number,
+            count=self.bb_agent.get_stats.bedfiles_number,
             limit=limit,
             offset=offset,
             results=results_list,
