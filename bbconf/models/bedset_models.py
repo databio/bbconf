@@ -3,7 +3,7 @@ from typing import List, Union
 from pydantic import BaseModel, ConfigDict
 
 from .base_models import FileModel
-from .bed_models import BedMetadata, BedStatsModel
+from .bed_models import BedMetadata, BedMetadataBasic, BedStatsModel
 
 
 class BedSetStats(BaseModel):
@@ -36,4 +36,4 @@ class BedSetListResult(BaseModel):
 
 class BedSetBedFiles(BaseModel):
     count: int
-    results: List[BedMetadata]
+    results: List[BedMetadataBasic]

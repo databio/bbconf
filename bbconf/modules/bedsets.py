@@ -21,7 +21,7 @@ from bbconf.models.bedset_models import (
     BedSetPlots,
     BedSetStats,
     FileModel,
-    BedMetadata,
+    BedMetadataBasic,
 )
 
 _LOGGER = logging.getLogger(PKG_NAME)
@@ -335,6 +335,7 @@ class BedAgentBedSet:
         :return: list of bedsets
         """
         statement = select(BedSets.id)
+        count_statement = select(func.count(BedSets.id))
         if query:
             sql_search_str = f"%{query}%"
             statement = statement.where(
@@ -343,14 +344,22 @@ class BedAgentBedSet:
                     BedSets.description.ilike(sql_search_str),
                 )
             )
+            count_statement = count_statement.where(
+                or_(
+                    BedSets.name.ilike(sql_search_str),
+                    BedSets.description.ilike(sql_search_str),
+                )
+            )
+
         with Session(self._db_engine.engine) as session:
             bedset_list = session.execute(statement.limit(limit).offset(offset))
+            bedset_count = session.execute(count_statement).one()
 
         result_list = []
         for bedset_id in bedset_list:
             result_list.append(self.get(bedset_id[0]))
         return BedSetListResult(
-            count=len(result_list),
+            count=bedset_count[0],
             limit=limit,
             offset=offset,
             results=result_list,
@@ -371,7 +380,8 @@ class BedAgentBedSet:
             bedfiles_list = bedset_obj.bedfiles
 
             results = [
-                BedMetadata(**bedfile.bedfile.__dict__) for bedfile in bedfiles_list
+                BedMetadataBasic(**bedfile.bedfile.__dict__)
+                for bedfile in bedfiles_list
             ]
 
         return BedSetBedFiles(
