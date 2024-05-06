@@ -80,3 +80,9 @@ build/
 #ipynm checkpoints
 *ipynb_checkpoints*
 *.egg-info*
+
+
+# Environment variables
+.env
+.env.*
+env/

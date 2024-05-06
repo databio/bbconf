@@ -10,7 +10,7 @@ from pephubclient.exceptions import ResponseError
 
 from qdrant_client.models import Distance, PointIdsList, VectorParams
 
-from sqlalchemy import select, delete
+from sqlalchemy import select, delete, and_
 from sqlalchemy.orm import Session
 
 from bbconf.config_parser.bedbaseconfig import BedBaseConfig
@@ -292,7 +292,6 @@ class BedAgentBedFile:
         offset: int = 0,
         genome: str = None,
         bed_type: str = None,
-        full: bool = False,
     ) -> BedListResult:
         """
         Get list of bed file identifiers.
@@ -305,7 +304,6 @@ class BedAgentBedFile:
 
         :return: list of bed file identifiers
         """
-        # TODO: question: Return Annotation?
         statement = select(Bed.id)
 
         # TODO: make it generic, like in pephub
@@ -320,11 +318,12 @@ class BedAgentBedFile:
         with Session(self._sa_engine) as session:
             bed_ids = session.execute(statement).all()
 
+        # TODO: there is big problem with efficiency here
         return BedListResult(
             count=len(bed_ids),
             limit=limit,
             offset=offset,
-            results=[self.get(result[0], full=full) for result in bed_ids],
+            results=[self.get(result[0], full=False) for result in bed_ids],
         )
 
     def add(
@@ -966,7 +965,10 @@ class BedAgentBedFile:
 
         with Session(self._sa_engine) as session:
             statement = delete(TokenizedBed).where(
-                TokenizedBed.bed_id == bed_id, TokenizedBed.universe_id == universe_id
+                and_(
+                    TokenizedBed.bed_id == bed_id,
+                    TokenizedBed.universe_id == universe_id,
+                )
             )
             session.execute(statement)
             session.commit()
@@ -989,7 +991,10 @@ class BedAgentBedFile:
 
         with Session(self._sa_engine) as session:
             statement = select(TokenizedBed).where(
-                TokenizedBed.bed_id == bed_id, TokenizedBed.universe_id == universe_id
+                and_(
+                    TokenizedBed.bed_id == bed_id,
+                    TokenizedBed.universe_id == universe_id,
+                ),
             )
             tokenized_object = session.scalar(statement)
             return tokenized_object.path
@@ -1005,7 +1010,10 @@ class BedAgentBedFile:
         """
         with Session(self._sa_engine) as session:
             statement = select(TokenizedBed).where(
-                TokenizedBed.bed_id == bed_id, TokenizedBed.universe_id == universe_id
+                and_(
+                    TokenizedBed.bed_id == bed_id,
+                    TokenizedBed.universe_id == universe_id,
+                )
             )
             tokenized_object = session.scalar(statement)
             if not tokenized_object:

@@ -168,10 +168,10 @@ class Files(Base):
     description: Mapped[Optional[str]]
     size: Mapped[Optional[int]] = mapped_column(default=0, comment="Size of the file")
 
-    bedfile_id: Mapped[int] = mapped_column(
+    bedfile_id: Mapped[str] = mapped_column(
         ForeignKey("bed.id", ondelete="CASCADE"), nullable=True, index=True
     )
-    bedset_id: Mapped[int] = mapped_column(
+    bedset_id: Mapped[str] = mapped_column(
         ForeignKey("bedsets.id", ondelete="CASCADE"), nullable=True, index=True
     )
 

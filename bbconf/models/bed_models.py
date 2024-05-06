@@ -96,39 +96,33 @@ class BedPEPHub(BaseModel):
     model_config = ConfigDict(extra="allow", populate_by_name=True)
 
 
-class BedMetadata(BedClassification):
+class BedMetadataBasic(BedClassification):
     id: str
     name: Optional[Union[str, None]] = ""
     description: Optional[str] = None
     submission_date: datetime.datetime = None
     last_update_date: Optional[datetime.datetime] = None
+
+
+class BedMetadata(BedMetadataBasic):
     stats: Union[BedStatsModel, None] = None
-    # classification: BedClassification = None
     plots: Union[BedPlots, None] = None
     files: Union[BedFiles, None] = None
     raw_metadata: Optional[Union[BedPEPHub, None]] = None
-
-    # genome_alias: str = None
-    # genome_digest: str = None
-    # bed_type: str = Field(
-    #     default="bed3", pattern="^bed(?:[3-9]|1[0-5])(?:\+|$)[0-9]?+$"
-    # )
-    # bed_format: str = None
-    # full_response: bool = False
 
 
 class BedListResult(BaseModel):
     count: int
     limit: int
     offset: int
-    results: List[BedMetadata]
+    results: List[BedMetadataBasic]
 
 
 class QdrantSearchResult(BaseModel):
     id: str
     payload: dict
     score: float
-    metadata: Union[BedMetadata, None] = None
+    metadata: Union[BedMetadataBasic, None] = None
 
 
 class BedListSearchResult(BaseModel):
