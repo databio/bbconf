@@ -178,7 +178,7 @@ class Test_BedFile_Agent:
             )
 
         assert len(return_result.results) == 0
-        assert return_result.count == 0
+        assert return_result.count == 1
         assert return_result.offset == 1
 
     def test_bed_delete(self, bbagent_obj, mocker):

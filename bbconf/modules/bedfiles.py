@@ -10,7 +10,7 @@ from pephubclient.exceptions import ResponseError
 
 from qdrant_client.models import Distance, PointIdsList, VectorParams
 
-from sqlalchemy import select, delete, and_
+from sqlalchemy import select, delete, and_, func
 from sqlalchemy.orm import Session
 
 from bbconf.config_parser.bedbaseconfig import BedBaseConfig
@@ -39,6 +39,7 @@ from bbconf.models.bed_models import (
     FileModel,
     QdrantSearchResult,
     UniverseMetadata,
+    BedMetadataBasic,
 )
 
 _LOGGER = getLogger(PKG_NAME)
@@ -53,15 +54,17 @@ class BedAgentBedFile:
     This class has method to add, delete, get files and metadata from the database.
     """
 
-    def __init__(self, config: BedBaseConfig):
+    def __init__(self, config: BedBaseConfig, bbagent_obj=None):
         """
         :param config: config object with database and qdrant engine and credentials
+        :param bbagent_obj: BedBaseAgent object (Parent object)
         """
         self._sa_engine = config.db_engine.engine
         self._db_engine = config.db_engine
         self._qdrant_engine = config.qdrant_engine
         self._boto3_client = config.boto3_client
         self._config = config
+        self.bb_agent = bbagent_obj
 
     def get(self, identifier: str, full: bool = False) -> BedMetadata:
         """
@@ -304,26 +307,33 @@ class BedAgentBedFile:
 
         :return: list of bed file identifiers
         """
-        statement = select(Bed.id)
+        statement = select(Bed)
+        count_statement = select(func.count(Bed.id))
 
         # TODO: make it generic, like in pephub
         if genome:
             statement = statement.where(Bed.genome_alias == genome)
+            count_statement = count_statement.where(Bed.genome_alias == genome)
 
         if bed_type:
             statement = statement.where(Bed.bed_type == bed_type)
+            count_statement = count_statement.where(Bed.bed_type == bed_type)
 
         statement = statement.limit(limit).offset(offset)
 
+        result_list = []
         with Session(self._sa_engine) as session:
-            bed_ids = session.execute(statement).all()
+            bed_ids = session.scalars(statement)
+            count = session.execute(count_statement).one()
 
-        # TODO: there is big problem with efficiency here
+            for result in bed_ids:
+                result_list.append(BedMetadataBasic(**result.__dict__))
+
         return BedListResult(
-            count=len(bed_ids),
+            count=count[0],
             limit=limit,
             offset=offset,
-            results=[self.get(result[0], full=False) for result in bed_ids],
+            results=result_list,
         )
 
     def add(
@@ -697,7 +707,10 @@ class BedAgentBedFile:
             if result_meta:
                 results_list.append(QdrantSearchResult(**result, metadata=result_meta))
         return BedListSearchResult(
-            count=len(results), limit=limit, offset=offset, results=results_list
+            count=self.bb_agent.get_stats().bedfiles_number,
+            limit=limit,
+            offset=offset,
+            results=results_list,
         )
 
     def bed_to_bed_search(
@@ -722,7 +735,7 @@ class BedAgentBedFile:
             if result_meta:
                 results_list.append(QdrantSearchResult(**result, metadata=result_meta))
         return BedListSearchResult(
-            count=len(results_list),
+            count=self.bb_agent.get_stats().bedfiles_number,
             limit=limit,
             offset=offset,
             results=results_list,
