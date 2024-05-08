@@ -104,7 +104,19 @@ def zarr_s3():
     print(f)
 
 
-def get_from_s3(): ...
+def get_from_s3():
+    s3fc_obj = s3fs.S3FileSystem(
+        endpoint_url="https://data3.bedbase.org/",
+        # endpoint_url="https://s3.us-west-002.backblazeb2.com/",
+        # key=os.getenv("AWS_ACCESS_KEY_ID"),
+        # secret=os.getenv("AWS_SECRET_ACCESS_KEY"),
+    )
+    s3_path = f"s3://bedbase/new/"
+    zarr_store = s3fs.S3Map(root=s3_path, s3=s3fc_obj, check=False, create=True)
+    # cache = zarr.LRUStoreCache(zarr_store, max_size=2**28)
+
+    # root = zarr.group(store=cache, overwrite=False)
+    # print(str(root.tree))
 
 
 def biocframe():

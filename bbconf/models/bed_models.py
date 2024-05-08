@@ -102,12 +102,19 @@ class BedMetadataBasic(BedClassification):
     description: Optional[str] = None
     submission_date: datetime.datetime = None
     last_update_date: Optional[datetime.datetime] = None
+    is_universe: Optional[bool] = False
+
+
+class UniverseMetadata(BaseModel):
+    construct_method: Union[str, None] = None
+    bedset_id: Union[str, None] = None
 
 
 class BedMetadata(BedMetadataBasic):
     stats: Union[BedStatsModel, None] = None
     plots: Union[BedPlots, None] = None
     files: Union[BedFiles, None] = None
+    universe_metadata: Union[UniverseMetadata, None] = None
     raw_metadata: Optional[Union[BedPEPHub, None]] = None
 
 
@@ -132,6 +139,12 @@ class BedListSearchResult(BaseModel):
     results: List[QdrantSearchResult] = None
 
 
-class UniverseMetadata(BedMetadata):
-    construct_method: Union[str, None] = None
-    bedset_id: Union[str, None] = None
+class TokenizedBedResponse(BaseModel):
+    universe_id: str
+    bed_id: str
+    tokenized_bed: List[int]
+
+
+class BedEmbeddingResult(BaseModel):
+    identifier: str
+    embedding: List[float]

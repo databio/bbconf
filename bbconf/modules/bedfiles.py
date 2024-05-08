@@ -40,6 +40,8 @@ from bbconf.models.bed_models import (
     QdrantSearchResult,
     UniverseMetadata,
     BedMetadataBasic,
+    BedEmbeddingResult,
+    TokenizedBedResponse,
 )
 
 _LOGGER = getLogger(PKG_NAME)
@@ -120,10 +122,15 @@ class BedAgentBedFile:
                             f"Unknown file type: {result.name}. And is not in the model fields. Skipping.."
                         )
                 bed_stats = BedStatsModel(**bed_object.stats.__dict__)
+                if bed_object.universe:
+                    universe_meta = UniverseMetadata(**bed_object.universe.__dict__)
+                else:
+                    universe_meta = UniverseMetadata()
             else:
                 bed_plots = None
                 bed_files = None
                 bed_stats = None
+                universe_meta = None
 
         try:
             if full:
@@ -155,6 +162,8 @@ class BedAgentBedFile:
             genome_digest=bed_object.genome_digest,
             bed_type=bed_object.bed_type,
             bed_format=bed_object.bed_format,
+            is_universe=bed_object.is_universe,
+            universe_metadata=universe_meta,
             full_response=full,
         )
 
@@ -288,6 +297,26 @@ class BedAgentBedFile:
                 return_dict[result.name] = FileModel(**result.__dict__)
 
         return return_dict
+
+    def get_embedding(self, identifier: str) -> BedEmbeddingResult:
+        """
+        Get bed file embedding of bed file from qdrant.
+
+        :param identifier: bed file identifier
+        :return: bed file embedding
+        """
+        if not self.exists(identifier):
+            raise BEDFileNotFoundError(f"Bed file with id: {identifier} not found.")
+        result = self._qdrant_engine.qd_client.retrieve(
+            collection_name=self._config.config.qdrant.collection,
+            ids=[identifier],
+            with_vectors=True,
+        )
+        if not result:
+            raise BEDFileNotFoundError(
+                f"Bed file with id: {identifier} not found in qdrant database."
+            )
+        return BedEmbeddingResult(identifier=identifier, embedding=result[0].vector)
 
     def get_ids_list(
         self,
@@ -810,30 +839,30 @@ class BedAgentBedFile:
                 return False
             return True
 
-    def get_universe(self, identifier: str, full: bool = False) -> UniverseMetadata:
-        """
-        Get universe metadata
-
-        :param identifier: universe identifier
-        :param full: if True, return full metadata, including statistics, files, and raw metadata from pephub
-
-        :return: universe metadata
-        """
-        if not self.exists_universe(identifier):
-            raise ValueError(f"Universe with id: {identifier} not found.")
-
-        with Session(self._sa_engine) as session:
-            statement = select(Universes).where(Universes.id == identifier)
-            universe_object = session.scalar(statement)
-
-            bedset_id = universe_object.bedset_id
-            method = universe_object.method
-
-        return UniverseMetadata(
-            **self.get(identifier, full=full).__dict__,
-            bedset_id=bedset_id,
-            method=method,
-        )
+    # def get_universe(self, identifier: str, full: bool = False) -> UniverseMetadata:
+    #     """
+    #     Get universe metadata
+    #
+    #     :param identifier: universe identifier
+    #     :param full: if True, return full metadata, including statistics, files, and raw metadata from pephub
+    #
+    #     :return: universe metadata
+    #     """
+    #     if not self.exists_universe(identifier):
+    #         raise ValueError(f"Universe with id: {identifier} not found.")
+    #
+    #     with Session(self._sa_engine) as session:
+    #         statement = select(Universes).where(Universes.id == identifier)
+    #         universe_object = session.scalar(statement)
+    #
+    #         bedset_id = universe_object.bedset_id
+    #         method = universe_object.method
+    #
+    #     return UniverseMetadata(
+    #         **self.get(identifier, full=full).__dict__,
+    #         bedset_id=bedset_id,
+    #         method=method,
+    #     )
 
     def exists_universe(self, identifier: str) -> bool:
         """
@@ -852,7 +881,7 @@ class BedAgentBedFile:
             return True
 
     def add_universe(
-        self, bedfile_id: str, bedset_id: str, construct_method: str
+        self, bedfile_id: str, bedset_id: str = None, construct_method: str = None
     ) -> str:
         """
         Add universe to the database.
@@ -872,6 +901,8 @@ class BedAgentBedFile:
             )
             session.add(new_univ)
             session.commit()
+
+        _LOGGER.info(f"Universe added to the database successfully. id: {bedfile_id}")
         return bedfile_id
 
     def delete_universe(self, identifier: str) -> None:
@@ -900,7 +931,9 @@ class BedAgentBedFile:
         :return: token path
         """
 
-        path = self._add_zarr_s3(bed_id, universe_id, token_vector)
+        path = self._add_zarr_s3(
+            bed_id=bed_id, universe_id=universe_id, tokenized_vector=token_vector
+        )
 
         with Session(self._sa_engine) as session:
             new_token = TokenizedBed(bed_id=bed_id, universe_id=universe_id, path=path)
@@ -942,7 +975,7 @@ class BedAgentBedFile:
 
         return os.path.join(ZARR_TOKENIZED_FOLDER, path)
 
-    def get_tokenized(self, bed_id: str, universe_id: str) -> list:
+    def get_tokenized(self, bed_id: str, universe_id: str) -> TokenizedBedResponse:
         """
         Get zarr file from the database
 
@@ -957,7 +990,11 @@ class BedAgentBedFile:
             )
         univers_group = self._config.zarr_root.require_group(universe_id)
 
-        return list(univers_group[bed_id])
+        return TokenizedBedResponse(
+            universe_id=universe_id,
+            bed_id=bed_id,
+            tokenized_bed=list(univers_group[bed_id]),
+        )
 
     def delete_tokenized(self, bed_id: str, universe_id: str) -> None:
         """
