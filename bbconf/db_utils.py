@@ -15,6 +15,7 @@ from sqlalchemy.dialects.postgresql import JSON
 from sqlalchemy.engine import URL, Engine, create_engine
 from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.ext.compiler import compiles
+from sqlalchemy.event import listens_for
 from sqlalchemy.orm import (
     DeclarativeBase,
     Mapped,
@@ -96,6 +97,7 @@ class Bed(Base):
         default=deliver_update_date,
         onupdate=deliver_update_date,
     )
+    is_universe: Mapped[Optional[bool]] = mapped_column(default=False)
 
     files: Mapped[List["Files"]] = relationship(
         "Files", back_populates="bedfile", cascade="all, delete-orphan"
@@ -106,6 +108,13 @@ class Bed(Base):
     )
 
     stats: Mapped["BedStats"] = relationship(
+        back_populates="bed", cascade="all, delete-orphan"
+    )
+
+    universe: Mapped["Universes"] = relationship(
+        back_populates="bed", cascade="all, delete-orphan"
+    )
+    tokenized: Mapped["TokenizedBed"] = relationship(
         back_populates="bed", cascade="all, delete-orphan"
     )
 
@@ -159,10 +168,10 @@ class Files(Base):
     description: Mapped[Optional[str]]
     size: Mapped[Optional[int]] = mapped_column(default=0, comment="Size of the file")
 
-    bedfile_id: Mapped[int] = mapped_column(
+    bedfile_id: Mapped[str] = mapped_column(
         ForeignKey("bed.id", ondelete="CASCADE"), nullable=True, index=True
     )
-    bedset_id: Mapped[int] = mapped_column(
+    bedset_id: Mapped[str] = mapped_column(
         ForeignKey("bedsets.id", ondelete="CASCADE"), nullable=True, index=True
     )
 
@@ -170,32 +179,13 @@ class Files(Base):
     bedset: Mapped["BedSets"] = relationship("BedSets", back_populates="files")
 
 
-# class Plots(Base):
-#     __tablename__ = "plots"
-#
-#     id: Mapped[int] = mapped_column(primary_key=True)
-#     name: Mapped[str] = mapped_column(nullable=False, comment="Name of the plot")
-#     description: Mapped[Optional[str]] = mapped_column(
-#         comment="Description of the plot"
-#     )
-#     path: Mapped[str] = mapped_column(comment="Path to the plot file")
-#     path_thumbnail: Mapped[str] = mapped_column(
-#         nullable=True, comment="Path to the thumbnail of the plot file"
-#     )
-#
-#     bedfile_id: Mapped[int] = mapped_column(ForeignKey("bed.id"), nullable=True)
-#     bedset_id: Mapped[int] = mapped_column(ForeignKey("bedsets.id"), nullable=True)
-#
-#     bedfile: Mapped["Bed"] = relationship("Bed", back_populates="plots")
-#     bedset: Mapped["BedSets"] = relationship("BedSets", back_populates="plots")
-
-
 class BedFileBedSetRelation(Base):
     __tablename__ = "bedfile_bedset_relation"
-    bedset_id: Mapped[int] = mapped_column(
+
+    bedset_id: Mapped[str] = mapped_column(
         ForeignKey("bedsets.id", ondelete="CASCADE"), primary_key=True
     )
-    bedfile_id: Mapped[int] = mapped_column(
+    bedfile_id: Mapped[str] = mapped_column(
         ForeignKey("bed.id", ondelete="CASCADE"), primary_key=True
     )
 
@@ -230,8 +220,75 @@ class BedSets(Base):
     bedfiles: Mapped[List["BedFileBedSetRelation"]] = relationship(
         "BedFileBedSetRelation", back_populates="bedset", cascade="all, delete-orphan"
     )
-    # plots: Mapped[List["Plots"]] = relationship("Plots", back_populates="bedset")
     files: Mapped[List["Files"]] = relationship("Files", back_populates="bedset")
+    universe: Mapped["Universes"] = relationship("Universes", back_populates="bedset")
+
+
+class Universes(Base):
+    __tablename__ = "universes"
+
+    id: Mapped[str] = mapped_column(
+        ForeignKey("bed.id", ondelete="CASCADE"),
+        primary_key=True,
+        index=True,
+    )
+    method: Mapped[str] = mapped_column(
+        nullable=True, comment="Method used to create the universe"
+    )
+    bedset_id: Mapped[str] = mapped_column(
+        ForeignKey("bedsets.id", ondelete="CASCADE"),
+        index=True,
+        nullable=True,
+    )
+
+    bed: Mapped["Bed"] = relationship("Bed", back_populates="universe")
+    bedset: Mapped["BedSets"] = relationship("BedSets", back_populates="universe")
+    tokenized: Mapped["TokenizedBed"] = relationship(
+        "TokenizedBed",
+        back_populates="universe",
+    )
+
+
+class TokenizedBed(Base):
+    __tablename__ = "tokenized_bed"
+
+    bed_id: Mapped[str] = mapped_column(
+        ForeignKey("bed.id", ondelete="CASCADE"),
+        primary_key=True,
+        index=True,
+        nullable=False,
+    )
+    universe_id: Mapped[str] = mapped_column(
+        ForeignKey("universes.id", ondelete="CASCADE"),
+        primary_key=True,
+        index=True,
+        nullable=False,
+    )
+    path: Mapped[str] = mapped_column(
+        nullable=False, comment="Path to the tokenized bed file"
+    )
+
+    bed: Mapped["Bed"] = relationship("Bed", back_populates="tokenized")
+    universe: Mapped["Universes"] = relationship(
+        "Universes", back_populates="tokenized"
+    )
+
+
+@listens_for(Universes, "after_insert")
+@listens_for(Universes, "after_update")
+def add_bed_universe(mapper, connection, target):
+    with Session(connection) as session:
+        bed = session.scalar(select(Bed).where(Bed.id == target.id))
+        bed.is_universe = True
+        session.commit()
+
+
+@listens_for(Universes, "after_delete")
+def delete_bed_universe(mapper, connection, target):
+    with Session(connection) as session:
+        bed = session.scalar(select(Bed).where(Bed.id == target.id))
+        bed.is_universe = False
+        session.commit()
 
 
 class BaseEngine:

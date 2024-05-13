@@ -5,9 +5,11 @@ from pathlib import Path
 from typing import List, Literal, Union
 
 import boto3
+from botocore.exceptions import EndpointConnectionError, BotoCoreError
 import qdrant_client
-import yacman
-from botocore.exceptions import EndpointConnectionError
+import zarr
+from zarr import Group as Z_GROUP
+import s3fs
 
 from geniml.search import QdrantBackend, BED2BEDSearchInterface, Text2BEDSearchInterface
 from geniml.search.query2vec import BED2Vec, Text2Vec
@@ -23,6 +25,7 @@ from bbconf.config_parser.const import (
 from bbconf.config_parser.models import ConfigFile
 from bbconf.const import (
     PKG_NAME,
+    ZARR_TOKENIZED_FOLDER,
 )
 from bbconf.db_utils import BaseEngine
 from bbconf.exceptions import (
@@ -62,19 +65,20 @@ class BedBaseConfig:
         :return: None
         :raises: raise_missing_key (if config key is missing)
         """
-        _config = yacman.YAMLConfigManager(filepath=config_path).exp
-
-        config_dict = {}
-        for field_name, annotation in ConfigFile.model_fields.items():
-            try:
-                config_dict[field_name] = annotation.annotation(
-                    **_config.get(field_name)
-                )
-            except TypeError:
-                # TODO: this should be more specific
-                config_dict[field_name] = annotation.annotation()
-
-        return ConfigFile(**config_dict)
+        # _config = yacman.YAMLConfigManager(filepath=config_path).exp
+        #
+        # config_dict = {}
+        # for field_name, annotation in ConfigFile.model_fields.items():
+        #     try:
+        #         config_dict[field_name] = annotation.annotation(
+        #             **_config.get(field_name)
+        #         )
+        #     except TypeError:
+        #         # TODO: this should be more specific
+        #         config_dict[field_name] = annotation.annotation()
+        #
+        # return ConfigFile(**config_dict)
+        return ConfigFile.from_yaml(Path(config_path))
 
     @property
     def config(self) -> ConfigFile:
@@ -147,6 +151,32 @@ class BedBaseConfig:
         :return: boto3 client
         """
         return self._boto3_client
+
+    @property
+    def zarr_root(self) -> Union[Z_GROUP, None]:
+        """
+        Get zarr root object (Group)
+
+        :return: zarr root group object
+        """
+
+        try:
+            s3fc_obj = s3fs.S3FileSystem(
+                endpoint_url=self._config.s3.endpoint_url,
+                key=self._config.s3.aws_access_key_id,
+                secret=self._config.s3.aws_secret_access_key,
+            )
+        except BotoCoreError as e:
+            _LOGGER.error(f"Error in creating s3fs object: {e}")
+            warnings.warn(f"Error in creating s3fs object: {e}", UserWarning)
+            return None
+
+        s3_path = f"s3://{self._config.s3.bucket}/{ZARR_TOKENIZED_FOLDER}"
+
+        zarr_store = s3fs.S3Map(root=s3_path, s3=s3fc_obj, check=False, create=True)
+        cache = zarr.LRUStoreCache(zarr_store, max_size=2**28)
+
+        return zarr.group(store=cache, overwrite=False)
 
     def _init_db_engine(self) -> BaseEngine:
         return BaseEngine(

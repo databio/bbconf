@@ -4,6 +4,8 @@ from typing import Union
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import distinct, func, select
 
+from functools import cached_property
+
 from bbconf.config_parser.bedbaseconfig import BedBaseConfig
 from bbconf.db_utils import Bed, BedSets
 from bbconf.models.base_models import StatsReturn
@@ -25,7 +27,7 @@ class BedBaseAgent(object):
 
         self.config = BedBaseConfig(config)
 
-        self.__bed = BedAgentBedFile(self.config)
+        self.__bed = BedAgentBedFile(self.config, self)
         self.__bedset = BedAgentBedSet(self.config)
         self.__objects = BBObjects(self.config)
 
@@ -41,6 +43,7 @@ class BedBaseAgent(object):
     def objects(self) -> BBObjects:
         return self.__objects
 
+    @cached_property
     def get_stats(self) -> StatsReturn:
         """
         Get statistics for a bed file

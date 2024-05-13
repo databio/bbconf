@@ -59,3 +59,21 @@ class BedSetExistsError(BedBaseConfError):
     """Error type for existing bedset"""
 
     pass
+
+
+class UniverseNotFoundError(BedBaseConfError):
+    """Error type for missing universe"""
+
+    pass
+
+
+class TokenizeFileExistsError(BedBaseConfError):
+    """Error type for existing tokenize file"""
+
+    pass
+
+
+class TokenizeFileNotExistError(BedBaseConfError):
+    """Error type for missing tokenize file"""
+
+    pass
