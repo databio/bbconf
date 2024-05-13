@@ -17,14 +17,16 @@ DATA_PATH = os.path.join(
     "data",
 )
 
+agent = BedBaseAgent(config=CONFIG_PATH)
+
 
 def get_bbagent():
-    return BedBaseAgent(config=CONFIG_PATH)
+    return agent
 
 
 @pytest.fixture(scope="function")
 def bbagent_obj():
-    yield BedBaseAgent(config=CONFIG_PATH)
+    yield agent
 
 
 @pytest.fixture()

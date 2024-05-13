@@ -1,13 +1,7 @@
 import pytest
-from sqlalchemy.orm import Session
-from sqlalchemy.sql import select
+from bbconf.exceptions import BEDFileNotFoundError
 
-from bbconf.bbagent import BedBaseAgent
-from bbconf.db_utils import Bed, Files
-from bbconf.exceptions import BedFIleExistsError, BEDFileNotFoundError
-
-from .conftest import get_bbagent
-from .utils import BED_TEST_ID, BEDSET_TEST_ID, ContextManagerDBTesting
+from .utils import BED_TEST_ID, ContextManagerDBTesting
 
 
 class TestUniverses:
@@ -20,8 +14,9 @@ class TestUniverses:
 
             assert bbagent_obj.bed.exists(BED_TEST_ID)
             assert bbagent_obj.bed.exists_universe(BED_TEST_ID)
-            universe_meta = bbagent_obj.bed.get_universe(BED_TEST_ID)
+            universe_meta = bbagent_obj.bed.get(BED_TEST_ID)
             assert universe_meta is not None
+            assert universe_meta.is_universe is True
 
     def test_delete_universe(self, bbagent_obj):
         with ContextManagerDBTesting(config=bbagent_obj.config, add_data=True):

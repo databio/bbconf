@@ -1,10 +1,8 @@
 import zarr
 import s3fs
 from dotenv import load_dotenv
-import genimtools
 import os
 
-from genimtools import __version__
 
 from genimtools.tokenizers import TreeTokenizer
 
@@ -90,7 +88,7 @@ def zarr_s3():
         secret=os.getenv("AWS_SECRET_ACCESS_KEY"),
     )
     print(os.getenv("AWS_SECRET_ACCESS_KEY"))
-    s3_path = f"s3://bedbase/new/"
+    s3_path = "s3://bedbase/new/"
 
     zarr_store = s3fs.S3Map(root=s3_path, s3=s3fc_obj, check=False, create=True)
     cache = zarr.LRUStoreCache(zarr_store, max_size=2**28)
@@ -111,7 +109,7 @@ def get_from_s3():
         # key=os.getenv("AWS_ACCESS_KEY_ID"),
         # secret=os.getenv("AWS_SECRET_ACCESS_KEY"),
     )
-    s3_path = f"s3://bedbase/new/"
+    s3_path = "s3://bedbase/new/"
     zarr_store = s3fs.S3Map(root=s3_path, s3=s3fc_obj, check=False, create=True)
     # cache = zarr.LRUStoreCache(zarr_store, max_size=2**28)
 

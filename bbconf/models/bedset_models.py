@@ -3,7 +3,7 @@ from typing import List, Union
 from pydantic import BaseModel, ConfigDict
 
 from .base_models import FileModel
-from .bed_models import BedMetadata, BedMetadataBasic, BedStatsModel
+from .bed_models import BedMetadataBasic, BedStatsModel
 
 
 class BedSetStats(BaseModel):

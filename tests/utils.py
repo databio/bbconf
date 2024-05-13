@@ -100,6 +100,7 @@ class ContextManagerDBTesting:
         self.bedset = bedset
 
         self.db_engine = self.config.db_engine
+        self.db_engine.create_schema()
 
     def __enter__(self):
         if self.add_data:

@@ -985,9 +985,7 @@ class BedAgentBedFile:
         :return: zarr path
         """
         if not self.exist_tokenized(bed_id, universe_id):
-            raise TokenizeFileNotExistError(
-                f"Tokenized file not found in the database."
-            )
+            raise TokenizeFileNotExistError("Tokenized file not found in the database.")
         univers_group = self._config.zarr_root.require_group(universe_id)
 
         return TokenizedBedResponse(
@@ -1006,9 +1004,7 @@ class BedAgentBedFile:
         :return: None
         """
         if not self.exist_tokenized(bed_id, universe_id):
-            raise TokenizeFileNotExistError(
-                f"Tokenized file not found in the database."
-            )
+            raise TokenizeFileNotExistError("Tokenized file not found in the database.")
         univers_group = self._config.zarr_root.require_group(universe_id)
 
         del univers_group[bed_id]
@@ -1035,9 +1031,7 @@ class BedAgentBedFile:
         :return: token path
         """
         if not self.exist_tokenized(bed_id, universe_id):
-            raise TokenizeFileNotExistError(
-                f"Tokenized file not found in the database."
-            )
+            raise TokenizeFileNotExistError("Tokenized file not found in the database.")
 
         with Session(self._sa_engine) as session:
             statement = select(TokenizedBed).where(
