@@ -10,6 +10,7 @@ import qdrant_client
 import zarr
 from zarr import Group as Z_GROUP
 import s3fs
+import yacman
 
 from geniml.search import QdrantBackend, BED2BEDSearchInterface, Text2BEDSearchInterface
 from geniml.search.query2vec import BED2Vec, Text2Vec
@@ -65,20 +66,20 @@ class BedBaseConfig:
         :return: None
         :raises: raise_missing_key (if config key is missing)
         """
-        # _config = yacman.YAMLConfigManager(filepath=config_path).exp
-        #
-        # config_dict = {}
-        # for field_name, annotation in ConfigFile.model_fields.items():
-        #     try:
-        #         config_dict[field_name] = annotation.annotation(
-        #             **_config.get(field_name)
-        #         )
-        #     except TypeError:
-        #         # TODO: this should be more specific
-        #         config_dict[field_name] = annotation.annotation()
-        #
-        # return ConfigFile(**config_dict)
-        return ConfigFile.from_yaml(Path(config_path))
+        _config = yacman.YAMLConfigManager(filepath=config_path).exp
+
+        config_dict = {}
+        for field_name, annotation in ConfigFile.model_fields.items():
+            try:
+                config_dict[field_name] = annotation.annotation(
+                    **_config.get(field_name)
+                )
+            except TypeError:
+                # TODO: this should be more specific
+                config_dict[field_name] = annotation.annotation()
+
+        return ConfigFile(**config_dict)
+        # return ConfigFile.from_yaml(Path(config_path))
 
     @property
     def config(self) -> ConfigFile:

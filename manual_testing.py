@@ -5,6 +5,7 @@ import os
 
 
 from genimtools.tokenizers import TreeTokenizer
+from genimtools.utils import read_tokens_from_gtok
 
 
 from geniml.io import RegionSet
