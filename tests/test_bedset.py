@@ -7,9 +7,9 @@ from sqlalchemy.sql import select
 from bbconf.db_utils import BedSets
 from bbconf.exceptions import BedbaseS3ConnectionError, BedSetNotFoundError
 
-from .conftest import DATA_PATH
+from .conftest import DATA_PATH, SERVICE_UNAVAILABLE
 from .utils import BED_TEST_ID, BEDSET_TEST_ID, ContextManagerDBTesting
-from .conftest import SERVICE_UNAVAILABLE
+
 
 @pytest.mark.skipif(SERVICE_UNAVAILABLE, reason="Database is not available")
 class TestBedset:

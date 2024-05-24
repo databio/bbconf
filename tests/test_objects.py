@@ -2,8 +2,9 @@ import pytest
 
 from bbconf.exceptions import BEDFileNotFoundError, MissingThumbnailError
 
-from .utils import BED_TEST_ID, ContextManagerDBTesting
 from .conftest import SERVICE_UNAVAILABLE
+from .utils import BED_TEST_ID, ContextManagerDBTesting
+
 
 @pytest.mark.skipif(SERVICE_UNAVAILABLE, reason="Database is not available")
 class TestObjects:

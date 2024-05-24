@@ -1,9 +1,8 @@
+from pathlib import Path
 from typing import Optional, Union
 
-from pydantic import BaseModel, ConfigDict, computed_field
+from pydantic import BaseModel, ConfigDict, computed_field, field_validator
 from yacman import load_yaml
-from pathlib import Path
-
 
 from bbconf.config_parser.const import (
     DEFAULT_DB_DIALECT,
@@ -81,6 +80,12 @@ class ConfigS3(BaseModel):
     aws_access_key_id: Union[str, None] = None
     aws_secret_access_key: Union[str, None] = None
     bucket: Union[str, None] = DEFAULT_S3_BUCKET
+
+    @field_validator("aws_access_key_id", "aws_secret_access_key")
+    def validate_aws_credentials(cls, values):
+        for value in values:
+            if value in ["AWS_SECRET_ACCESS_KEY", "AWS_ACCESS_KEY_ID"]:
+                return None
 
 
 class ConfigPepHubClient(BaseModel):

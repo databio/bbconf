@@ -1,11 +1,12 @@
 import os
-import pytest
 import subprocess
-
 from atexit import register
-from bbconf.bbagent import BedBaseAgent
-from .utils import BED_TEST_ID
 
+import pytest
+
+from bbconf.bbagent import BedBaseAgent
+
+from .utils import BED_TEST_ID
 
 DB_CMD = """
 docker run --rm -it --name bedbase-test \
@@ -21,9 +22,10 @@ try:
     )
     SERVICE_UNAVAILABLE = False
 except:
-    register(print, f"Some tests require a test database. To initiate it, run:\n{DB_CMD}")
+    register(
+        print, f"Some tests require a test database. To initiate it, run:\n{DB_CMD}"
+    )
     SERVICE_UNAVAILABLE = True
-
 
 
 TESTS_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -43,7 +45,6 @@ if not SERVICE_UNAVAILABLE:
 
 def get_bbagent():
     return agent
-
 
 
 @pytest.fixture(scope="function")

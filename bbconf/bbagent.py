@@ -1,10 +1,9 @@
+from functools import cached_property
 from pathlib import Path
 from typing import Union
 
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import distinct, func, select
-
-from functools import cached_property
 
 from bbconf.config_parser.bedbaseconfig import BedBaseConfig
 from bbconf.db_utils import Bed, BedSets

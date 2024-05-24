@@ -5,18 +5,16 @@ from pathlib import Path
 from typing import List, Literal, Union
 
 import boto3
-from botocore.exceptions import EndpointConnectionError, BotoCoreError
 import qdrant_client
-import zarr
-from zarr import Group as Z_GROUP
 import s3fs
 import yacman
-
-from geniml.search import QdrantBackend, BED2BEDSearchInterface, Text2BEDSearchInterface
-from geniml.search.query2vec import BED2Vec, Text2Vec
+import zarr
+from botocore.exceptions import BotoCoreError, EndpointConnectionError
 from geniml.region2vec import Region2VecExModel
-
+from geniml.search import BED2BEDSearchInterface, QdrantBackend, Text2BEDSearchInterface
+from geniml.search.query2vec import BED2Vec, Text2Vec
 from pephubclient import PEPHubClient
+from zarr import Group as Z_GROUP
 
 from bbconf.config_parser.const import (
     S3_BEDSET_PATH_FOLDER,
@@ -24,10 +22,7 @@ from bbconf.config_parser.const import (
     S3_PLOTS_PATH_FOLDER,
 )
 from bbconf.config_parser.models import ConfigFile
-from bbconf.const import (
-    PKG_NAME,
-    ZARR_TOKENIZED_FOLDER,
-)
+from bbconf.const import PKG_NAME, ZARR_TOKENIZED_FOLDER
 from bbconf.db_utils import BaseEngine
 from bbconf.exceptions import (
     BadAccessMethodError,

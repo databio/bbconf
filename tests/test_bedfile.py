@@ -6,9 +6,9 @@ from bbconf.bbagent import BedBaseAgent
 from bbconf.db_utils import Bed, Files
 from bbconf.exceptions import BedFIleExistsError, BEDFileNotFoundError
 
-from .conftest import get_bbagent
+from .conftest import SERVICE_UNAVAILABLE, get_bbagent
 from .utils import BED_TEST_ID, ContextManagerDBTesting
-from .conftest import SERVICE_UNAVAILABLE
+
 
 @pytest.mark.skipif(SERVICE_UNAVAILABLE, reason="Database is not available")
 def test_bb_database():

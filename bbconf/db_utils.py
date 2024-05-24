@@ -2,27 +2,13 @@ import datetime
 import logging
 from typing import List, Optional
 
-from sqlalchemy import (
-    TIMESTAMP,
-    BigInteger,
-    ForeignKey,
-    Result,
-    Select,
-    event,
-    select,
-)
+from sqlalchemy import TIMESTAMP, BigInteger, ForeignKey, Result, Select, event, select
 from sqlalchemy.dialects.postgresql import JSON
 from sqlalchemy.engine import URL, Engine, create_engine
+from sqlalchemy.event import listens_for
 from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.ext.compiler import compiles
-from sqlalchemy.event import listens_for
-from sqlalchemy.orm import (
-    DeclarativeBase,
-    Mapped,
-    Session,
-    mapped_column,
-    relationship,
-)
+from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, relationship
 from sqlalchemy_schemadisplay import create_schema_graph
 
 from bbconf.const import PKG_NAME
