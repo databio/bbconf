@@ -9,8 +9,9 @@ from bbconf.exceptions import BedbaseS3ConnectionError, BedSetNotFoundError
 
 from .conftest import DATA_PATH
 from .utils import BED_TEST_ID, BEDSET_TEST_ID, ContextManagerDBTesting
+from .conftest import SERVICE_UNAVAILABLE
 
-
+@pytest.mark.skipif(SERVICE_UNAVAILABLE, reason="Database is not available")
 class TestBedset:
     def test_calculate_stats(self, bbagent_obj):
         with ContextManagerDBTesting(config=bbagent_obj.config, add_data=True):
@@ -205,6 +206,7 @@ class TestBedset:
                 bbagent_obj.bedset.delete(BEDSET_TEST_ID)
 
 
+@pytest.mark.skipif(SERVICE_UNAVAILABLE, reason="Database is not available")
 def test_get_stats(bbagent_obj):
     with ContextManagerDBTesting(config=bbagent_obj.config, add_data=True, bedset=True):
         return_result = bbagent_obj.get_stats

@@ -8,13 +8,15 @@ from bbconf.exceptions import BedFIleExistsError, BEDFileNotFoundError
 
 from .conftest import get_bbagent
 from .utils import BED_TEST_ID, ContextManagerDBTesting
+from .conftest import SERVICE_UNAVAILABLE
 
-
+@pytest.mark.skipif(SERVICE_UNAVAILABLE, reason="Database is not available")
 def test_bb_database():
     agent = get_bbagent()
     assert isinstance(agent, BedBaseAgent)
 
 
+@pytest.mark.skipif(SERVICE_UNAVAILABLE, reason="Database is not available")
 class Test_BedFile_Agent:
     def test_upload(self, bbagent_obj, example_dict, mocker):
         upload_s3_mock = mocker.patch(

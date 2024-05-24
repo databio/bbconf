@@ -2,8 +2,9 @@ import pytest
 from bbconf.exceptions import BEDFileNotFoundError
 
 from .utils import BED_TEST_ID, ContextManagerDBTesting
+from .conftest import SERVICE_UNAVAILABLE
 
-
+@pytest.mark.skipif(SERVICE_UNAVAILABLE, reason="Database is not available")
 class TestUniverses:
 
     def test_add(self, bbagent_obj):

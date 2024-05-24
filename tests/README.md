@@ -1,4 +1,4 @@
-# How to setup the test environment
+# How to set up the test environment
 
 # before running the tests, make sure you have the following installed:
 
