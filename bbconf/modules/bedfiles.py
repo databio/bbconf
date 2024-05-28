@@ -929,6 +929,7 @@ class BedAgentBedFile:
         path = self._add_zarr_s3(
             bed_id=bed_id, universe_id=universe_id, tokenized_vector=token_vector
         )
+        path = os.path.join(f"s3://{self._config.config.s3.bucket}", path)
 
         with Session(self._sa_engine) as session:
             new_token = TokenizedBed(bed_id=bed_id, universe_id=universe_id, path=path)

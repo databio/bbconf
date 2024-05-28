@@ -1,14 +1,11 @@
-import zarr
-import s3fs
-from dotenv import load_dotenv
 import os
 
-
+import s3fs
+import zarr
+from dotenv import load_dotenv
+from geniml.io import RegionSet
 from genimtools.tokenizers import TreeTokenizer
 from genimtools.utils import read_tokens_from_gtok
-
-
-from geniml.io import RegionSet
 
 # from genimtools.tokenizers import RegionSet
 
@@ -105,16 +102,19 @@ def zarr_s3():
 
 def get_from_s3():
     s3fc_obj = s3fs.S3FileSystem(
-        endpoint_url="https://data3.bedbase.org/",
+        endpoint_url="https://data2.bedbase.org/",
         # endpoint_url="https://s3.us-west-002.backblazeb2.com/",
         # key=os.getenv("AWS_ACCESS_KEY_ID"),
         # secret=os.getenv("AWS_SECRET_ACCESS_KEY"),
     )
-    s3_path = "s3://bedbase/new/"
-    zarr_store = s3fs.S3Map(root=s3_path, s3=s3fc_obj, check=False, create=True)
-    # cache = zarr.LRUStoreCache(zarr_store, max_size=2**28)
 
-    # root = zarr.group(store=cache, overwrite=False)
+    import s3fs
+    s3fc_obj = s3fs.S3FileSystem(endpoint_url="https://s3.us-west-002.backblazeb2.com/")
+    s3_path = "s3://bedbase/tokenized.zarr/"
+    zarr_store = s3fs.S3Map(root=s3_path, s3=s3fc_obj, check=False, create=True)
+    cache = zarr.LRUStoreCache(zarr_store, max_size=2**28)
+
+    root = zarr.group(store=cache, overwrite=False)
     # print(str(root.tree))
 
 
@@ -148,11 +148,26 @@ def biocframe():
     ff
 
 
-def bio_cache():
-    pass
+def dec1(func):
+    def wrapper(*args, **kwargs):
+        print("bbbb")
+        func(*args, **kwargs)
+
+    return wrapper
+
+@dec1
+def func1(a:str):
+    print("abc")
+    print(a)
+
+func1("Donald")
 
 
 if __name__ == "__main__":
     # zarr_s3()
-    get_from_s3()
+    # get_from_s3()
     # biocframe()
+
+
+
+
