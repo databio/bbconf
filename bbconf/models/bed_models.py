@@ -148,3 +148,10 @@ class TokenizedBedResponse(BaseModel):
 class BedEmbeddingResult(BaseModel):
     identifier: str
     embedding: List[float]
+
+
+class TokenizedPathResponse(BaseModel):
+    bed_id: str
+    universe_id: str
+    file_path: str
+    endpoint_url: str

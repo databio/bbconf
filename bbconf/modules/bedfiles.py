@@ -36,6 +36,7 @@ from bbconf.models.bed_models import (
     QdrantSearchResult,
     TokenizedBedResponse,
     UniverseMetadata,
+    TokenizedPathResponse,
 )
 
 _LOGGER = getLogger(PKG_NAME)
@@ -1015,7 +1016,7 @@ class BedAgentBedFile:
 
         return None
 
-    def get_tokenized_path(self, bed_id: str, universe_id: str) -> str:
+    def _get_tokenized_path(self, bed_id: str, universe_id: str) -> str:
         """
         Get tokenized path to tokenized file
 
@@ -1057,3 +1058,24 @@ class BedAgentBedFile:
             if not tokenized_object:
                 return False
             return True
+
+    def get_tokenized_link(
+        self, bed_id: str, universe_id: str
+    ) -> TokenizedPathResponse:
+        """
+        Get tokenized link to tokenized file
+
+        :param bed_id: bed file identifier
+        :param universe_id: universe identifier
+
+        :return: token link
+        :raises: TokenizeFileNotExistError
+        """
+        file_path = self._get_tokenized_path(bed_id, universe_id)
+
+        return TokenizedPathResponse(
+            endpoint_url=self._config.config.s3.endpoint_url,
+            file_path=file_path,
+            bed_id=bed_id,
+            universe_id=universe_id,
+        )
