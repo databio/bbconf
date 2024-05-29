@@ -59,12 +59,12 @@ class TestUniverses:
                 bed_id=BED_TEST_ID, universe_id=BED_TEST_ID, token_vector=[1, 2, 3]
             )
 
-            zarr_path = bbagent_obj.bed.get_tokenized_path(
+            zarr_path = bbagent_obj.bed._get_tokenized_path(
                 BED_TEST_ID, universe_id=BED_TEST_ID
             )
 
             assert zarr_mock.called
-            assert zarr_path == saved_path
+            assert f"s3://bedbase/{saved_path}" == zarr_path
 
     def test_get_tokenized(self, bbagent_obj, mocked_phc):
         # how to test it?

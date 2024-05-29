@@ -1,12 +1,12 @@
 from functools import cached_property
 from pathlib import Path
-from typing import Union
+from typing import Union, List
 
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import distinct, func, select
 
 from bbconf.config_parser.bedbaseconfig import BedBaseConfig
-from bbconf.db_utils import Bed, BedSets
+from bbconf.db_utils import Bed, BedSets, License
 from bbconf.models.base_models import StatsReturn
 from bbconf.modules.bedfiles import BedAgentBedFile
 from bbconf.modules.bedsets import BedAgentBedSet
@@ -62,3 +62,15 @@ class BedBaseAgent(object):
             bedsets_number=number_of_bedset,
             genomes_number=number_of_genomes,
         )
+
+    @cached_property
+    def list_of_licenses(self) -> List[str]:
+        """
+        Get list of licenses from the database
+
+        :return: list of licenses
+        """
+        statement = select(License.id)
+        with Session(self.config.db_engine.engine) as session:
+            licenses = session.execute(statement).all()
+        return [result[0] for result in licenses]

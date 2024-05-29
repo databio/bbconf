@@ -5,6 +5,7 @@ from sqlalchemy.sql import select
 from bbconf.bbagent import BedBaseAgent
 from bbconf.db_utils import Bed, Files
 from bbconf.exceptions import BedFIleExistsError, BEDFileNotFoundError
+from bbconf.const import DEFAULT_LICENSE
 
 from .conftest import SERVICE_UNAVAILABLE, get_bbagent
 from .utils import BED_TEST_ID, ContextManagerDBTesting
@@ -64,6 +65,7 @@ class Test_BedFile_Agent:
 
             assert return_result.files.bed_file is not None
             assert return_result.plots.chrombins is not None
+            assert return_result.license_id == DEFAULT_LICENSE
 
     def test_get_all_not_found(self, bbagent_obj):
         with ContextManagerDBTesting(config=bbagent_obj.config, add_data=True):

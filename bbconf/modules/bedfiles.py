@@ -11,7 +11,7 @@ from sqlalchemy import and_, delete, func, select
 from sqlalchemy.orm import Session
 
 from bbconf.config_parser.bedbaseconfig import BedBaseConfig
-from bbconf.const import PKG_NAME, ZARR_TOKENIZED_FOLDER
+from bbconf.const import PKG_NAME, ZARR_TOKENIZED_FOLDER, DEFAULT_LICENSE
 from bbconf.db_utils import Bed, BedStats, Files, TokenizedBed, Universes
 from bbconf.exceptions import (
     BedBaseConfError,
@@ -158,6 +158,7 @@ class BedAgentBedFile:
             bed_type=bed_object.bed_type,
             bed_format=bed_object.bed_format,
             is_universe=bed_object.is_universe,
+            license_id=bed_object.license_id or DEFAULT_LICENSE,
             universe_metadata=universe_meta,
             full_response=full,
         )
@@ -368,6 +369,7 @@ class BedAgentBedFile:
         plots: dict = None,
         files: dict = None,
         classification: dict = None,
+        license_id: str = DEFAULT_LICENSE,
         upload_qdrant: bool = False,
         upload_pephub: bool = False,
         upload_s3: bool = False,
@@ -384,6 +386,8 @@ class BedAgentBedFile:
         :param plots: bed file plots
         :param files: bed file files
         :param classification: bed file classification
+        :param license_id: bed file license id (default: 'DUO:0000042'). Full list of licenses:
+            https://raw.githubusercontent.com/EBISPOT/DUO/master/duo.csv
         :param upload_qdrant: add bed file to qdrant indexs
         :param upload_pephub: add bed file to pephub
         :param upload_s3: upload files to s3
@@ -405,6 +409,12 @@ class BedAgentBedFile:
                 return None
             else:
                 self.delete(identifier)
+
+        if license_id not in self.bb_agent.list_of_licenses:
+            raise BedBaseConfError(
+                f"License: {license_id} is not in the list of licenses. Please provide a valid license."
+                f"List of licenses: {self.bb_agent.list_of_licenses}"
+            )
 
         stats = BedStatsModel(**stats)
         # TODO: we should not check for specific keys, of the plots!
@@ -453,6 +463,7 @@ class BedAgentBedFile:
             new_bed = Bed(
                 id=identifier,
                 **classification.model_dump(),
+                license_id=license_id,
                 indexed=upload_qdrant,
                 pephub=upload_pephub,
             )
@@ -507,6 +518,8 @@ class BedAgentBedFile:
     ):
         """
         Update bed file to the database.
+
+        !! WARNING: this method is in development. Try not to use it !!
 
         :param identifier: bed file identifier
         :param stats: bed file results {statistics, plots, files, metadata}
@@ -833,31 +846,6 @@ class BedAgentBedFile:
             if not bed_object:
                 return False
             return True
-
-    # def get_universe(self, identifier: str, full: bool = False) -> UniverseMetadata:
-    #     """
-    #     Get universe metadata
-    #
-    #     :param identifier: universe identifier
-    #     :param full: if True, return full metadata, including statistics, files, and raw metadata from pephub
-    #
-    #     :return: universe metadata
-    #     """
-    #     if not self.exists_universe(identifier):
-    #         raise ValueError(f"Universe with id: {identifier} not found.")
-    #
-    #     with Session(self._sa_engine) as session:
-    #         statement = select(Universes).where(Universes.id == identifier)
-    #         universe_object = session.scalar(statement)
-    #
-    #         bedset_id = universe_object.bedset_id
-    #         method = universe_object.method
-    #
-    #     return UniverseMetadata(
-    #         **self.get(identifier, full=full).__dict__,
-    #         bedset_id=bedset_id,
-    #         method=method,
-    #     )
 
     def exists_universe(self, identifier: str) -> bool:
         """

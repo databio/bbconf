@@ -103,6 +103,7 @@ class BedMetadataBasic(BedClassification):
     submission_date: datetime.datetime = None
     last_update_date: Optional[datetime.datetime] = None
     is_universe: Optional[bool] = False
+    license_id: Optional[str] = None
 
 
 class UniverseMetadata(BaseModel):

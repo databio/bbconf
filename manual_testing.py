@@ -109,6 +109,7 @@ def get_from_s3():
     )
 
     import s3fs
+
     s3fc_obj = s3fs.S3FileSystem(endpoint_url="https://s3.us-west-002.backblazeb2.com/")
     s3_path = "s3://bedbase/tokenized.zarr/"
     zarr_store = s3fs.S3Map(root=s3_path, s3=s3fc_obj, check=False, create=True)
@@ -148,26 +149,22 @@ def biocframe():
     ff
 
 
-def dec1(func):
-    def wrapper(*args, **kwargs):
-        print("bbbb")
-        func(*args, **kwargs)
+def add_s3():
+    from bbconf import BedBaseAgent
 
-    return wrapper
+    agent = BedBaseAgent(config="/home/bnt4me/virginia/repos/bedhost/config.yaml")
 
-@dec1
-def func1(a:str):
-    print("abc")
-    print(a)
+    agent.bed.add_universe(bedfile_id="dbf25622412f0092798293f0b3b2050d")
 
-func1("Donald")
+    agent.bed.add_tokenized(
+        universe_id="dbf25622412f0092798293f0b3b2050d",
+        bed_id="ab3641b731386f8f7d865ab82cdb4c83",
+        token_vector=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+    )
 
 
 if __name__ == "__main__":
     # zarr_s3()
+    add_s3()
     # get_from_s3()
     # biocframe()
-
-
-
-

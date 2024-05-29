@@ -1,22 +1,26 @@
 import datetime
 import logging
 from typing import List, Optional
+import pandas as pd
 
 from sqlalchemy import TIMESTAMP, BigInteger, ForeignKey, Result, Select, event, select
 from sqlalchemy.dialects.postgresql import JSON
 from sqlalchemy.engine import URL, Engine, create_engine
 from sqlalchemy.event import listens_for
-from sqlalchemy.exc import ProgrammingError
+from sqlalchemy.exc import ProgrammingError, IntegrityError
 from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, relationship
 from sqlalchemy_schemadisplay import create_schema_graph
 
-from bbconf.const import PKG_NAME
+from bbconf.const import PKG_NAME, LICENSES_CSV_URL
 
 _LOGGER = logging.getLogger(PKG_NAME)
 
 
 POSTGRES_DIALECT = "postgresql+psycopg"
+
+# tables, that were created in this execution
+tables_initialized: list = []
 
 
 class SchemaError(Exception):
@@ -49,8 +53,10 @@ def receive_after_create(target, connection, tables, **kw):
     """
     listen for the 'after_create' event
     """
+    global tables_initialized
     if tables:
         _LOGGER.info("A table was created")
+        tables_initialized = [name.fullname for name in tables]
     else:
         _LOGGER.info("A table was not created")
 
@@ -103,6 +109,10 @@ class Bed(Base):
     tokenized: Mapped["TokenizedBed"] = relationship(
         back_populates="bed", cascade="all, delete-orphan"
     )
+    license_id: Mapped["str"] = mapped_column(
+        ForeignKey("licenses.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+    license_mapping: Mapped["License"] = relationship("License", back_populates="bed")
 
 
 class BedStats(Base):
@@ -260,6 +270,19 @@ class TokenizedBed(Base):
     )
 
 
+class License(Base):
+    __tablename__ = "licenses"
+
+    id: Mapped[str] = mapped_column(primary_key=True, index=True)
+    shorthand: Mapped[str] = mapped_column(nullable=True, comment="License shorthand")
+    label: Mapped[str] = mapped_column(nullable=False, comment="License label")
+    description: Mapped[str] = mapped_column(
+        nullable=False, comment="License description"
+    )
+
+    bed: Mapped[List["Bed"]] = relationship("Bed", back_populates="license_mapping")
+
+
 @listens_for(Universes, "after_insert")
 @listens_for(Universes, "after_update")
 def add_bed_universe(mapper, connection, target):
@@ -331,7 +354,14 @@ class BaseEngine:
         if not engine:
             engine = self._engine
         Base.metadata.create_all(engine)
-        return None
+
+        global tables_initialized
+        if License.__tablename__ in tables_initialized:
+            try:
+                # It is weired, but tables are sometimes initialized twice. Or it says like that...
+                self._upload_licenses()
+            except IntegrityError:
+                pass
 
     def delete_schema(self, engine=None) -> None:
         """
@@ -398,3 +428,19 @@ class BaseEngine:
         graph = create_schema_graph(engine=self.engine, metadata=Base.metadata)
         graph.write(output_file, format="svg", prog="dot")
         return None
+
+    def _upload_licenses(self):
+        """
+        Upload licenses to the database.
+        """
+
+        _LOGGER.info("Uploading licenses to the database...")
+        df = pd.read_csv(LICENSES_CSV_URL)
+
+        with Session(self.engine) as session:
+            df.to_sql(
+                License.__tablename__, self.engine, if_exists="append", index=False
+            )
+            session.commit()
+
+        _LOGGER.info("Licenses uploaded successfully!")
