@@ -82,10 +82,11 @@ class ConfigS3(BaseModel):
     bucket: Union[str, None] = DEFAULT_S3_BUCKET
 
     @field_validator("aws_access_key_id", "aws_secret_access_key")
-    def validate_aws_credentials(cls, values):
-        for value in values:
-            if value in ["AWS_SECRET_ACCESS_KEY", "AWS_ACCESS_KEY_ID"]:
-                return None
+    def validate_aws_credentials(cls, value):
+        # Do this if AWS credentials are not provided
+        if value in ["AWS_SECRET_ACCESS_KEY", "AWS_ACCESS_KEY_ID"]:
+            return None
+        return value
 
 
 class ConfigPepHubClient(BaseModel):
