@@ -26,7 +26,7 @@ tables_initialized: list = []
 class SchemaError(Exception):
     def __init__(self):
         super().__init__(
-            """PEP_db connection error! The schema of connected db is incorrect!"""
+            """The database schema is incorrect, can't connect to the database!"""
         )
 
 

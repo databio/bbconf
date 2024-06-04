@@ -307,12 +307,15 @@ class BedAgentBedFile:
             collection_name=self._config.config.qdrant.collection,
             ids=[identifier],
             with_vectors=True,
+            with_payload=True,
         )
         if not result:
             raise BEDFileNotFoundError(
                 f"Bed file with id: {identifier} not found in qdrant database."
             )
-        return BedEmbeddingResult(identifier=identifier, embedding=result[0].vector)
+        return BedEmbeddingResult(
+            identifier=identifier, embedding=result[0].vector, payload=result[0].payload
+        )
 
     def get_ids_list(
         self,
@@ -425,7 +428,11 @@ class BedAgentBedFile:
         if upload_pephub:
             metadata = BedPEPHub(**metadata)
             try:
-                self.upload_pephub(identifier, metadata.model_dump(), overwrite)
+                self.upload_pephub(
+                    identifier,
+                    metadata.model_dump(exclude=set("input_file")),
+                    overwrite,
+                )
             except Exception as e:
                 _LOGGER.warning(
                     f"Could not upload to pephub. Error: {e}. nofail: {nofail}"
@@ -438,7 +445,9 @@ class BedAgentBedFile:
         if upload_qdrant:
             if classification.genome_alias == "hg38":
                 self.upload_file_qdrant(
-                    identifier, files.bed_file.path, {"bed_id": identifier}
+                    identifier,
+                    files.bed_file.path,
+                    metadata.model_dump(exclude=set("input_file")),
                 )
                 _LOGGER.info(f"File uploaded to qdrant. {identifier}")
             else:
@@ -519,7 +528,7 @@ class BedAgentBedFile:
         """
         Update bed file to the database.
 
-        !! WARNING: this method is in development. Try not to use it !!
+        !! WARNING: this method is in development. Please, void of using it!
 
         :param identifier: bed file identifier
         :param stats: bed file results {statistics, plots, files, metadata}
@@ -560,7 +569,7 @@ class BedAgentBedFile:
 
         if add_to_qdrant:
             self.upload_file_qdrant(
-                identifier, files.bed_file.path, {"bed_id": identifier}
+                identifier, files.bed_file.path, payload=metadata.model_dump()
             )
 
         statement = select(Bed).where(Bed.id == identifier)
@@ -798,11 +807,17 @@ class BedAgentBedFile:
 
         for record_id in bed_ids:
             bed_region_set_obj = bb_client.load_bed(record_id)
+            metadata = self._config.phc.sample.get(
+                namespace=self._config.config.phc.namespace,
+                name=self._config.config.phc.name,
+                tag=self._config.config.phc.tag,
+                sample_name=record_id,
+            )
 
             self.upload_file_qdrant(
                 bed_id=record_id,
                 bed_file=bed_region_set_obj,
-                payload={"bed_id": record_id},
+                payload=metadata,
             )
 
         return None

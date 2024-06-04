@@ -148,6 +148,7 @@ class TokenizedBedResponse(BaseModel):
 
 class BedEmbeddingResult(BaseModel):
     identifier: str
+    payload: dict
     embedding: List[float]
 
 
