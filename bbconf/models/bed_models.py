@@ -4,6 +4,7 @@ from typing import List, Optional, Union
 from pydantic import BaseModel, ConfigDict, Field
 
 from .base_models import FileModel
+from bbconf.const import DEFAULT_LICENSE
 
 
 class BedPlots(BaseModel):
@@ -103,7 +104,7 @@ class BedMetadataBasic(BedClassification):
     submission_date: datetime.datetime = None
     last_update_date: Optional[datetime.datetime] = None
     is_universe: Optional[bool] = False
-    license_id: Optional[str] = None
+    license_id: Optional[str] = DEFAULT_LICENSE
 
 
 class UniverseMetadata(BaseModel):
