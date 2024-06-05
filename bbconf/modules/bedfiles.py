@@ -20,6 +20,7 @@ from bbconf.exceptions import (
     TokenizeFileExistsError,
     TokenizeFileNotExistError,
     UniverseNotFoundError,
+    QdrantInstanceNotInitializedError,
 )
 from bbconf.models.bed_models import (
     BedClassification,
@@ -37,6 +38,7 @@ from bbconf.models.bed_models import (
     TokenizedBedResponse,
     UniverseMetadata,
     TokenizedPathResponse,
+    BedPEPHubRestrict,
 )
 
 _LOGGER = getLogger(PKG_NAME)
@@ -129,7 +131,7 @@ class BedAgentBedFile:
 
         try:
             if full:
-                bed_metadata = BedPEPHub(
+                bed_metadata = BedPEPHubRestrict(
                     **self._config.phc.sample.get(
                         namespace=self._config.config.phc.namespace,
                         name=self._config.config.phc.name,
@@ -256,7 +258,7 @@ class BedAgentBedFile:
         except Exception as e:
             _LOGGER.warning(f"Could not retrieve metadata from pephub. Error: {e}")
             bed_metadata = {}
-        return BedPEPHub(**bed_metadata)
+        return BedPEPHubRestrict(**bed_metadata)
 
     def get_classification(self, identifier: str) -> BedClassification:
         """
@@ -703,6 +705,13 @@ class BedAgentBedFile:
         :param payload: additional metadata to store alongside vectors
         :return: None
         """
+        if not self._qdrant_engine:
+            raise QdrantInstanceNotInitializedError
+
+        if not self._config.r2v:
+            raise BedBaseConfError(
+                "Could not add add region to qdrant. Invalid type, or path. "
+            )
 
         _LOGGER.info(f"Adding bed file to qdrant. bed_id: {bed_id}")
         if isinstance(bed_file, str):

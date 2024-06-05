@@ -97,6 +97,11 @@ class BedPEPHub(BaseModel):
     model_config = ConfigDict(extra="allow", populate_by_name=True)
 
 
+class BedPEPHubRestrict(BedPEPHub):
+
+    model_config = ConfigDict(extra="ignore")
+
+
 class BedMetadataBasic(BedClassification):
     id: str
     name: Optional[Union[str, None]] = ""
@@ -117,7 +122,7 @@ class BedMetadata(BedMetadataBasic):
     plots: Union[BedPlots, None] = None
     files: Union[BedFiles, None] = None
     universe_metadata: Union[UniverseMetadata, None] = None
-    raw_metadata: Optional[Union[BedPEPHub, None]] = None
+    raw_metadata: Union[BedPEPHub, BedPEPHubRestrict, None] = None
 
 
 class BedListResult(BaseModel):

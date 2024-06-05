@@ -112,7 +112,7 @@ class BBObjects:
             )
 
         _LOGGER.info(f"Getting uri for {record_type} {record_id} {result_id}")
-        _LOGGER.info(f"Result: {result}")
+        _LOGGER.debug(f"Result: {result}")
         return result
 
     def get_drs_metadata(

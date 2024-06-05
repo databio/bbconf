@@ -77,3 +77,9 @@ class TokenizeFileNotExistError(BedBaseConfError):
     """Error type for missing tokenize file"""
 
     pass
+
+
+class QdrantInstanceNotInitializedError(BedBaseConfError):
+    """Error type for missing qdrant instance"""
+
+    pass

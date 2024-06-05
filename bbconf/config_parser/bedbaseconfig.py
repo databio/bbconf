@@ -214,7 +214,7 @@ class BedBaseConfig:
             return Text2BEDSearchInterface(
                 backend=self.qdrant_engine,
                 query2vec=Text2Vec(
-                    text_embedder=self._config.path.text2vec,
+                    hf_repo=self._config.path.text2vec,
                     v2v=self._config.path.vec2vec,
                 ),
             )
