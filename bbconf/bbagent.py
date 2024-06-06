@@ -26,21 +26,21 @@ class BedBaseAgent(object):
 
         self.config = BedBaseConfig(config)
 
-        self.__bed = BedAgentBedFile(self.config, self)
-        self.__bedset = BedAgentBedSet(self.config)
-        self.__objects = BBObjects(self.config)
+        self._bed = BedAgentBedFile(self.config, self)
+        self._bedset = BedAgentBedSet(self.config)
+        self._objects = BBObjects(self.config)
 
     @property
     def bed(self) -> BedAgentBedFile:
-        return self.__bed
+        return self._bed
 
     @property
     def bedset(self) -> BedAgentBedSet:
-        return self.__bedset
+        return self._bedset
 
     @property
     def objects(self) -> BBObjects:
-        return self.__objects
+        return self._objects
 
     @cached_property
     def get_stats(self) -> StatsReturn:

@@ -3,8 +3,11 @@ from logging import getLogger
 from typing import Dict, Union
 
 import numpy as np
+from tqdm import tqdm
+
 from geniml.bbclient import BBClient
 from geniml.io import RegionSet
+from genimtools.tokenizers import RegionSet as GRegionSet
 from pephubclient.exceptions import ResponseError
 from qdrant_client.models import Distance, PointIdsList, VectorParams
 from sqlalchemy import and_, delete, func, select
@@ -446,6 +449,7 @@ class BedAgentBedFile:
 
         if upload_qdrant:
             if classification.genome_alias == "hg38":
+                _LOGGER.info(f"Uploading bed file to qdrant.. [{identifier}]")
                 self.upload_file_qdrant(
                     identifier,
                     files.bed_file.path,
@@ -705,7 +709,7 @@ class BedAgentBedFile:
         :param payload: additional metadata to store alongside vectors
         :return: None
         """
-        if not self._qdrant_engine:
+        if self._qdrant_engine is None:
             raise QdrantInstanceNotInitializedError
 
         if not self._config.r2v:
@@ -713,15 +717,18 @@ class BedAgentBedFile:
                 "Could not add add region to qdrant. Invalid type, or path. "
             )
 
-        _LOGGER.info(f"Adding bed file to qdrant. bed_id: {bed_id}")
+        _LOGGER.debug(f"Adding bed file to qdrant. bed_id: {bed_id}")
         if isinstance(bed_file, str):
-            bed_region_set = RegionSet(bed_file)
-        elif isinstance(bed_file, RegionSet):
+            bed_region_set = GRegionSet(bed_file)
+        elif isinstance(bed_file, RegionSet) or isinstance(bed_file, GRegionSet):
             bed_region_set = bed_file
         else:
             raise BedBaseConfError(
                 "Could not add add region to qdrant. Invalid type, or path. "
             )
+        # Not really working
+        # bed_embedding = np.mean([self._config.r2v.encode(r) for r in bed_region_set], axis=0)
+
         bed_embedding = np.mean(self._config.r2v.encode(bed_region_set), axis=0)
 
         # Upload bed file vector to the database
@@ -814,20 +821,28 @@ class BedAgentBedFile:
 
         bed_ids = [bed_result[0] for bed_result in bed_ids]
 
-        for record_id in bed_ids:
-            bed_region_set_obj = bb_client.load_bed(record_id)
-            metadata = self._config.phc.sample.get(
-                namespace=self._config.config.phc.namespace,
-                name=self._config.config.phc.name,
-                tag=self._config.config.phc.tag,
-                sample_name=record_id,
-            )
+        with tqdm(total=len(bed_ids), position=0, leave=True) as pbar:
+            for record_id in bed_ids:
+                try:
+                    bed_region_set_obj = GRegionSet(bb_client.seek(record_id))
+                except FileNotFoundError:
+                    bed_region_set_obj = bb_client.load_bed(record_id)
 
-            self.upload_file_qdrant(
-                bed_id=record_id,
-                bed_file=bed_region_set_obj,
-                payload=metadata,
-            )
+                pbar.set_description(f"Processing file: {record_id}")
+                metadata = self._config.phc.sample.get(
+                    namespace=self._config.config.phc.namespace,
+                    name=self._config.config.phc.name,
+                    tag=self._config.config.phc.tag,
+                    sample_name=record_id,
+                )
+
+                self.upload_file_qdrant(
+                    bed_id=record_id,
+                    bed_file=bed_region_set_obj,
+                    payload=BedPEPHubRestrict(**metadata).model_dump(),
+                )
+                pbar.write(f"File: {record_id} uploaded to qdrant successfully.")
+                pbar.update(1)
 
         return None
 
