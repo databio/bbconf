@@ -942,24 +942,46 @@ class BedAgentBedFile:
             session.execute(statement)
             session.commit()
 
-    def add_tokenized(self, bed_id: str, universe_id: str, token_vector: list) -> str:
+    def add_tokenized(
+        self, bed_id: str, universe_id: str, token_vector: list, overwrite: bool = False
+    ) -> str:
         """
         Add tokenized bed file to the database
 
         :param bed_id: bed file identifier
         :param universe_id: universe identifier
         :param token_vector: list of tokens
+        :param overwrite: overwrite tokenized file if it already exists
 
         :return: token path
         """
 
-        path = self._add_zarr_s3(
-            bed_id=bed_id, universe_id=universe_id, tokenized_vector=token_vector
-        )
-        path = os.path.join(f"s3://{self._config.config.s3.bucket}", path)
-
         with Session(self._sa_engine) as session:
+            if not self.exists_universe(universe_id):
+                raise UniverseNotFoundError(
+                    f"Universe not found in the database. id: {universe_id}"
+                    f"Please add universe first."
+                )
+
+            if self.exist_tokenized(bed_id, universe_id):
+                if not overwrite:
+                    if not overwrite:
+                        raise TokenizeFileExistsError(
+                            "Tokenized file already exists in the database. "
+                            "Set overwrite to True to overwrite it."
+                        )
+                    else:
+                        self.delete_tokenized(bed_id, universe_id)
+
+            path = self._add_zarr_s3(
+                bed_id=bed_id,
+                universe_id=universe_id,
+                tokenized_vector=token_vector,
+                overwrite=overwrite,
+            )
+            path = os.path.join(f"s3://{self._config.config.s3.bucket}", path)
             new_token = TokenizedBed(bed_id=bed_id, universe_id=universe_id, path=path)
+
             session.add(new_token)
             session.commit()
         return path

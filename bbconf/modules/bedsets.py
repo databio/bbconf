@@ -55,9 +55,6 @@ class BedAgentBedSet:
             list_of_bedfiles = [
                 bedset_obj.bedfile_id for bedset_obj in bedset_obj.bedfiles
             ]
-            # list_of_bedfiles = session.execute(select(Bed.id).where(Bed.bedsets.any(id=identifier))).all()
-            # list_of_bedfiles = [k[0] for k in list_of_bedfiles]
-
             if full:
                 plots = BedSetPlots()
                 for plot in bedset_obj.files:
