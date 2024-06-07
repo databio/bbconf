@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from bbconf.config_parser import BedBaseConfig
 from bbconf.const import PKG_NAME
-from bbconf.db_utils import BedFileBedSetRelation, BedSets, BedStats, Files
+from bbconf.db_utils import BedFileBedSetRelation, BedSets, BedStats, Files, Bed
 from bbconf.exceptions import BedSetExistsError, BedSetNotFoundError
 from bbconf.models.bed_models import BedStatsModel
 from bbconf.models.bedset_models import (
@@ -55,6 +55,9 @@ class BedAgentBedSet:
             list_of_bedfiles = [
                 bedset_obj.bedfile_id for bedset_obj in bedset_obj.bedfiles
             ]
+            # list_of_bedfiles = session.execute(select(Bed.id).where(Bed.bedsets.any(id=identifier))).all()
+            # list_of_bedfiles = [k[0] for k in list_of_bedfiles]
+
             if full:
                 plots = BedSetPlots()
                 for plot in bedset_obj.files:
@@ -369,15 +372,16 @@ class BedAgentBedSet:
 
         :return: list of bedfiles
         """
-        statement = select(BedSets).where(BedSets.id == identifier)
+        sub_statement = select(BedFileBedSetRelation.bedfile_id).where(
+            BedFileBedSetRelation.bedset_id == identifier
+        )
+        statement = select(Bed).where(Bed.id.in_(sub_statement))
 
         with Session(self._db_engine.engine) as session:
-            bedset_obj = session.scalar(statement)
-            bedfiles_list = bedset_obj.bedfiles
-
+            bedfiles_list = session.scalars(statement)
             results = [
-                BedMetadataBasic(**bedfile.bedfile.__dict__)
-                for bedfile in bedfiles_list
+                BedMetadataBasic(**bedfile_obj.__dict__)
+                for bedfile_obj in bedfiles_list
             ]
 
         return BedSetBedFiles(
