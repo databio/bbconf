@@ -127,9 +127,9 @@ class BedAgentBedFile:
                 for relation in bed_object.bedsets:
                     bed_bedsets.append(
                         BedSetMinimal(
-                            id=relation.bedfile.id,
-                            description=relation.bedfile.description,
-                            name=relation.bedfile.name,
+                            id=relation.bedset.id,
+                            description=relation.bedset.description,
+                            name=relation.bedset.name,
                         )
                     )
 
