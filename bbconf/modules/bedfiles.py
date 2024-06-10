@@ -42,6 +42,7 @@ from bbconf.models.bed_models import (
     UniverseMetadata,
     TokenizedPathResponse,
     BedPEPHubRestrict,
+    BedSetMinimal,
 )
 
 _LOGGER = getLogger(PKG_NAME)
@@ -122,6 +123,16 @@ class BedAgentBedFile:
                             f"Unknown file type: {result.name}. And is not in the model fields. Skipping.."
                         )
                 bed_stats = BedStatsModel(**bed_object.stats.__dict__)
+                bed_bedsets = []
+                for relation in bed_object.bedsets:
+                    bed_bedsets.append(
+                        BedSetMinimal(
+                            id=relation.bedfile.id,
+                            description=relation.bedfile.description,
+                            name=relation.bedfile.name,
+                        )
+                    )
+
                 if bed_object.universe:
                     universe_meta = UniverseMetadata(**bed_object.universe.__dict__)
                 else:
@@ -131,6 +142,7 @@ class BedAgentBedFile:
                 bed_files = None
                 bed_stats = None
                 universe_meta = None
+                bed_bedsets = []
 
         try:
             if full:
@@ -166,6 +178,7 @@ class BedAgentBedFile:
             license_id=bed_object.license_id or DEFAULT_LICENSE,
             universe_metadata=universe_meta,
             full_response=full,
+            bedsets=bed_bedsets,
         )
 
     def get_stats(self, identifier: str) -> BedStatsModel:

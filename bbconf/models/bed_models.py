@@ -117,12 +117,19 @@ class UniverseMetadata(BaseModel):
     bedset_id: Union[str, None] = None
 
 
+class BedSetMinimal(BaseModel):
+    id: str
+    name: Union[str, None] = None
+    description: Union[str, None] = None
+
+
 class BedMetadata(BedMetadataBasic):
     stats: Union[BedStatsModel, None] = None
     plots: Union[BedPlots, None] = None
     files: Union[BedFiles, None] = None
     universe_metadata: Union[UniverseMetadata, None] = None
     raw_metadata: Union[BedPEPHub, BedPEPHubRestrict, None] = None
+    bedsets: Union[List[BedSetMinimal], None] = None
 
 
 class BedListResult(BaseModel):
