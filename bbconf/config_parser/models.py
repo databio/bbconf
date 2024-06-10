@@ -42,7 +42,7 @@ class ConfigDB(BaseModel):
 
         :return str: The URL of the database.
         """
-        return f"{self.dialect}+{self.driver}://{self.user}:{self.password}@{self.host}:{self.port}/{self.name}"
+        return f"{self.dialect}+{self.driver}://{self.user}:{self.password}@{self.host}:{self.port}/{self.database}"
 
 
 class ConfigQdrant(BaseModel):
@@ -84,7 +84,7 @@ class ConfigS3(BaseModel):
     @field_validator("aws_access_key_id", "aws_secret_access_key")
     def validate_aws_credentials(cls, value):
         # Do this if AWS credentials are not provided
-        if value in ["AWS_SECRET_ACCESS_KEY", "AWS_ACCESS_KEY_ID"]:
+        if value in ["AWS_SECRET_ACCESS_KEY", "AWS_ACCESS_KEY_ID", ""]:
             return None
         return value
 
