@@ -1,5 +1,6 @@
 from pathlib import Path
 from typing import Optional, Union
+import logging
 
 from pydantic import BaseModel, ConfigDict, computed_field, field_validator
 from yacman import load_yaml
@@ -21,6 +22,8 @@ from bbconf.config_parser.const import (
     DEFAULT_TEXT2VEC_MODEL,
     DEFAULT_VEC2VEC_MODEL,
 )
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class ConfigDB(BaseModel):
@@ -93,6 +96,21 @@ class ConfigS3(BaseModel):
         ]:
             return None
         return value
+
+    @computed_field
+    @property
+    def modify_access(self) -> bool:
+        """
+        If the AWS credentials are provided, set the modify access to True. (create = True)
+
+        :return str: The URL of the database.
+        """
+        if self.aws_access_key_id and self.aws_secret_access_key:
+            return True
+        _LOGGER.warning(
+            "AWS credentials are not provided. The S3 bucket will be read-only."
+        )
+        return False
 
 
 class ConfigPepHubClient(BaseModel):

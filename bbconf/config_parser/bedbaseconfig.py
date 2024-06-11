@@ -169,7 +169,9 @@ class BedBaseConfig:
 
         s3_path = f"s3://{self._config.s3.bucket}/{ZARR_TOKENIZED_FOLDER}"
 
-        zarr_store = s3fs.S3Map(root=s3_path, s3=s3fc_obj, check=False, create=True)
+        zarr_store = s3fs.S3Map(
+            root=s3_path, s3=s3fc_obj, check=False, create=self._config.s3.modify_access
+        )
         cache = zarr.LRUStoreCache(zarr_store, max_size=2**28)
 
         return zarr.group(store=cache, overwrite=False)
