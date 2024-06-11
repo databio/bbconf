@@ -1,10 +1,32 @@
 import os
+import subprocess
+from atexit import register
 
 import pytest
 
 from bbconf.bbagent import BedBaseAgent
 
 from .utils import BED_TEST_ID
+
+DB_CMD = """
+docker run --rm -it --name bedbase-test \
+  -e POSTGRES_USER=postgres \
+  -e POSTGRES_PASSWORD=docker\
+  -e POSTGRES_DB=bedbase \
+  -p 5432:5432 postgres
+"""
+
+try:
+    subprocess.check_output(
+        "docker inspect bedbase-test --format '{{.State.Status}}'", shell=True
+    )
+    SERVICE_UNAVAILABLE = False
+except:
+    register(
+        print, f"Some tests require a test database. To initiate it, run:\n{DB_CMD}"
+    )
+    SERVICE_UNAVAILABLE = True
+
 
 TESTS_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -17,14 +39,17 @@ DATA_PATH = os.path.join(
     "data",
 )
 
+if not SERVICE_UNAVAILABLE:
+    agent = BedBaseAgent(config=CONFIG_PATH)
+
 
 def get_bbagent():
-    return BedBaseAgent(config=CONFIG_PATH)
+    return agent
 
 
 @pytest.fixture(scope="function")
 def bbagent_obj():
-    yield BedBaseAgent(config=CONFIG_PATH)
+    yield agent
 
 
 @pytest.fixture()

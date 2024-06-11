@@ -4,6 +4,7 @@ from typing import List, Optional, Union
 from pydantic import BaseModel, ConfigDict, Field
 
 from .base_models import FileModel
+from bbconf.const import DEFAULT_LICENSE
 
 
 class BedPlots(BaseModel):
@@ -96,39 +97,53 @@ class BedPEPHub(BaseModel):
     model_config = ConfigDict(extra="allow", populate_by_name=True)
 
 
-class BedMetadata(BedClassification):
+class BedPEPHubRestrict(BedPEPHub):
+
+    model_config = ConfigDict(extra="ignore")
+
+
+class BedMetadataBasic(BedClassification):
     id: str
     name: Optional[Union[str, None]] = ""
     description: Optional[str] = None
     submission_date: datetime.datetime = None
     last_update_date: Optional[datetime.datetime] = None
+    is_universe: Optional[bool] = False
+    license_id: Optional[str] = DEFAULT_LICENSE
+
+
+class UniverseMetadata(BaseModel):
+    construct_method: Union[str, None] = None
+    bedset_id: Union[str, None] = None
+
+
+class BedSetMinimal(BaseModel):
+    id: str
+    name: Union[str, None] = None
+    description: Union[str, None] = None
+
+
+class BedMetadata(BedMetadataBasic):
     stats: Union[BedStatsModel, None] = None
-    # classification: BedClassification = None
     plots: Union[BedPlots, None] = None
     files: Union[BedFiles, None] = None
-    raw_metadata: Optional[Union[BedPEPHub, None]] = None
-
-    # genome_alias: str = None
-    # genome_digest: str = None
-    # bed_type: str = Field(
-    #     default="bed3", pattern="^bed(?:[3-9]|1[0-5])(?:\+|$)[0-9]?+$"
-    # )
-    # bed_format: str = None
-    # full_response: bool = False
+    universe_metadata: Union[UniverseMetadata, None] = None
+    raw_metadata: Union[BedPEPHub, BedPEPHubRestrict, None] = None
+    bedsets: Union[List[BedSetMinimal], None] = None
 
 
 class BedListResult(BaseModel):
     count: int
     limit: int
     offset: int
-    results: List[BedMetadata]
+    results: List[BedMetadataBasic]
 
 
 class QdrantSearchResult(BaseModel):
     id: str
     payload: dict
     score: float
-    metadata: Union[BedMetadata, None] = None
+    metadata: Union[BedMetadataBasic, None] = None
 
 
 class BedListSearchResult(BaseModel):
@@ -136,3 +151,22 @@ class BedListSearchResult(BaseModel):
     limit: int
     offset: int
     results: List[QdrantSearchResult] = None
+
+
+class TokenizedBedResponse(BaseModel):
+    universe_id: str
+    bed_id: str
+    tokenized_bed: List[int]
+
+
+class BedEmbeddingResult(BaseModel):
+    identifier: str
+    payload: dict
+    embedding: List[float]
+
+
+class TokenizedPathResponse(BaseModel):
+    bed_id: str
+    universe_id: str
+    file_path: str
+    endpoint_url: str

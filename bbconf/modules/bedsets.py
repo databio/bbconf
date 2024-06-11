@@ -1,27 +1,23 @@
 import logging
-
-from geniml.io.utils import compute_md5sum_bedset
 from typing import Dict, List
 
+from geniml.io.utils import compute_md5sum_bedset
 from sqlalchemy import Float, Numeric, func, or_, select
 from sqlalchemy.orm import Session
 
 from bbconf.config_parser import BedBaseConfig
 from bbconf.const import PKG_NAME
-from bbconf.db_utils import BedFileBedSetRelation, BedSets, BedStats, Files
-from bbconf.exceptions import (
-    BedSetNotFoundError,
-    BedSetExistsError,
-)
+from bbconf.db_utils import BedFileBedSetRelation, BedSets, BedStats, Files, Bed
+from bbconf.exceptions import BedSetExistsError, BedSetNotFoundError
 from bbconf.models.bed_models import BedStatsModel
 from bbconf.models.bedset_models import (
+    BedMetadataBasic,
     BedSetBedFiles,
     BedSetListResult,
     BedSetMetadata,
     BedSetPlots,
     BedSetStats,
     FileModel,
-    BedMetadata,
 )
 
 _LOGGER = logging.getLogger(PKG_NAME)
@@ -214,7 +210,7 @@ class BedAgentBedSet:
         )
 
         if upload_s3:
-            plots = BedSetPlots(**plots)
+            plots = BedSetPlots(**plots) if plots else BedSetPlots()
             plots = self.config.upload_files_s3(
                 identifier, files=plots, base_path=local_path, type="bedsets"
             )
@@ -335,6 +331,7 @@ class BedAgentBedSet:
         :return: list of bedsets
         """
         statement = select(BedSets.id)
+        count_statement = select(func.count(BedSets.id))
         if query:
             sql_search_str = f"%{query}%"
             statement = statement.where(
@@ -343,14 +340,22 @@ class BedAgentBedSet:
                     BedSets.description.ilike(sql_search_str),
                 )
             )
+            count_statement = count_statement.where(
+                or_(
+                    BedSets.name.ilike(sql_search_str),
+                    BedSets.description.ilike(sql_search_str),
+                )
+            )
+
         with Session(self._db_engine.engine) as session:
             bedset_list = session.execute(statement.limit(limit).offset(offset))
+            bedset_count = session.execute(count_statement).one()
 
         result_list = []
         for bedset_id in bedset_list:
             result_list.append(self.get(bedset_id[0]))
         return BedSetListResult(
-            count=len(result_list),
+            count=bedset_count[0],
             limit=limit,
             offset=offset,
             results=result_list,
@@ -364,14 +369,16 @@ class BedAgentBedSet:
 
         :return: list of bedfiles
         """
-        statement = select(BedSets).where(BedSets.id == identifier)
+        sub_statement = select(BedFileBedSetRelation.bedfile_id).where(
+            BedFileBedSetRelation.bedset_id == identifier
+        )
+        statement = select(Bed).where(Bed.id.in_(sub_statement))
 
         with Session(self._db_engine.engine) as session:
-            bedset_obj = session.scalar(statement)
-            bedfiles_list = bedset_obj.bedfiles
-
+            bedfiles_list = session.scalars(statement)
             results = [
-                BedMetadata(**bedfile.bedfile.__dict__) for bedfile in bedfiles_list
+                BedMetadataBasic(**bedfile_obj.__dict__)
+                for bedfile_obj in bedfiles_list
             ]
 
         return BedSetBedFiles(

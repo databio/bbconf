@@ -5,16 +5,19 @@ from sqlalchemy.sql import select
 from bbconf.bbagent import BedBaseAgent
 from bbconf.db_utils import Bed, Files
 from bbconf.exceptions import BedFIleExistsError, BEDFileNotFoundError
+from bbconf.const import DEFAULT_LICENSE
 
-from .conftest import get_bbagent
+from .conftest import SERVICE_UNAVAILABLE, get_bbagent
 from .utils import BED_TEST_ID, ContextManagerDBTesting
 
 
+@pytest.mark.skipif(SERVICE_UNAVAILABLE, reason="Database is not available")
 def test_bb_database():
     agent = get_bbagent()
     assert isinstance(agent, BedBaseAgent)
 
 
+@pytest.mark.skipif(SERVICE_UNAVAILABLE, reason="Database is not available")
 class Test_BedFile_Agent:
     def test_upload(self, bbagent_obj, example_dict, mocker):
         upload_s3_mock = mocker.patch(
@@ -62,6 +65,7 @@ class Test_BedFile_Agent:
 
             assert return_result.files.bed_file is not None
             assert return_result.plots.chrombins is not None
+            assert return_result.license_id == DEFAULT_LICENSE
 
     def test_get_all_not_found(self, bbagent_obj):
         with ContextManagerDBTesting(config=bbagent_obj.config, add_data=True):
@@ -178,7 +182,7 @@ class Test_BedFile_Agent:
             )
 
         assert len(return_result.results) == 0
-        assert return_result.count == 0
+        assert return_result.count == 1
         assert return_result.offset == 1
 
     def test_bed_delete(self, bbagent_obj, mocker):

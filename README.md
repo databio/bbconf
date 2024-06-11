@@ -25,6 +25,7 @@ It formalizes communication pathways for pipelines and downstream tools, ensurin
 ---
 
 ## Installation
+
 To install `bbclient` use this command: 
 ```
 pip install bbclient

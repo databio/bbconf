@@ -1,35 +1,48 @@
+import os
 from logging import getLogger
 from typing import Dict, Union
 
 import numpy as np
+from tqdm import tqdm
+
 from geniml.bbclient import BBClient
 from geniml.io import RegionSet
+from genimtools.tokenizers import RegionSet as GRegionSet
 from pephubclient.exceptions import ResponseError
 from qdrant_client.models import Distance, PointIdsList, VectorParams
-from sqlalchemy import select
+from sqlalchemy import and_, delete, func, select
 from sqlalchemy.orm import Session
 
 from bbconf.config_parser.bedbaseconfig import BedBaseConfig
-from bbconf.const import (
-    PKG_NAME,
-)
-from bbconf.db_utils import Bed, BedStats, Files
+from bbconf.const import PKG_NAME, ZARR_TOKENIZED_FOLDER, DEFAULT_LICENSE
+from bbconf.db_utils import Bed, BedStats, Files, TokenizedBed, Universes
 from bbconf.exceptions import (
     BedBaseConfError,
     BedFIleExistsError,
     BEDFileNotFoundError,
+    TokenizeFileExistsError,
+    TokenizeFileNotExistError,
+    UniverseNotFoundError,
+    QdrantInstanceNotInitializedError,
 )
 from bbconf.models.bed_models import (
     BedClassification,
+    BedEmbeddingResult,
     BedFiles,
     BedListResult,
     BedListSearchResult,
     BedMetadata,
+    BedMetadataBasic,
     BedPEPHub,
     BedPlots,
     BedStatsModel,
     FileModel,
     QdrantSearchResult,
+    TokenizedBedResponse,
+    UniverseMetadata,
+    TokenizedPathResponse,
+    BedPEPHubRestrict,
+    BedSetMinimal,
 )
 
 _LOGGER = getLogger(PKG_NAME)
@@ -44,15 +57,17 @@ class BedAgentBedFile:
     This class has method to add, delete, get files and metadata from the database.
     """
 
-    def __init__(self, config: BedBaseConfig):
+    def __init__(self, config: BedBaseConfig, bbagent_obj=None):
         """
         :param config: config object with database and qdrant engine and credentials
+        :param bbagent_obj: BedBaseAgent object (Parent object)
         """
         self._sa_engine = config.db_engine.engine
         self._db_engine = config.db_engine
         self._qdrant_engine = config.qdrant_engine
         self._boto3_client = config.boto3_client
         self._config = config
+        self.bb_agent = bbagent_obj
 
     def get(self, identifier: str, full: bool = False) -> BedMetadata:
         """
@@ -108,14 +123,30 @@ class BedAgentBedFile:
                             f"Unknown file type: {result.name}. And is not in the model fields. Skipping.."
                         )
                 bed_stats = BedStatsModel(**bed_object.stats.__dict__)
+                bed_bedsets = []
+                for relation in bed_object.bedsets:
+                    bed_bedsets.append(
+                        BedSetMinimal(
+                            id=relation.bedset.id,
+                            description=relation.bedset.description,
+                            name=relation.bedset.name,
+                        )
+                    )
+
+                if bed_object.universe:
+                    universe_meta = UniverseMetadata(**bed_object.universe.__dict__)
+                else:
+                    universe_meta = UniverseMetadata()
             else:
                 bed_plots = None
                 bed_files = None
                 bed_stats = None
+                universe_meta = None
+                bed_bedsets = []
 
         try:
             if full:
-                bed_metadata = BedPEPHub(
+                bed_metadata = BedPEPHubRestrict(
                     **self._config.phc.sample.get(
                         namespace=self._config.config.phc.namespace,
                         name=self._config.config.phc.name,
@@ -143,7 +174,11 @@ class BedAgentBedFile:
             genome_digest=bed_object.genome_digest,
             bed_type=bed_object.bed_type,
             bed_format=bed_object.bed_format,
+            is_universe=bed_object.is_universe,
+            license_id=bed_object.license_id or DEFAULT_LICENSE,
+            universe_metadata=universe_meta,
             full_response=full,
+            bedsets=bed_bedsets,
         )
 
     def get_stats(self, identifier: str) -> BedStatsModel:
@@ -239,7 +274,7 @@ class BedAgentBedFile:
         except Exception as e:
             _LOGGER.warning(f"Could not retrieve metadata from pephub. Error: {e}")
             bed_metadata = {}
-        return BedPEPHub(**bed_metadata)
+        return BedPEPHubRestrict(**bed_metadata)
 
     def get_classification(self, identifier: str) -> BedClassification:
         """
@@ -277,13 +312,35 @@ class BedAgentBedFile:
 
         return return_dict
 
+    def get_embedding(self, identifier: str) -> BedEmbeddingResult:
+        """
+        Get bed file embedding of bed file from qdrant.
+
+        :param identifier: bed file identifier
+        :return: bed file embedding
+        """
+        if not self.exists(identifier):
+            raise BEDFileNotFoundError(f"Bed file with id: {identifier} not found.")
+        result = self._qdrant_engine.qd_client.retrieve(
+            collection_name=self._config.config.qdrant.collection,
+            ids=[identifier],
+            with_vectors=True,
+            with_payload=True,
+        )
+        if not result:
+            raise BEDFileNotFoundError(
+                f"Bed file with id: {identifier} not found in qdrant database."
+            )
+        return BedEmbeddingResult(
+            identifier=identifier, embedding=result[0].vector, payload=result[0].payload
+        )
+
     def get_ids_list(
         self,
         limit: int = 100,
         offset: int = 0,
         genome: str = None,
         bed_type: str = None,
-        full: bool = False,
     ) -> BedListResult:
         """
         Get list of bed file identifiers.
@@ -296,26 +353,33 @@ class BedAgentBedFile:
 
         :return: list of bed file identifiers
         """
-        # TODO: question: Return Annotation?
-        statement = select(Bed.id)
+        statement = select(Bed)
+        count_statement = select(func.count(Bed.id))
 
         # TODO: make it generic, like in pephub
         if genome:
             statement = statement.where(Bed.genome_alias == genome)
+            count_statement = count_statement.where(Bed.genome_alias == genome)
 
         if bed_type:
             statement = statement.where(Bed.bed_type == bed_type)
+            count_statement = count_statement.where(Bed.bed_type == bed_type)
 
         statement = statement.limit(limit).offset(offset)
 
+        result_list = []
         with Session(self._sa_engine) as session:
-            bed_ids = session.execute(statement).all()
+            bed_ids = session.scalars(statement)
+            count = session.execute(count_statement).one()
+
+            for result in bed_ids:
+                result_list.append(BedMetadataBasic(**result.__dict__))
 
         return BedListResult(
-            count=len(bed_ids),
+            count=count[0],
             limit=limit,
             offset=offset,
-            results=[self.get(result[0], full=full) for result in bed_ids],
+            results=result_list,
         )
 
     def add(
@@ -326,6 +390,7 @@ class BedAgentBedFile:
         plots: dict = None,
         files: dict = None,
         classification: dict = None,
+        license_id: str = DEFAULT_LICENSE,
         upload_qdrant: bool = False,
         upload_pephub: bool = False,
         upload_s3: bool = False,
@@ -342,6 +407,8 @@ class BedAgentBedFile:
         :param plots: bed file plots
         :param files: bed file files
         :param classification: bed file classification
+        :param license_id: bed file license id (default: 'DUO:0000042'). Full list of licenses:
+            https://raw.githubusercontent.com/EBISPOT/DUO/master/duo.csv
         :param upload_qdrant: add bed file to qdrant indexs
         :param upload_pephub: add bed file to pephub
         :param upload_s3: upload files to s3
@@ -364,6 +431,12 @@ class BedAgentBedFile:
             else:
                 self.delete(identifier)
 
+        if license_id not in self.bb_agent.list_of_licenses:
+            raise BedBaseConfError(
+                f"License: {license_id} is not in the list of licenses. Please provide a valid license."
+                f"List of licenses: {self.bb_agent.list_of_licenses}"
+            )
+
         stats = BedStatsModel(**stats)
         # TODO: we should not check for specific keys, of the plots!
         plots = BedPlots(**plots)
@@ -373,7 +446,11 @@ class BedAgentBedFile:
         if upload_pephub:
             metadata = BedPEPHub(**metadata)
             try:
-                self.upload_pephub(identifier, metadata.model_dump(), overwrite)
+                self.upload_pephub(
+                    identifier,
+                    metadata.model_dump(exclude=set("input_file")),
+                    overwrite,
+                )
             except Exception as e:
                 _LOGGER.warning(
                     f"Could not upload to pephub. Error: {e}. nofail: {nofail}"
@@ -385,8 +462,11 @@ class BedAgentBedFile:
 
         if upload_qdrant:
             if classification.genome_alias == "hg38":
+                _LOGGER.info(f"Uploading bed file to qdrant.. [{identifier}]")
                 self.upload_file_qdrant(
-                    identifier, files.bed_file.path, {"bed_id": identifier}
+                    identifier,
+                    files.bed_file.path,
+                    metadata.model_dump(exclude=set("input_file")),
                 )
                 _LOGGER.info(f"File uploaded to qdrant. {identifier}")
             else:
@@ -411,6 +491,7 @@ class BedAgentBedFile:
             new_bed = Bed(
                 id=identifier,
                 **classification.model_dump(),
+                license_id=license_id,
                 indexed=upload_qdrant,
                 pephub=upload_pephub,
             )
@@ -466,6 +547,8 @@ class BedAgentBedFile:
         """
         Update bed file to the database.
 
+        !! WARNING: this method is in development. Please, void of using it!
+
         :param identifier: bed file identifier
         :param stats: bed file results {statistics, plots, files, metadata}
         :param metadata: bed file metadata (will be saved in pephub)
@@ -505,7 +588,7 @@ class BedAgentBedFile:
 
         if add_to_qdrant:
             self.upload_file_qdrant(
-                identifier, files.bed_file.path, {"bed_id": identifier}
+                identifier, files.bed_file.path, payload=metadata.model_dump()
             )
 
         statement = select(Bed).where(Bed.id == identifier)
@@ -639,16 +722,26 @@ class BedAgentBedFile:
         :param payload: additional metadata to store alongside vectors
         :return: None
         """
+        if self._qdrant_engine is None:
+            raise QdrantInstanceNotInitializedError
 
-        _LOGGER.info(f"Adding bed file to qdrant. bed_id: {bed_id}")
+        if not self._config.r2v:
+            raise BedBaseConfError(
+                "Could not add add region to qdrant. Invalid type, or path. "
+            )
+
+        _LOGGER.debug(f"Adding bed file to qdrant. bed_id: {bed_id}")
         if isinstance(bed_file, str):
-            bed_region_set = RegionSet(bed_file)
-        elif isinstance(bed_file, RegionSet):
+            bed_region_set = GRegionSet(bed_file)
+        elif isinstance(bed_file, RegionSet) or isinstance(bed_file, GRegionSet):
             bed_region_set = bed_file
         else:
             raise BedBaseConfError(
                 "Could not add add region to qdrant. Invalid type, or path. "
             )
+        # Not really working
+        # bed_embedding = np.mean([self._config.r2v.encode(r) for r in bed_region_set], axis=0)
+
         bed_embedding = np.mean(self._config.r2v.encode(bed_region_set), axis=0)
 
         # Upload bed file vector to the database
@@ -689,7 +782,10 @@ class BedAgentBedFile:
             if result_meta:
                 results_list.append(QdrantSearchResult(**result, metadata=result_meta))
         return BedListSearchResult(
-            count=len(results), limit=limit, offset=offset, results=results_list
+            count=self.bb_agent.get_stats.bedfiles_number,
+            limit=limit,
+            offset=offset,
+            results=results_list,
         )
 
     def bed_to_bed_search(
@@ -714,7 +810,7 @@ class BedAgentBedFile:
             if result_meta:
                 results_list.append(QdrantSearchResult(**result, metadata=result_meta))
         return BedListSearchResult(
-            count=len(results_list),
+            count=self.bb_agent.get_stats.bedfiles_number,
             limit=limit,
             offset=offset,
             results=results_list,
@@ -738,14 +834,28 @@ class BedAgentBedFile:
 
         bed_ids = [bed_result[0] for bed_result in bed_ids]
 
-        for record_id in bed_ids:
-            bed_region_set_obj = bb_client.load_bed(record_id)
+        with tqdm(total=len(bed_ids), position=0, leave=True) as pbar:
+            for record_id in bed_ids:
+                try:
+                    bed_region_set_obj = GRegionSet(bb_client.seek(record_id))
+                except FileNotFoundError:
+                    bed_region_set_obj = bb_client.load_bed(record_id)
 
-            self.upload_file_qdrant(
-                bed_id=record_id,
-                bed_file=bed_region_set_obj,
-                payload={"bed_id": record_id},
-            )
+                pbar.set_description(f"Processing file: {record_id}")
+                metadata = self._config.phc.sample.get(
+                    namespace=self._config.config.phc.namespace,
+                    name=self._config.config.phc.name,
+                    tag=self._config.config.phc.tag,
+                    sample_name=record_id,
+                )
+
+                self.upload_file_qdrant(
+                    bed_id=record_id,
+                    bed_file=bed_region_set_obj,
+                    payload=BedPEPHubRestrict(**metadata).model_dump(),
+                )
+                pbar.write(f"File: {record_id} uploaded to qdrant successfully.")
+                pbar.update(1)
 
         return None
 
@@ -788,3 +898,247 @@ class BedAgentBedFile:
             if not bed_object:
                 return False
             return True
+
+    def exists_universe(self, identifier: str) -> bool:
+        """
+        Check if universe exists in the database.
+
+        :param identifier: universe identifier
+
+        :return: True if universe exists, False otherwise
+        """
+        statement = select(Universes).where(Universes.id == identifier)
+
+        with Session(self._sa_engine) as session:
+            bed_object = session.scalar(statement)
+            if not bed_object:
+                return False
+            return True
+
+    def add_universe(
+        self, bedfile_id: str, bedset_id: str = None, construct_method: str = None
+    ) -> str:
+        """
+        Add universe to the database.
+
+        :param bedfile_id: bed file identifier
+        :param bedset_id: bedset identifier
+        :param construct_method: method used to construct the universe
+
+        :return: universe identifier.
+        """
+
+        if not self.exists(bedfile_id):
+            raise BEDFileNotFoundError
+        with Session(self._sa_engine) as session:
+            new_univ = Universes(
+                id=bedfile_id, bedset_id=bedset_id, method=construct_method
+            )
+            session.add(new_univ)
+            session.commit()
+
+        _LOGGER.info(f"Universe added to the database successfully. id: {bedfile_id}")
+        return bedfile_id
+
+    def delete_universe(self, identifier: str) -> None:
+        """
+        Delete universe from the database.
+
+        :param identifier: universe identifier
+        :return: None
+        """
+        if not self.exists_universe(identifier):
+            raise UniverseNotFoundError(f"Universe not found. id: {identifier}")
+
+        with Session(self._sa_engine) as session:
+            statement = delete(Universes).where(Universes.id == identifier)
+            session.execute(statement)
+            session.commit()
+
+    def add_tokenized(
+        self, bed_id: str, universe_id: str, token_vector: list, overwrite: bool = False
+    ) -> str:
+        """
+        Add tokenized bed file to the database
+
+        :param bed_id: bed file identifier
+        :param universe_id: universe identifier
+        :param token_vector: list of tokens
+        :param overwrite: overwrite tokenized file if it already exists
+
+        :return: token path
+        """
+
+        with Session(self._sa_engine) as session:
+            if not self.exists_universe(universe_id):
+                raise UniverseNotFoundError(
+                    f"Universe not found in the database. id: {universe_id}"
+                    f"Please add universe first."
+                )
+
+            if self.exist_tokenized(bed_id, universe_id):
+                if not overwrite:
+                    if not overwrite:
+                        raise TokenizeFileExistsError(
+                            "Tokenized file already exists in the database. "
+                            "Set overwrite to True to overwrite it."
+                        )
+                    else:
+                        self.delete_tokenized(bed_id, universe_id)
+
+            path = self._add_zarr_s3(
+                bed_id=bed_id,
+                universe_id=universe_id,
+                tokenized_vector=token_vector,
+                overwrite=overwrite,
+            )
+            path = os.path.join(f"s3://{self._config.config.s3.bucket}", path)
+            new_token = TokenizedBed(bed_id=bed_id, universe_id=universe_id, path=path)
+
+            session.add(new_token)
+            session.commit()
+        return path
+
+    def _add_zarr_s3(
+        self,
+        universe_id: str,
+        bed_id: str,
+        tokenized_vector: list,
+        overwrite: bool = False,
+    ) -> str:
+        """
+        Add zarr file to the database
+
+        :param universe_id: universe identifier
+        :param bed_id: bed file identifier
+        :param tokenized_vector: tokenized vector
+
+        :return: zarr path
+        """
+        univers_group = self._config.zarr_root.require_group(universe_id)
+
+        if not univers_group.get(bed_id):
+            _LOGGER.info("Saving tokenized vector to s3")
+            path = univers_group.create_dataset(bed_id, data=tokenized_vector).path
+        elif overwrite:
+            _LOGGER.info("Overwriting tokenized vector in s3")
+            path = univers_group.create_dataset(
+                bed_id, data=tokenized_vector, overwrite=True
+            ).path
+        else:
+            raise TokenizeFileExistsError(
+                "Tokenized file already exists in the database. "
+                "Set overwrite to True to overwrite it."
+            )
+
+        return os.path.join(ZARR_TOKENIZED_FOLDER, path)
+
+    def get_tokenized(self, bed_id: str, universe_id: str) -> TokenizedBedResponse:
+        """
+        Get zarr file from the database
+
+        :param bed_id: bed file identifier
+        :param universe_id: universe identifier
+
+        :return: zarr path
+        """
+        if not self.exist_tokenized(bed_id, universe_id):
+            raise TokenizeFileNotExistError("Tokenized file not found in the database.")
+        univers_group = self._config.zarr_root.require_group(universe_id)
+
+        return TokenizedBedResponse(
+            universe_id=universe_id,
+            bed_id=bed_id,
+            tokenized_bed=list(univers_group[bed_id]),
+        )
+
+    def delete_tokenized(self, bed_id: str, universe_id: str) -> None:
+        """
+        Delete tokenized bed file from the database
+
+        :param bed_id: bed file identifier
+        :param universe_id: universe identifier
+
+        :return: None
+        """
+        if not self.exist_tokenized(bed_id, universe_id):
+            raise TokenizeFileNotExistError("Tokenized file not found in the database.")
+        univers_group = self._config.zarr_root.require_group(universe_id)
+
+        del univers_group[bed_id]
+
+        with Session(self._sa_engine) as session:
+            statement = delete(TokenizedBed).where(
+                and_(
+                    TokenizedBed.bed_id == bed_id,
+                    TokenizedBed.universe_id == universe_id,
+                )
+            )
+            session.execute(statement)
+            session.commit()
+
+        return None
+
+    def _get_tokenized_path(self, bed_id: str, universe_id: str) -> str:
+        """
+        Get tokenized path to tokenized file
+
+        :param bed_id: bed file identifier
+        :param universe_id: universe identifier
+
+        :return: token path
+        """
+        if not self.exist_tokenized(bed_id, universe_id):
+            raise TokenizeFileNotExistError("Tokenized file not found in the database.")
+
+        with Session(self._sa_engine) as session:
+            statement = select(TokenizedBed).where(
+                and_(
+                    TokenizedBed.bed_id == bed_id,
+                    TokenizedBed.universe_id == universe_id,
+                ),
+            )
+            tokenized_object = session.scalar(statement)
+            return tokenized_object.path
+
+    def exist_tokenized(self, bed_id: str, universe_id: str) -> bool:
+        """
+        Check if tokenized bed file exists in the database
+
+        :param bed_id: bed file identifier
+        :param universe_id: universe identifier
+
+        :return: bool
+        """
+        with Session(self._sa_engine) as session:
+            statement = select(TokenizedBed).where(
+                and_(
+                    TokenizedBed.bed_id == bed_id,
+                    TokenizedBed.universe_id == universe_id,
+                )
+            )
+            tokenized_object = session.scalar(statement)
+            if not tokenized_object:
+                return False
+            return True
+
+    def get_tokenized_link(
+        self, bed_id: str, universe_id: str
+    ) -> TokenizedPathResponse:
+        """
+        Get tokenized link to tokenized file
+
+        :param bed_id: bed file identifier
+        :param universe_id: universe identifier
+
+        :return: token link
+        :raises: TokenizeFileNotExistError
+        """
+        file_path = self._get_tokenized_path(bed_id, universe_id)
+
+        return TokenizedPathResponse(
+            endpoint_url=self._config.config.s3.endpoint_url,
+            file_path=file_path,
+            bed_id=bed_id,
+            universe_id=universe_id,
+        )

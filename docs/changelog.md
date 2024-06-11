@@ -2,6 +2,12 @@
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) and [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) format.
 
+# [0.6.0] - 2024-05-01
+## Added
+
+- Added tokenized files and universes.
+
+
 # [0.5.1] - 2024-04-09
 ## Changed
 
