@@ -6,6 +6,12 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 ## Added
 
 - Added tokenized files and universes.
+- Added bed embedding get endpoint to the API #50
+- Fixed test speed #48
+- Added license for the bed files #51
+- Added payloads to qdrant 
+- Fixed search, and query results info
+- Many other small bug fixes
 
 
 # [0.5.1] - 2024-04-09
