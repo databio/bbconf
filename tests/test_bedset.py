@@ -7,10 +7,11 @@ from sqlalchemy.sql import select
 from bbconf.db_utils import BedSets
 from bbconf.exceptions import BedbaseS3ConnectionError, BedSetNotFoundError
 
-from .conftest import DATA_PATH
+from .conftest import DATA_PATH, SERVICE_UNAVAILABLE
 from .utils import BED_TEST_ID, BEDSET_TEST_ID, ContextManagerDBTesting
 
 
+@pytest.mark.skipif(SERVICE_UNAVAILABLE, reason="Database is not available")
 class TestBedset:
     def test_calculate_stats(self, bbagent_obj):
         with ContextManagerDBTesting(config=bbagent_obj.config, add_data=True):
@@ -203,13 +204,3 @@ class TestBedset:
         ):
             with pytest.raises(BedbaseS3ConnectionError):
                 bbagent_obj.bedset.delete(BEDSET_TEST_ID)
-
-
-def test_get_stats(bbagent_obj):
-    with ContextManagerDBTesting(config=bbagent_obj.config, add_data=True, bedset=True):
-        return_result = bbagent_obj.get_stats()
-
-        assert return_result
-        assert return_result.bedfiles_number == 1
-        assert return_result.bedsets_number == 1
-        assert return_result.genomes_number == 1

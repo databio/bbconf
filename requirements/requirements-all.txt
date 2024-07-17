@@ -1,6 +1,6 @@
 yacman >= 0.9.1
 sqlalchemy >= 2.0.0
-geniml >= 0.3.0
+geniml >= 0.4.0
 psycopg >= 3.1.15
 colorlogs
 pydantic >= 2.6.4
@@ -8,5 +8,9 @@ botocore >= 1.34.54
 boto3 >=  1.34.54
 pephubclient >= 0.4.1
 sqlalchemy_schemadisplay
+zarr
+pyyaml >= 6.0.1 # for s3fs because of the errors
+s3fs >= 2024.3.1
 # quick fix for gesnim
 scipy <= 1.11.0
+pandas

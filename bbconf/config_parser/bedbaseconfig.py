@@ -6,14 +6,15 @@ from typing import List, Literal, Union
 
 import boto3
 import qdrant_client
+import s3fs
 import yacman
-from botocore.exceptions import EndpointConnectionError
-
-from geniml.search import QdrantBackend, BED2BEDSearchInterface, Text2BEDSearchInterface
-from geniml.search.query2vec import BED2Vec, Text2Vec
+import zarr
+from botocore.exceptions import BotoCoreError, EndpointConnectionError
 from geniml.region2vec import Region2VecExModel
-
+from geniml.search import BED2BEDSearchInterface, QdrantBackend, Text2BEDSearchInterface
+from geniml.search.query2vec import BED2Vec, Text2Vec
 from pephubclient import PEPHubClient
+from zarr import Group as Z_GROUP
 
 from bbconf.config_parser.const import (
     S3_BEDSET_PATH_FOLDER,
@@ -21,9 +22,7 @@ from bbconf.config_parser.const import (
     S3_PLOTS_PATH_FOLDER,
 )
 from bbconf.config_parser.models import ConfigFile
-from bbconf.const import (
-    PKG_NAME,
-)
+from bbconf.const import PKG_NAME, ZARR_TOKENIZED_FOLDER
 from bbconf.db_utils import BaseEngine
 from bbconf.exceptions import (
     BadAccessMethodError,
@@ -75,6 +74,7 @@ class BedBaseConfig:
                 config_dict[field_name] = annotation.annotation()
 
         return ConfigFile(**config_dict)
+        # return ConfigFile.from_yaml(Path(config_path))
 
     @property
     def config(self) -> ConfigFile:
@@ -148,6 +148,34 @@ class BedBaseConfig:
         """
         return self._boto3_client
 
+    @property
+    def zarr_root(self) -> Union[Z_GROUP, None]:
+        """
+        Get zarr root object (Group)
+
+        :return: zarr root group object
+        """
+
+        try:
+            s3fc_obj = s3fs.S3FileSystem(
+                endpoint_url=self._config.s3.endpoint_url,
+                key=self._config.s3.aws_access_key_id,
+                secret=self._config.s3.aws_secret_access_key,
+            )
+        except BotoCoreError as e:
+            _LOGGER.error(f"Error in creating s3fs object: {e}")
+            warnings.warn(f"Error in creating s3fs object: {e}", UserWarning)
+            return None
+
+        s3_path = f"s3://{self._config.s3.bucket}/{ZARR_TOKENIZED_FOLDER}"
+
+        zarr_store = s3fs.S3Map(
+            root=s3_path, s3=s3fc_obj, check=False, create=self._config.s3.modify_access
+        )
+        cache = zarr.LRUStoreCache(zarr_store, max_size=2**28)
+
+        return zarr.group(store=cache, overwrite=False)
+
     def _init_db_engine(self) -> BaseEngine:
         return BaseEngine(
             host=self._config.database.host,
@@ -188,7 +216,7 @@ class BedBaseConfig:
             return Text2BEDSearchInterface(
                 backend=self.qdrant_engine,
                 query2vec=Text2Vec(
-                    text_embedder=self._config.path.text2vec,
+                    hf_repo=self._config.path.text2vec,
                     v2v=self._config.path.vec2vec,
                 ),
             )
@@ -275,7 +303,7 @@ class BedBaseConfig:
                 "Could not upload file to s3. Connection error."
             )
         if not os.path.exists(file_path):
-            raise BedBaseConfError(f"File {file_path} does not exist.")
+            raise BedBaseConfError(f"File {os.path.abspath(file_path)} does not exist.")
         _LOGGER.info(f"Uploading file to s3: {s3_path}")
         return self._boto3_client.upload_file(file_path, self.config.s3.bucket, s3_path)
 
