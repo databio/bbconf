@@ -300,6 +300,33 @@ def delete_bed_universe(mapper, connection, target):
         session.commit()
 
 
+class GeoGseStats(Base):
+    __tablename__ = "geo_gse_stats"
+
+    id: Mapped[str] = mapped_column(primary_key=True, index=True)
+    gse: Mapped[str] = mapped_column(nullable=False, comment="GSE number", unique=True)
+    status: Mapped[str] = mapped_column(
+        nullable=False, comment="Status of the GEO project"
+    )
+    submission_date: Mapped[datetime.datetime] = mapped_column(
+        default=deliver_update_date, onupdate=deliver_update_date
+    )
+
+
+class GeoGsmStats(Base):
+    __tablename__ = "geo_gsm_stats"
+
+    id: Mapped[str] = mapped_column(primary_key=True, index=True)
+    gse_status_id: Mapped[str] = mapped_column(
+        ForeignKey("geo_gse_stats.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    gsm: Mapped[str] = mapped_column(nullable=False, comment="GSM number", unique=True)
+    sample_name: Mapped[str] = mapped_column()
+    status: Mapped[str] = mapped_column(
+        nullable=False, comment="Status of the GEO sample"
+    )
+
+
 class BaseEngine:
     """
     A class with base methods, that are used in several classes.
