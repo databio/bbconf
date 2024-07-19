@@ -300,8 +300,8 @@ def delete_bed_universe(mapper, connection, target):
         session.commit()
 
 
-class GeoGseStats(Base):
-    __tablename__ = "geo_gse_stats"
+class GeoGseStatus(Base):
+    __tablename__ = "geo_gse_status"
 
     id: Mapped[str] = mapped_column(primary_key=True, index=True)
     gse: Mapped[str] = mapped_column(nullable=False, comment="GSE number", unique=True)
@@ -313,8 +313,8 @@ class GeoGseStats(Base):
     )
 
 
-class GeoGsmStats(Base):
-    __tablename__ = "geo_gsm_stats"
+class GeoGsmStatus(Base):
+    __tablename__ = "geo_gsm_status"
 
     id: Mapped[str] = mapped_column(primary_key=True, index=True)
     gse_status_id: Mapped[str] = mapped_column(
