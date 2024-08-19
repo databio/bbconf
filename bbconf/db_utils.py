@@ -1,18 +1,18 @@
 import datetime
 import logging
 from typing import List, Optional
-import pandas as pd
 
+import pandas as pd
 from sqlalchemy import TIMESTAMP, BigInteger, ForeignKey, Result, Select, event, select
 from sqlalchemy.dialects.postgresql import JSON
 from sqlalchemy.engine import URL, Engine, create_engine
 from sqlalchemy.event import listens_for
-from sqlalchemy.exc import ProgrammingError, IntegrityError
+from sqlalchemy.exc import IntegrityError, ProgrammingError
 from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, relationship
 from sqlalchemy_schemadisplay import create_schema_graph
 
-from bbconf.const import PKG_NAME, LICENSES_CSV_URL
+from bbconf.const import LICENSES_CSV_URL, PKG_NAME
 
 _LOGGER = logging.getLogger(PKG_NAME)
 
@@ -303,7 +303,7 @@ def delete_bed_universe(mapper, connection, target):
 class GeoGseStatus(Base):
     __tablename__ = "geo_gse_status"
 
-    id: Mapped[str] = mapped_column(primary_key=True, index=True)
+    id: Mapped[int] = mapped_column(primary_key=True, index=True, autoincrement=True)
     gse: Mapped[str] = mapped_column(nullable=False, comment="GSE number", unique=True)
     status: Mapped[str] = mapped_column(
         nullable=False, comment="Status of the GEO project"
@@ -311,19 +311,34 @@ class GeoGseStatus(Base):
     submission_date: Mapped[datetime.datetime] = mapped_column(
         default=deliver_update_date, onupdate=deliver_update_date
     )
+    number_of_files: Mapped[int] = mapped_column(default=0, comment="Number of files")
+    number_of_success: Mapped[int] = mapped_column(
+        default=0, comment="Number of success"
+    )
+    number_of_skips: Mapped[int] = mapped_column(default=0, comment="Number of skips")
+    number_of_fails: Mapped[int] = mapped_column(default=0, comment="Number of fails")
+
+    gsm_status_mapper: Mapped[List["GeoGsmStatus"]] = relationship(
+        "GeoGsmStatus", back_populates="gse_status_mapper"
+    )
 
 
 class GeoGsmStatus(Base):
     __tablename__ = "geo_gsm_status"
 
-    id: Mapped[str] = mapped_column(primary_key=True, index=True)
+    id: Mapped[int] = mapped_column(primary_key=True, index=True, autoincrement=True)
     gse_status_id: Mapped[str] = mapped_column(
-        ForeignKey("geo_gse_stats.id", ondelete="CASCADE"), nullable=False, index=True
+        ForeignKey("geo_gse_status.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    gsm: Mapped[str] = mapped_column(nullable=False, comment="GSM number", unique=True)
+    gsm: Mapped[str] = mapped_column(nullable=False, comment="GSM number", unique=False)
     sample_name: Mapped[str] = mapped_column()
     status: Mapped[str] = mapped_column(
         nullable=False, comment="Status of the GEO sample"
+    )
+    error: Mapped[str] = mapped_column(nullable=True, comment="Error message")
+    genome: Mapped[str] = mapped_column(nullable=True, comment="Genome")
+    gse_status_mapper: Mapped["GeoGseStatus"] = relationship(
+        "GeoGseStatus", back_populates="gsm_status_mapper"
     )
 
 
