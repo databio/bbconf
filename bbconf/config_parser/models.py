@@ -1,6 +1,6 @@
+import logging
 from pathlib import Path
 from typing import Optional, Union
-import logging
 
 from pydantic import BaseModel, ConfigDict, computed_field, field_validator
 from yacman import load_yaml

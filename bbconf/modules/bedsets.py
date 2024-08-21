@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from bbconf.config_parser import BedBaseConfig
 from bbconf.const import PKG_NAME
-from bbconf.db_utils import BedFileBedSetRelation, BedSets, BedStats, Files, Bed
+from bbconf.db_utils import Bed, BedFileBedSetRelation, BedSets, BedStats, Files
 from bbconf.exceptions import BedSetExistsError, BedSetNotFoundError
 from bbconf.models.bed_models import BedStatsModel
 from bbconf.models.bedset_models import (
