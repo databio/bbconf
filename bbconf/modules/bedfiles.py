@@ -3,8 +3,6 @@ from logging import getLogger
 from typing import Dict, Union
 
 import numpy as np
-from tqdm import tqdm
-
 from geniml.bbclient import BBClient
 from geniml.io import RegionSet
 from genimtools.tokenizers import RegionSet as GRegionSet
@@ -12,18 +10,19 @@ from pephubclient.exceptions import ResponseError
 from qdrant_client.models import Distance, PointIdsList, VectorParams
 from sqlalchemy import and_, delete, func, select
 from sqlalchemy.orm import Session
+from tqdm import tqdm
 
 from bbconf.config_parser.bedbaseconfig import BedBaseConfig
-from bbconf.const import PKG_NAME, ZARR_TOKENIZED_FOLDER, DEFAULT_LICENSE
+from bbconf.const import DEFAULT_LICENSE, PKG_NAME, ZARR_TOKENIZED_FOLDER
 from bbconf.db_utils import Bed, BedStats, Files, TokenizedBed, Universes
 from bbconf.exceptions import (
     BedBaseConfError,
     BedFIleExistsError,
     BEDFileNotFoundError,
+    QdrantInstanceNotInitializedError,
     TokenizeFileExistsError,
     TokenizeFileNotExistError,
     UniverseNotFoundError,
-    QdrantInstanceNotInitializedError,
 )
 from bbconf.models.bed_models import (
     BedClassification,
@@ -34,15 +33,15 @@ from bbconf.models.bed_models import (
     BedMetadata,
     BedMetadataBasic,
     BedPEPHub,
+    BedPEPHubRestrict,
     BedPlots,
+    BedSetMinimal,
     BedStatsModel,
     FileModel,
     QdrantSearchResult,
     TokenizedBedResponse,
-    UniverseMetadata,
     TokenizedPathResponse,
-    BedPEPHubRestrict,
-    BedSetMinimal,
+    UniverseMetadata,
 )
 
 _LOGGER = getLogger(PKG_NAME)

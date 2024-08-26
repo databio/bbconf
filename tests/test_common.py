@@ -1,6 +1,7 @@
+import pytest
+
 from bbconf.const import DEFAULT_LICENSE
 
-import pytest
 from .conftest import SERVICE_UNAVAILABLE
 from .utils import ContextManagerDBTesting
 

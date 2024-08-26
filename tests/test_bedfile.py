@@ -3,9 +3,9 @@ from sqlalchemy.orm import Session
 from sqlalchemy.sql import select
 
 from bbconf.bbagent import BedBaseAgent
+from bbconf.const import DEFAULT_LICENSE
 from bbconf.db_utils import Bed, Files
 from bbconf.exceptions import BedFIleExistsError, BEDFileNotFoundError
-from bbconf.const import DEFAULT_LICENSE
 
 from .conftest import SERVICE_UNAVAILABLE, get_bbagent
 from .utils import BED_TEST_ID, ContextManagerDBTesting

@@ -3,8 +3,9 @@ from typing import List, Optional, Union
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from .base_models import FileModel
 from bbconf.const import DEFAULT_LICENSE
+
+from .base_models import FileModel
 
 
 class BedPlots(BaseModel):

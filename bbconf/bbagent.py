@@ -1,6 +1,6 @@
 from functools import cached_property
 from pathlib import Path
-from typing import Union, List
+from typing import List, Union
 
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import distinct, func, select
