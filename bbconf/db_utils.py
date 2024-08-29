@@ -99,6 +99,10 @@ class Bed(Base):
         "BedFileBedSetRelation", back_populates="bedfile", cascade="all, delete-orphan"
     )
 
+    annotations: Mapped["BedMetadata"] = relationship(
+        back_populates="bed", cascade="all, delete-orphan", lazy="joined"
+    )
+
     stats: Mapped["BedStats"] = relationship(
         back_populates="bed", cascade="all, delete-orphan"
     )
@@ -113,6 +117,70 @@ class Bed(Base):
         ForeignKey("licenses.id", ondelete="CASCADE"), nullable=True, index=True
     )
     license_mapping: Mapped["License"] = relationship("License", back_populates="bed")
+
+
+class BedMetadata(Base):
+    __tablename__ = "bed_metadata"
+
+    species_name: Mapped[str] = mapped_column(default=None, comment="Organism name")
+    species_id: Mapped[str] = mapped_column(
+        default=None, nullable=True, comment="Organism taxon id"
+    )
+
+    genotype: Mapped[str] = mapped_column(
+        default=None, nullable=True, comment="Genotype of the sample"
+    )
+    phenotype: Mapped[str] = mapped_column(
+        default=None, nullable=True, comment="Phenotype of the sample"
+    )
+
+    cell_type: Mapped[str] = mapped_column(
+        default=None,
+        nullable=True,
+        comment="Specific kind of cell with distinct characteristics found in an organism. e.g. Neurons, Hepatocytes, Adipocytes",
+    )
+    cell_line: Mapped[str] = mapped_column(
+        default=None,
+        nullable=True,
+        comment="Population of cells derived from a single cell and cultured in the lab for extended use, e.g. HeLa, HepG2, k562",
+    )
+    tissue: Mapped[str] = mapped_column(
+        default=None, nullable=True, comment="Tissue type"
+    )
+    library_source: Mapped[str] = mapped_column(
+        default=None,
+        nullable=True,
+        comment="Library source (e.g. genomic, transcriptomic)",
+    )
+    assay: Mapped[str] = mapped_column(
+        default=None, nullable=True, comment="Experimental protocol (e.g. ChIP-seq)"
+    )
+    antibody: Mapped[str] = mapped_column(
+        default=None, nullable=True, comment="Antibody used in the assay"
+    )
+    target: Mapped[str] = mapped_column(
+        default=None, nullable=True, comment="Target of the assay (e.g. H3K4me3)"
+    )
+    treatment: Mapped[str] = mapped_column(
+        default=None,
+        nullable=True,
+        comment="Treatment of the sample (e.g. drug treatment)",
+    )
+
+    global_sample_id: Mapped[str] = mapped_column(
+        default=None, nullable=True, comment="Global sample identifier. e.g. GSM000"
+    )
+    global_experiment_id: Mapped[str] = mapped_column(
+        default=None, nullable=True, comment="Global experiment identifier. e.g. GSE000"
+    )
+
+    id: Mapped[str] = mapped_column(
+        ForeignKey("bed.id", ondelete="CASCADE"),
+        primary_key=True,
+        index=True,
+    )
+
+    bed: Mapped["Bed"] = relationship("Bed", back_populates="annotations")
 
 
 class BedStats(Base):

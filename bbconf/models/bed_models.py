@@ -98,6 +98,53 @@ class BedPEPHub(BaseModel):
     model_config = ConfigDict(extra="allow", populate_by_name=True)
 
 
+class StandardMeta(BaseModel):
+    """
+    Standardized Bed file metadata
+    """
+
+    species_name: str = Field(
+        default="", description="Name of species. e.g. Homo sapiens.", alias="organism"
+    )
+    species_id: str = ""
+    genotype: str = Field("", description="Genotype of the sample")
+    phenotype: str = Field("", description="Phenotype of the sample")
+
+    cell_type: str = Field(
+        "",
+        description="specific kind of cell with distinct characteristics found in an organism. e.g. Neurons, Hepatocytes, Adipocytes",
+    )
+    cell_line: str = Field(
+        "",
+        description="population of cells derived from a single cell and cultured in the lab for extended use, e.g. HeLa, HepG2, k562",
+    )
+    tissue: str = Field("", description="Tissue type")
+
+    library_source: str = Field(
+        "", description="Library source (e.g. genomic, transcriptomic)"
+    )
+    assay: str = Field(
+        "", description="Experimental protocol (e.g. ChIP-seq)", alias="exp_protocol"
+    )
+    antibody: str = Field("", description="Antibody used in the assay")
+    target: str = Field("", description="Target of the assay (e.g. H3K4me3)")
+    treatment: str = Field(
+        "", description="Treatment of the sample (e.g. drug treatment)"
+    )
+
+    global_sample_id: str = Field(
+        "", description="Global sample identifier. e.g. GSM000"
+    )  # excluded in training
+    global_experiment_id: str = Field(
+        "", description="Global experiment identifier. e.g. GSE000"
+    )  # excluded in training
+
+    model_config = ConfigDict(
+        populate_by_name=True,
+        extra="ignore",
+    )
+
+
 class BedPEPHubRestrict(BedPEPHub):
 
     model_config = ConfigDict(extra="ignore")
@@ -111,6 +158,7 @@ class BedMetadataBasic(BedClassification):
     last_update_date: Optional[datetime.datetime] = None
     is_universe: Optional[bool] = False
     license_id: Optional[str] = DEFAULT_LICENSE
+    annotation: Optional[StandardMeta] = None
 
 
 class UniverseMetadata(BaseModel):
@@ -124,7 +172,7 @@ class BedSetMinimal(BaseModel):
     description: Union[str, None] = None
 
 
-class BedMetadata(BedMetadataBasic):
+class BedMetadataAll(BedMetadataBasic):
     stats: Union[BedStatsModel, None] = None
     plots: Union[BedPlots, None] = None
     files: Union[BedFiles, None] = None
