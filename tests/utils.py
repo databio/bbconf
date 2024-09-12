@@ -109,7 +109,8 @@ class ContextManagerDBTesting:
                 self._add_bedset_data()
 
     def __exit__(self, exc_type, exc_value, exc_traceback):
-        self.db_engine.delete_schema()
+        # self.db_engine.delete_schema()
+        pass
 
     def _add_data(self):
         with Session(self.db_engine.engine) as session:
