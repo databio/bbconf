@@ -1,6 +1,7 @@
 import os
 from logging import getLogger
 from typing import Dict, Union
+from pydantic import BaseModel
 
 import numpy as np
 from geniml.bbclient import BBClient
@@ -14,7 +15,15 @@ from tqdm import tqdm
 
 from bbconf.config_parser.bedbaseconfig import BedBaseConfig
 from bbconf.const import DEFAULT_LICENSE, PKG_NAME, ZARR_TOKENIZED_FOLDER
-from bbconf.db_utils import Bed, BedStats, Files, TokenizedBed, Universes, BedMetadata
+from bbconf.db_utils import (
+    Bed,
+    BedStats,
+    Files,
+    TokenizedBed,
+    Universes,
+    BedMetadata,
+    GenomeRefStats,
+)
 from bbconf.exceptions import (
     BedBaseConfError,
     BedFIleExistsError,
@@ -43,6 +52,7 @@ from bbconf.models.bed_models import (
     TokenizedPathResponse,
     UniverseMetadata,
     StandardMeta,
+    RefGenValidModel,
 )
 
 _LOGGER = getLogger(PKG_NAME)
@@ -393,6 +403,7 @@ class BedAgentBedFile:
         plots: dict = None,
         files: dict = None,
         classification: dict = None,
+        ref_validation: Dict[str, BaseModel] = None,
         license_id: str = DEFAULT_LICENSE,
         upload_qdrant: bool = False,
         upload_pephub: bool = False,
@@ -410,6 +421,7 @@ class BedAgentBedFile:
         :param plots: bed file plots
         :param files: bed file files
         :param classification: bed file classification
+        :param ref_validation: reference validation data.  RefGenValidModel
         :param license_id: bed file license id (default: 'DUO:0000042'). Full list of licenses:
             https://raw.githubusercontent.com/EBISPOT/DUO/master/duo.csv
         :param upload_qdrant: add bed file to qdrant indexs
@@ -532,6 +544,16 @@ class BedAgentBedFile:
             session.add(new_bedstat)
             session.add(new_metadata)
 
+            for ref_gen_check, data in ref_validation.items():
+                new_gen_ref = GenomeRefStats(
+                    **RefGenValidModel(
+                        **data.model_dump(),
+                        provided_genome=classification.genome_alias,
+                        compared_genome=ref_gen_check,
+                    ).model_dump(),
+                    bed_id=identifier,
+                )
+                session.add(new_gen_ref)
             session.commit()
 
         return None

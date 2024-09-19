@@ -219,3 +219,15 @@ class TokenizedPathResponse(BaseModel):
     universe_id: str
     file_path: str
     endpoint_url: str
+
+
+class RefGenValidModel(BaseModel):
+    provided_genome: str
+    compared_genome: str
+    xs: float = 0.0
+    oobr: Union[float, None] = None
+    sequence_fit: Union[float, None] = None
+    assigned_points: int
+    tier_ranking: int
+
+    model_config = ConfigDict(extra="forbid")
