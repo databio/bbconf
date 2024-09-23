@@ -33,6 +33,7 @@ class BedFiles(BaseModel):
 
 class BedClassification(BaseModel):
     name: Optional[str] = None
+    description: Optional[str] = None
     genome_alias: str = None
     genome_digest: Union[str, None] = None
     bed_type: str = Field(
