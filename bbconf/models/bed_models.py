@@ -33,7 +33,6 @@ class BedFiles(BaseModel):
 
 class BedClassification(BaseModel):
     name: Optional[str] = None
-    description: Optional[str] = None
     genome_alias: str = None
     genome_digest: Union[str, None] = None
     bed_type: str = Field(
@@ -110,6 +109,7 @@ class StandardMeta(BaseModel):
     species_id: str = ""
     genotype: str = Field("", description="Genotype of the sample")
     phenotype: str = Field("", description="Phenotype of the sample")
+    description: Union[str, None] = ""
 
     cell_type: str = Field(
         "",

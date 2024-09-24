@@ -507,6 +507,7 @@ class BedAgentBedFile:
             new_bed = Bed(
                 id=identifier,
                 **classification.model_dump(),
+                description=bed_metadata.description,
                 license_id=license_id,
                 indexed=upload_qdrant,
                 pephub=upload_pephub,
@@ -539,7 +540,9 @@ class BedAgentBedFile:
                         session.add(new_plot)
 
             new_bedstat = BedStats(**stats.model_dump(), id=identifier)
-            new_metadata = BedMetadata(**bed_metadata.model_dump(), id=identifier)
+            new_metadata = BedMetadata(
+                **bed_metadata.model_dump(exclude={"description"}), id=identifier
+            )
 
             session.add(new_bedstat)
             session.add(new_metadata)
