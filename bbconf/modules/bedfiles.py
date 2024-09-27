@@ -6,7 +6,7 @@ from pydantic import BaseModel
 import numpy as np
 from geniml.bbclient import BBClient
 from geniml.io import RegionSet
-from genimtools.tokenizers import RegionSet as GRegionSet
+from gtars.tokenizers import RegionSet as GRegionSet
 from pephubclient.exceptions import ResponseError
 from qdrant_client.models import Distance, PointIdsList, VectorParams
 from sqlalchemy import and_, delete, func, select
@@ -754,15 +754,33 @@ class BedAgentBedFile:
         :param payload: additional metadata to store alongside vectors
         :return: None
         """
+
+        _LOGGER.debug(f"Adding bed file to qdrant. bed_id: {bed_id}")
+        bed_embedding = self._embed_file(bed_file)
+
+        self._qdrant_engine.load(
+            ids=[bed_id],
+            vectors=bed_embedding,
+            payloads=[{**payload}],
+        )
+        return None
+
+    def _embed_file(self, bed_file: Union[str, RegionSet]) -> np.ndarray:
+        """
+        Create embeding for bed file
+
+        :param bed_id: bed file id
+        :param bed_file: path to the bed file, or RegionSet object
+
+        :return np array of embeddings
+        """
         if self._qdrant_engine is None:
             raise QdrantInstanceNotInitializedError
-
         if not self._config.r2v:
             raise BedBaseConfError(
                 "Could not add add region to qdrant. Invalid type, or path. "
             )
 
-        _LOGGER.debug(f"Adding bed file to qdrant. bed_id: {bed_id}")
         if isinstance(bed_file, str):
             bed_region_set = GRegionSet(bed_file)
         elif isinstance(bed_file, RegionSet) or isinstance(bed_file, GRegionSet):
@@ -771,19 +789,9 @@ class BedAgentBedFile:
             raise BedBaseConfError(
                 "Could not add add region to qdrant. Invalid type, or path. "
             )
-        # Not really working
-        # bed_embedding = np.mean([self._config.r2v.encode(r) for r in bed_region_set], axis=0)
-
         bed_embedding = np.mean(self._config.r2v.encode(bed_region_set), axis=0)
-
-        # Upload bed file vector to the database
         vec_dim = bed_embedding.shape[0]
-        self._qdrant_engine.load(
-            ids=[bed_id],
-            vectors=bed_embedding.reshape(1, vec_dim),
-            payloads=[{**payload}],
-        )
-        return None
+        return bed_embedding.reshape(1, vec_dim)
 
     def text_to_bed_search(
         self, query: str, limit: int = 10, offset: int = 0
@@ -814,7 +822,7 @@ class BedAgentBedFile:
             if result_meta:
                 results_list.append(QdrantSearchResult(**result, metadata=result_meta))
         return BedListSearchResult(
-            count=self.bb_agent.get_stats.bedfiles_number,
+            count=self.bb_agent.get_stats().bedfiles_number,
             limit=limit,
             offset=offset,
             results=results_list,
@@ -842,7 +850,7 @@ class BedAgentBedFile:
             if result_meta:
                 results_list.append(QdrantSearchResult(**result, metadata=result_meta))
         return BedListSearchResult(
-            count=self.bb_agent.get_stats.bedfiles_number,
+            count=self.bb_agent.get_stats().bedfiles_number,
             limit=limit,
             offset=offset,
             results=results_list,
