@@ -42,7 +42,6 @@ class BedBaseAgent(object):
     def objects(self) -> BBObjects:
         return self._objects
 
-    @cached_property
     def get_stats(self) -> StatsReturn:
         """
         Get statistics for a bed file

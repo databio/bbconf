@@ -10,7 +10,7 @@ import s3fs
 import yacman
 import zarr
 from botocore.exceptions import BotoCoreError, EndpointConnectionError
-from geniml.region2vec import Region2VecExModel
+from geniml.region2vec.main import Region2VecExModel
 from geniml.search import BED2BEDSearchInterface, QdrantBackend, Text2BEDSearchInterface
 from geniml.search.query2vec import BED2Vec, Text2Vec
 from pephubclient import PEPHubClient

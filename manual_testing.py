@@ -4,10 +4,10 @@ import s3fs
 import zarr
 from dotenv import load_dotenv
 from geniml.io import RegionSet
-from genimtools.tokenizers import TreeTokenizer
-from genimtools.utils import read_tokens_from_gtok
+from gtars.tokenizers import TreeTokenizer
+from gtars.utils import read_tokens_from_gtok
 
-# from genimtools.tokenizers import RegionSet
+# from gtars.tokenizers import RegionSet
 
 
 load_dotenv()

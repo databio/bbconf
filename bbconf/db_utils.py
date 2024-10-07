@@ -3,7 +3,16 @@ import logging
 from typing import List, Optional
 
 import pandas as pd
-from sqlalchemy import TIMESTAMP, BigInteger, ForeignKey, Result, Select, event, select
+from sqlalchemy import (
+    TIMESTAMP,
+    BigInteger,
+    ForeignKey,
+    Result,
+    Select,
+    event,
+    select,
+    UniqueConstraint,
+)
 from sqlalchemy.dialects.postgresql import JSON
 from sqlalchemy.engine import URL, Engine, create_engine
 from sqlalchemy.event import listens_for
@@ -99,6 +108,10 @@ class Bed(Base):
         "BedFileBedSetRelation", back_populates="bedfile", cascade="all, delete-orphan"
     )
 
+    annotations: Mapped["BedMetadata"] = relationship(
+        back_populates="bed", cascade="all, delete-orphan", lazy="joined"
+    )
+
     stats: Mapped["BedStats"] = relationship(
         back_populates="bed", cascade="all, delete-orphan"
     )
@@ -113,6 +126,74 @@ class Bed(Base):
         ForeignKey("licenses.id", ondelete="CASCADE"), nullable=True, index=True
     )
     license_mapping: Mapped["License"] = relationship("License", back_populates="bed")
+
+    ref_classifier: Mapped["GenomeRefStats"] = relationship(
+        "GenomeRefStats", back_populates="bed", cascade="all, delete-orphan"
+    )
+
+
+class BedMetadata(Base):
+    __tablename__ = "bed_metadata"
+
+    species_name: Mapped[str] = mapped_column(default=None, comment="Organism name")
+    species_id: Mapped[str] = mapped_column(
+        default=None, nullable=True, comment="Organism taxon id"
+    )
+
+    genotype: Mapped[str] = mapped_column(
+        default=None, nullable=True, comment="Genotype of the sample"
+    )
+    phenotype: Mapped[str] = mapped_column(
+        default=None, nullable=True, comment="Phenotype of the sample"
+    )
+
+    cell_type: Mapped[str] = mapped_column(
+        default=None,
+        nullable=True,
+        comment="Specific kind of cell with distinct characteristics found in an organism. e.g. Neurons, Hepatocytes, Adipocytes",
+    )
+    cell_line: Mapped[str] = mapped_column(
+        default=None,
+        nullable=True,
+        comment="Population of cells derived from a single cell and cultured in the lab for extended use, e.g. HeLa, HepG2, k562",
+    )
+    tissue: Mapped[str] = mapped_column(
+        default=None, nullable=True, comment="Tissue type"
+    )
+    library_source: Mapped[str] = mapped_column(
+        default=None,
+        nullable=True,
+        comment="Library source (e.g. genomic, transcriptomic)",
+    )
+    assay: Mapped[str] = mapped_column(
+        default=None, nullable=True, comment="Experimental protocol (e.g. ChIP-seq)"
+    )
+    antibody: Mapped[str] = mapped_column(
+        default=None, nullable=True, comment="Antibody used in the assay"
+    )
+    target: Mapped[str] = mapped_column(
+        default=None, nullable=True, comment="Target of the assay (e.g. H3K4me3)"
+    )
+    treatment: Mapped[str] = mapped_column(
+        default=None,
+        nullable=True,
+        comment="Treatment of the sample (e.g. drug treatment)",
+    )
+
+    global_sample_id: Mapped[str] = mapped_column(
+        default=None, nullable=True, comment="Global sample identifier. e.g. GSM000"
+    )
+    global_experiment_id: Mapped[str] = mapped_column(
+        default=None, nullable=True, comment="Global experiment identifier. e.g. GSE000"
+    )
+
+    id: Mapped[str] = mapped_column(
+        ForeignKey("bed.id", ondelete="CASCADE"),
+        primary_key=True,
+        index=True,
+    )
+
+    bed: Mapped["Bed"] = relationship("Bed", back_populates="annotations")
 
 
 class BedStats(Base):
@@ -281,6 +362,32 @@ class License(Base):
     )
 
     bed: Mapped[List["Bed"]] = relationship("Bed", back_populates="license_mapping")
+
+
+class GenomeRefStats(Base):
+    __tablename__ = "genome_ref_stats"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+
+    bed_id: Mapped[str] = mapped_column(
+        ForeignKey("bed.id", ondelete="CASCADE"),
+        index=True,
+        nullable=False,
+    )
+    provided_genome: Mapped[str]
+    compared_genome: Mapped[str] = mapped_column(
+        nullable=False, comment="Compared Genome"
+    )
+
+    xs: Mapped[float] = mapped_column(nullable=True, default=None)
+    oobr: Mapped[float] = mapped_column(nullable=True, default=None)
+    sequence_fit: Mapped[float] = mapped_column(nullable=True, default=None)
+    assigned_points: Mapped[int] = mapped_column(nullable=False)
+    tier_ranking: Mapped[int] = mapped_column(nullable=False)
+
+    bed: Mapped["Bed"] = relationship("Bed", back_populates="ref_classifier")
+
+    __table_args__ = (UniqueConstraint("bed_id", "compared_genome"),)
 
 
 @listens_for(Universes, "after_insert")

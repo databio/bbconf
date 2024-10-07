@@ -1,11 +1,12 @@
 import os
 from logging import getLogger
 from typing import Dict, Union
+from pydantic import BaseModel
 
 import numpy as np
 from geniml.bbclient import BBClient
 from geniml.io import RegionSet
-from genimtools.tokenizers import RegionSet as GRegionSet
+from gtars.tokenizers import RegionSet as GRegionSet
 from pephubclient.exceptions import ResponseError
 from qdrant_client.models import Distance, PointIdsList, VectorParams
 from sqlalchemy import and_, delete, func, select
@@ -14,7 +15,15 @@ from tqdm import tqdm
 
 from bbconf.config_parser.bedbaseconfig import BedBaseConfig
 from bbconf.const import DEFAULT_LICENSE, PKG_NAME, ZARR_TOKENIZED_FOLDER
-from bbconf.db_utils import Bed, BedStats, Files, TokenizedBed, Universes
+from bbconf.db_utils import (
+    Bed,
+    BedStats,
+    Files,
+    TokenizedBed,
+    Universes,
+    BedMetadata,
+    GenomeRefStats,
+)
 from bbconf.exceptions import (
     BedBaseConfError,
     BedFIleExistsError,
@@ -30,7 +39,7 @@ from bbconf.models.bed_models import (
     BedFiles,
     BedListResult,
     BedListSearchResult,
-    BedMetadata,
+    BedMetadataAll,
     BedMetadataBasic,
     BedPEPHub,
     BedPEPHubRestrict,
@@ -42,6 +51,8 @@ from bbconf.models.bed_models import (
     TokenizedBedResponse,
     TokenizedPathResponse,
     UniverseMetadata,
+    StandardMeta,
+    RefGenValidModel,
 )
 
 _LOGGER = getLogger(PKG_NAME)
@@ -68,7 +79,7 @@ class BedAgentBedFile:
         self._config = config
         self.bb_agent = bbagent_obj
 
-    def get(self, identifier: str, full: bool = False) -> BedMetadata:
+    def get(self, identifier: str, full: bool = False) -> BedMetadataAll:
         """
         Get file metadata by identifier.
 
@@ -76,7 +87,7 @@ class BedAgentBedFile:
         :param full: if True, return full metadata, including statistics, files, and raw metadata from pephub
         :return: project metadata
         """
-        statement = select(Bed).where(Bed.id == identifier)
+        statement = select(Bed).where(and_(Bed.id == identifier))
 
         bed_plots = BedPlots()
         bed_files = BedFiles()
@@ -159,7 +170,7 @@ class BedAgentBedFile:
             _LOGGER.warning(f"Could not retrieve metadata from pephub. Error: {e}")
             bed_metadata = None
 
-        return BedMetadata(
+        return BedMetadataAll(
             id=bed_object.id,
             name=bed_object.name,
             stats=bed_stats,
@@ -178,6 +189,9 @@ class BedAgentBedFile:
             universe_metadata=universe_meta,
             full_response=full,
             bedsets=bed_bedsets,
+            annotation=StandardMeta(
+                **bed_object.annotations.__dict__ if bed_object.annotations else {}
+            ),
         )
 
     def get_stats(self, identifier: str) -> BedStatsModel:
@@ -188,7 +202,7 @@ class BedAgentBedFile:
 
         :return: project statistics as BedStats object
         """
-        statement = select(BedStats).where(BedStats.id == identifier)
+        statement = select(BedStats).where(and_(BedStats.id == identifier))
 
         with Session(self._sa_engine) as session:
             bed_object = session.scalar(statement)
@@ -205,7 +219,7 @@ class BedAgentBedFile:
         :param identifier: bed file identifier
         :return: project plots
         """
-        statement = select(Bed).where(Bed.id == identifier)
+        statement = select(Bed).where(and_(Bed.id == identifier))
 
         with Session(self._sa_engine) as session:
             bed_object = session.scalar(statement)
@@ -234,7 +248,7 @@ class BedAgentBedFile:
         :param identifier: bed file identifier
         :return: project files
         """
-        statement = select(Bed).where(Bed.id == identifier)
+        statement = select(Bed).where(and_(Bed.id == identifier))
 
         with Session(self._sa_engine) as session:
             bed_object = session.scalar(statement)
@@ -282,7 +296,7 @@ class BedAgentBedFile:
         :param identifier: bed file identifier
         :return: project classification
         """
-        statement = select(Bed).where(Bed.id == identifier)
+        statement = select(Bed).where(and_(Bed.id == identifier))
 
         with Session(self._sa_engine) as session:
             bed_object = session.scalar(statement)
@@ -299,7 +313,7 @@ class BedAgentBedFile:
         :param identifier:  bed file identifier
         :return: project objects dict
         """
-        statement = select(Bed).where(Bed.id == identifier)
+        statement = select(Bed).where(and_(Bed.id == identifier))
         return_dict = {}
 
         with Session(self._sa_engine) as session:
@@ -357,12 +371,12 @@ class BedAgentBedFile:
 
         # TODO: make it generic, like in pephub
         if genome:
-            statement = statement.where(Bed.genome_alias == genome)
-            count_statement = count_statement.where(Bed.genome_alias == genome)
+            statement = statement.where(and_(Bed.genome_alias == genome))
+            count_statement = count_statement.where(and_(Bed.genome_alias == genome))
 
         if bed_type:
-            statement = statement.where(Bed.bed_type == bed_type)
-            count_statement = count_statement.where(Bed.bed_type == bed_type)
+            statement = statement.where(and_(Bed.bed_type == bed_type))
+            count_statement = count_statement.where(and_(Bed.bed_type == bed_type))
 
         statement = statement.limit(limit).offset(offset)
 
@@ -389,6 +403,7 @@ class BedAgentBedFile:
         plots: dict = None,
         files: dict = None,
         classification: dict = None,
+        ref_validation: Dict[str, BaseModel] = None,
         license_id: str = DEFAULT_LICENSE,
         upload_qdrant: bool = False,
         upload_pephub: bool = False,
@@ -406,6 +421,7 @@ class BedAgentBedFile:
         :param plots: bed file plots
         :param files: bed file files
         :param classification: bed file classification
+        :param ref_validation: reference validation data.  RefGenValidModel
         :param license_id: bed file license id (default: 'DUO:0000042'). Full list of licenses:
             https://raw.githubusercontent.com/EBISPOT/DUO/master/duo.csv
         :param upload_qdrant: add bed file to qdrant indexs
@@ -440,14 +456,15 @@ class BedAgentBedFile:
         # TODO: we should not check for specific keys, of the plots!
         plots = BedPlots(**plots)
         files = BedFiles(**files)
+        bed_metadata = StandardMeta(**metadata)
 
         classification = BedClassification(**classification)
         if upload_pephub:
-            metadata = BedPEPHub(**metadata)
+            pephub_metadata = BedPEPHub(**metadata)
             try:
                 self.upload_pephub(
                     identifier,
-                    metadata.model_dump(exclude=set("input_file")),
+                    pephub_metadata.model_dump(exclude=set("input_file")),
                     overwrite,
                 )
             except Exception as e:
@@ -465,7 +482,7 @@ class BedAgentBedFile:
                 self.upload_file_qdrant(
                     identifier,
                     files.bed_file.path,
-                    metadata.model_dump(exclude=set("input_file")),
+                    bed_metadata.model_dump(exclude_none=False),
                 )
                 _LOGGER.info(f"File uploaded to qdrant. {identifier}")
             else:
@@ -490,6 +507,7 @@ class BedAgentBedFile:
             new_bed = Bed(
                 id=identifier,
                 **classification.model_dump(),
+                description=bed_metadata.description,
                 license_id=license_id,
                 indexed=upload_qdrant,
                 pephub=upload_pephub,
@@ -522,8 +540,23 @@ class BedAgentBedFile:
                         session.add(new_plot)
 
             new_bedstat = BedStats(**stats.model_dump(), id=identifier)
-            session.add(new_bedstat)
+            new_metadata = BedMetadata(
+                **bed_metadata.model_dump(exclude={"description"}), id=identifier
+            )
 
+            session.add(new_bedstat)
+            session.add(new_metadata)
+
+            for ref_gen_check, data in ref_validation.items():
+                new_gen_ref = GenomeRefStats(
+                    **RefGenValidModel(
+                        **data.model_dump(),
+                        provided_genome=classification.genome_alias,
+                        compared_genome=ref_gen_check,
+                    ).model_dump(),
+                    bed_id=identifier,
+                )
+                session.add(new_gen_ref)
             session.commit()
 
         return None
@@ -590,7 +623,7 @@ class BedAgentBedFile:
                 identifier, files.bed_file.path, payload=metadata.model_dump()
             )
 
-        statement = select(Bed).where(Bed.id == identifier)
+        statement = select(Bed).where(and_(Bed.id == identifier))
 
         if upload_s3:
             _LOGGER.warning("S3 upload is not implemented yet")
@@ -648,7 +681,7 @@ class BedAgentBedFile:
             raise BEDFileNotFoundError(f"Bed file with id: {identifier} not found.")
 
         with Session(self._sa_engine) as session:
-            statement = select(Bed).where(Bed.id == identifier)
+            statement = select(Bed).where(and_(Bed.id == identifier))
             bed_object = session.scalar(statement)
 
             files = [FileModel(**k.__dict__) for k in bed_object.files]
@@ -721,15 +754,33 @@ class BedAgentBedFile:
         :param payload: additional metadata to store alongside vectors
         :return: None
         """
+
+        _LOGGER.debug(f"Adding bed file to qdrant. bed_id: {bed_id}")
+        bed_embedding = self._embed_file(bed_file)
+
+        self._qdrant_engine.load(
+            ids=[bed_id],
+            vectors=bed_embedding,
+            payloads=[{**payload}],
+        )
+        return None
+
+    def _embed_file(self, bed_file: Union[str, RegionSet]) -> np.ndarray:
+        """
+        Create embeding for bed file
+
+        :param bed_id: bed file id
+        :param bed_file: path to the bed file, or RegionSet object
+
+        :return np array of embeddings
+        """
         if self._qdrant_engine is None:
             raise QdrantInstanceNotInitializedError
-
         if not self._config.r2v:
             raise BedBaseConfError(
                 "Could not add add region to qdrant. Invalid type, or path. "
             )
 
-        _LOGGER.debug(f"Adding bed file to qdrant. bed_id: {bed_id}")
         if isinstance(bed_file, str):
             bed_region_set = GRegionSet(bed_file)
         elif isinstance(bed_file, RegionSet) or isinstance(bed_file, GRegionSet):
@@ -738,19 +789,9 @@ class BedAgentBedFile:
             raise BedBaseConfError(
                 "Could not add add region to qdrant. Invalid type, or path. "
             )
-        # Not really working
-        # bed_embedding = np.mean([self._config.r2v.encode(r) for r in bed_region_set], axis=0)
-
         bed_embedding = np.mean(self._config.r2v.encode(bed_region_set), axis=0)
-
-        # Upload bed file vector to the database
         vec_dim = bed_embedding.shape[0]
-        self._qdrant_engine.load(
-            ids=[bed_id],
-            vectors=bed_embedding.reshape(1, vec_dim),
-            payloads=[{**payload}],
-        )
-        return None
+        return bed_embedding.reshape(1, vec_dim)
 
     def text_to_bed_search(
         self, query: str, limit: int = 10, offset: int = 0
@@ -781,7 +822,7 @@ class BedAgentBedFile:
             if result_meta:
                 results_list.append(QdrantSearchResult(**result, metadata=result_meta))
         return BedListSearchResult(
-            count=self.bb_agent.get_stats.bedfiles_number,
+            count=self.bb_agent.get_stats().bedfiles_number,
             limit=limit,
             offset=offset,
             results=results_list,
@@ -809,7 +850,7 @@ class BedAgentBedFile:
             if result_meta:
                 results_list.append(QdrantSearchResult(**result, metadata=result_meta))
         return BedListSearchResult(
-            count=self.bb_agent.get_stats.bedfiles_number,
+            count=self.bb_agent.get_stats().bedfiles_number,
             limit=limit,
             offset=offset,
             results=results_list,
@@ -826,7 +867,7 @@ class BedAgentBedFile:
         """
         bb_client = BBClient()
 
-        statement = select(Bed.id).where(Bed.genome_alias == QDRANT_GENOME)
+        statement = select(Bed.id).where(and_(Bed.genome_alias == QDRANT_GENOME))
 
         with Session(self._db_engine.engine) as session:
             bed_ids = session.execute(statement).all()
@@ -890,7 +931,7 @@ class BedAgentBedFile:
         :param identifier: bed file identifier
         :return: True if bed file exists, False otherwise
         """
-        statement = select(Bed).where(Bed.id == identifier)
+        statement = select(Bed).where(and_(Bed.id == identifier))
 
         with Session(self._sa_engine) as session:
             bed_object = session.scalar(statement)
@@ -906,7 +947,7 @@ class BedAgentBedFile:
 
         :return: True if universe exists, False otherwise
         """
-        statement = select(Universes).where(Universes.id == identifier)
+        statement = select(Universes).where(and_(Universes.id == identifier))
 
         with Session(self._sa_engine) as session:
             bed_object = session.scalar(statement)
@@ -950,7 +991,7 @@ class BedAgentBedFile:
             raise UniverseNotFoundError(f"Universe not found. id: {identifier}")
 
         with Session(self._sa_engine) as session:
-            statement = delete(Universes).where(Universes.id == identifier)
+            statement = delete(Universes).where(and_(Universes.id == identifier))
             session.execute(statement)
             session.commit()
 
