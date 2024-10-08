@@ -281,11 +281,16 @@ class BedBaseConfig:
             warnings.warn(f"Error in creating boto3 client object: {e}", UserWarning)
             return None
 
-    def _init_r2v_object(self) -> Region2VecExModel:
+    def _init_r2v_object(self) -> Union[Region2VecExModel, None]:
         """
         Create Region2VecExModel object using credentials provided in config file
         """
-        return Region2VecExModel(self.config.path.region2vec)
+        try:
+            return Region2VecExModel(self.config.path.region2vec)
+        except Exception as e:
+            _LOGGER.error(f"Error in creating Region2VecExModel object: {e}")
+            warnings.warn(f"Error in creating Region2VecExModel object: {e}", UserWarning)
+            return None
 
     def upload_s3(self, file_path: str, s3_path: Union[Path, str]) -> None:
         """
