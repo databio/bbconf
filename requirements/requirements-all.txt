@@ -1,6 +1,6 @@
 yacman >= 0.9.1
 sqlalchemy >= 2.0.0
-geniml[ml] >= 0.4.2
+geniml >= 0.4.2
 psycopg >= 3.1.15
 colorlogs
 pydantic >= 2.9.0
@@ -12,3 +12,20 @@ zarr
 pyyaml >= 6.0.1 # for s3fs because of the errors
 s3fs >= 2024.3.1
 pandas >= 2.0.0
+
+## Geniml
+anndata > 0.9.0
+fastembed >= 0.2.5
+gensim >= 4.3.3
+huggingface_hub >= 0.25.1
+qdrant_client >= 1.11.2
+hnswlib >= 0.8.0
+paramiko >= 3.0.0
+pyBigWig >= 0.3.23
+scanpy >= 1.10.3
+# torch == 2.4.1
+# pytorch
+torch==1.13.1+cpu
+
+lightning >=  2.4.0
+langchain-huggingface==0.0.2
