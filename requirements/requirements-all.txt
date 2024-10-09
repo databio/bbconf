@@ -1,6 +1,6 @@
 yacman >= 0.9.1
 sqlalchemy >= 2.0.0
-geniml[ml] >= 0.4.2
+geniml[ml] >= 0.4.3
 psycopg >= 3.1.15
 colorlogs
 pydantic >= 2.9.0
