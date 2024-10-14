@@ -808,7 +808,8 @@ class BedAgentBedFile:
         _LOGGER.info(f"Looking for: {query}")
         _LOGGER.info(f"Using backend: {self._config.t2bsi}")
 
-        results = self._config.t2bsi.query_search(query, limit=limit, offset=offset)
+        # results = self._config.t2bsi.query_search(query, limit=limit, offset=offset)
+        results = self._config.bivec.query_search(query, limit=limit, offset=offset)
         results_list = []
         for result in results:
             result_id = result["id"].replace("-", "")

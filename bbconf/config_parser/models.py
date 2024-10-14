@@ -53,6 +53,8 @@ class ConfigQdrant(BaseModel):
     port: int = DEFAULT_QDRANT_PORT
     api_key: Optional[str] = None
     collection: str = DEFAULT_QDRANT_COLLECTION_NAME
+    label_collection: Optional[str] = "bed_text"
+    file_collection: Optional[str] = "bedbase2"
 
 
 class ConfigServer(BaseModel):
