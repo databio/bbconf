@@ -11,7 +11,7 @@ import yacman
 import zarr
 from botocore.exceptions import BotoCoreError, EndpointConnectionError
 from geniml.region2vec.main import Region2VecExModel
-from geniml.search import BED2BEDSearchInterface, QdrantBackend, Text2BEDSearchInterface
+from geniml.search import BED2BEDSearchInterface, Text2BEDSearchInterface
 from geniml.search.query2vec import BED2Vec, Text2Vec
 from geniml.search.backends import BiVectorBackend, QdrantBackend
 from geniml.search.interfaces import BiVectorSearchInterface
@@ -47,6 +47,7 @@ class BedBaseConfig:
 
         self._db_engine = self._init_db_engine()
         self._qdrant_engine = self._init_qdrant_backend()
+        self._qdrant_text_engine = self._init_qdrant_text_backend()
         self._t2bsi = self._init_t2bsi_object()
         self._b2bsi = self._init_b2bsi_object()
         self._r2v = self._init_r2v_object()
@@ -97,14 +98,14 @@ class BedBaseConfig:
         """
         return self._db_engine
 
-    @property
-    def t2bsi(self) -> Union[Text2BEDSearchInterface, None]:
-        """
-        Get text2bednn object
-
-        :return: text2bednn object
-        """
-        return self._t2bsi
+    # @property
+    # def t2bsi(self) -> Union[Text2BEDSearchInterface, None]:
+    #     """
+    #     Get text2bednn object
+    #
+    #     :return: text2bednn object
+    #     """
+    #     return self._t2bsi
 
     @property
     def b2bsi(self) -> Union[BED2BEDSearchInterface, None]:
@@ -133,7 +134,6 @@ class BedBaseConfig:
         """
 
         return self._bivec
-
 
     @property
     def qdrant_engine(self) -> QdrantBackend:
@@ -208,7 +208,7 @@ class BedBaseConfig:
         """
         try:
             return QdrantBackend(
-                collection=self._config.qdrant.collection,
+                collection=self._config.qdrant.file_collection,
                 qdrant_host=self._config.qdrant.host,
                 qdrant_port=self._config.qdrant.port,
                 qdrant_api_key=self._config.qdrant.api_key,
@@ -219,23 +219,30 @@ class BedBaseConfig:
                 f"error in Connection to qdrant! skipping... Error: {err}", UserWarning
             )
 
+    def _init_qdrant_text_backend(self) -> QdrantBackend:
+        """
+        Create qdrant client text embedding object using credentials provided in config file
+
+        :return: QdrantClient
+        """
+
+        return QdrantBackend(
+            dim=384,
+            collection=self.config.qdrant.text_collection,
+            qdrant_host=self.config.qdrant.host,
+            qdrant_api_key=self.config.qdrant.api_key,
+        )
+
     def _init_bivec_object(self) -> Union[BiVectorSearchInterface, None]:
         """
         Create BiVectorSearchInterface object using credentials provided in config file
 
         :return: BiVectorSearchInterface
         """
-        text_backend = QdrantBackend(dim=384,
-                                     collection=self.config.qdrant.label_collection,
-                                     qdrant_host=self.config.qdrant.host,
-                                     qdrant_api_key=self.config.qdrant.api_key,
-                                     )
-        bed_backend = QdrantBackend(
-            collection=self.config.qdrant.file_collection,
-            qdrant_host=self.config.qdrant.host,
-            qdrant_api_key=self.config.qdrant.api_key,
+
+        search_backend = BiVectorBackend(
+            metadata_backend=self._qdrant_text_engine, bed_backend=self._qdrant_engine
         )
-        search_backend = BiVectorBackend(text_backend, bed_backend)
         search_interface = BiVectorSearchInterface(
             backend=search_backend, query2vec="sentence-transformers/all-MiniLM-L6-v2"
         )
@@ -325,7 +332,9 @@ class BedBaseConfig:
             return Region2VecExModel(self.config.path.region2vec)
         except Exception as e:
             _LOGGER.error(f"Error in creating Region2VecExModel object: {e}")
-            warnings.warn(f"Error in creating Region2VecExModel object: {e}", UserWarning)
+            warnings.warn(
+                f"Error in creating Region2VecExModel object: {e}", UserWarning
+            )
             return None
 
     def upload_s3(self, file_path: str, s3_path: Union[Path, str]) -> None:

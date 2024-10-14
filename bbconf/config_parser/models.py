@@ -14,6 +14,7 @@ from bbconf.config_parser.const import (
     DEFAULT_PEPHUB_NAMESPACE,
     DEFAULT_PEPHUB_TAG,
     DEFAULT_QDRANT_COLLECTION_NAME,
+    DEFAULT_QDRANT_TEXT_COLLECTION_NAME,
     DEFAULT_QDRANT_PORT,
     DEFAULT_REGION2_VEC_MODEL,
     DEFAULT_S3_BUCKET,
@@ -52,9 +53,8 @@ class ConfigQdrant(BaseModel):
     host: str
     port: int = DEFAULT_QDRANT_PORT
     api_key: Optional[str] = None
-    collection: str = DEFAULT_QDRANT_COLLECTION_NAME
-    label_collection: Optional[str] = "bed_text"
-    file_collection: Optional[str] = "bedbase2"
+    file_collection: str = DEFAULT_QDRANT_COLLECTION_NAME
+    text_collection: Optional[str] = DEFAULT_QDRANT_TEXT_COLLECTION_NAME
 
 
 class ConfigServer(BaseModel):

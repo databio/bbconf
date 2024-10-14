@@ -335,7 +335,7 @@ class BedAgentBedFile:
         if not self.exists(identifier):
             raise BEDFileNotFoundError(f"Bed file with id: {identifier} not found.")
         result = self._qdrant_engine.qd_client.retrieve(
-            collection_name=self._config.config.qdrant.collection,
+            collection_name=self._config.config.qdrant.file_collection,
             ids=[identifier],
             with_vectors=True,
             with_payload=True,
@@ -362,14 +362,13 @@ class BedAgentBedFile:
         :param offset: offset to start from
         :param genome: filter by genome
         :param bed_type: filter by bed type. e.g. 'bed6+4'
-        :param full: if True, return full metadata, including statistics, files, and raw metadata from pephub
 
         :return: list of bed file identifiers
         """
         statement = select(Bed)
         count_statement = select(func.count(Bed.id))
 
-        # TODO: make it generic, like in pephub
+        # TODO: make it generic, like in PEPhub
         if genome:
             statement = statement.where(and_(Bed.genome_alias == genome))
             count_statement = count_statement.where(and_(Bed.genome_alias == genome))
@@ -769,7 +768,7 @@ class BedAgentBedFile:
         """
         Create embeding for bed file
 
-        :param bed_id: bed file id
+        :param bed_file: bed file id
         :param bed_file: path to the bed file, or RegionSet object
 
         :return np array of embeddings
@@ -806,9 +805,9 @@ class BedAgentBedFile:
         :return: list of bed file metadata
         """
         _LOGGER.info(f"Looking for: {query}")
-        _LOGGER.info(f"Using backend: {self._config.t2bsi}")
-
+        # _LOGGER.info(f"Using backend: {self._config.t2bsi}")
         # results = self._config.t2bsi.query_search(query, limit=limit, offset=offset)
+
         results = self._config.bivec.query_search(query, limit=limit, offset=offset)
         results_list = []
         for result in results:
@@ -909,7 +908,7 @@ class BedAgentBedFile:
         """
 
         result = self._config.qdrant_engine.qd_client.delete(
-            collection_name=self._config.config.qdrant.collection,
+            collection_name=self._config.config.qdrant.file_collection,
             points_selector=PointIdsList(
                 points=[identifier],
             ),
@@ -921,7 +920,7 @@ class BedAgentBedFile:
         Create qdrant collection for bed files.
         """
         return self._config.qdrant_engine.qd_client.create_collection(
-            collection_name=self._config.config.qdrant.collection,
+            collection_name=self._config.config.qdrant.file_collection,
             vectors_config=VectorParams(size=100, distance=Distance.DOT),
         )
 
@@ -1072,7 +1071,7 @@ class BedAgentBedFile:
                 "Set overwrite to True to overwrite it."
             )
 
-        return os.path.join(ZARR_TOKENIZED_FOLDER, path)
+        return str(os.path.join(ZARR_TOKENIZED_FOLDER, path))
 
     def get_tokenized(self, bed_id: str, universe_id: str) -> TokenizedBedResponse:
         """
@@ -1140,7 +1139,7 @@ class BedAgentBedFile:
                 ),
             )
             tokenized_object = session.scalar(statement)
-            return tokenized_object.path
+            return str(tokenized_object.path)
 
     def exist_tokenized(self, bed_id: str, universe_id: str) -> bool:
         """
