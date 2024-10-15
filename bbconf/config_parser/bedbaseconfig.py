@@ -289,7 +289,9 @@ class BedBaseConfig:
             return Region2VecExModel(self.config.path.region2vec)
         except Exception as e:
             _LOGGER.error(f"Error in creating Region2VecExModel object: {e}")
-            warnings.warn(f"Error in creating Region2VecExModel object: {e}", UserWarning)
+            warnings.warn(
+                f"Error in creating Region2VecExModel object: {e}", UserWarning
+            )
             return None
 
     def upload_s3(self, file_path: str, s3_path: Union[Path, str]) -> None:
