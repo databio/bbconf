@@ -768,7 +768,7 @@ class BedAgentBedFile:
         """
         Create embeding for bed file
 
-        :param bed_file: bed file id
+        :param bed_file: bed file path or regionset
         :param bed_file: path to the bed file, or RegionSet object
 
         :return np array of embeddings
