@@ -98,14 +98,6 @@ class BedBaseConfig:
         """
         return self._db_engine
 
-    # @property
-    # def t2bsi(self) -> Union[Text2BEDSearchInterface, None]:
-    #     """
-    #     Get text2bednn object
-    #
-    #     :return: text2bednn object
-    #     """
-    #     return self._t2bsi
 
     @property
     def b2bsi(self) -> Union[BED2BEDSearchInterface, None]:
