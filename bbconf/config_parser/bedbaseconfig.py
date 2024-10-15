@@ -11,8 +11,10 @@ import yacman
 import zarr
 from botocore.exceptions import BotoCoreError, EndpointConnectionError
 from geniml.region2vec.main import Region2VecExModel
-from geniml.search import BED2BEDSearchInterface, QdrantBackend, Text2BEDSearchInterface
-from geniml.search.query2vec import BED2Vec, Text2Vec
+from geniml.search import BED2BEDSearchInterface
+from geniml.search.backends import BiVectorBackend, QdrantBackend
+from geniml.search.interfaces import BiVectorSearchInterface
+from geniml.search.query2vec import BED2Vec
 from pephubclient import PEPHubClient
 from zarr import Group as Z_GROUP
 
@@ -20,6 +22,7 @@ from bbconf.config_parser.const import (
     S3_BEDSET_PATH_FOLDER,
     S3_FILE_PATH_FOLDER,
     S3_PLOTS_PATH_FOLDER,
+    TEXT_EMBEDDING_DIMENSION,
 )
 from bbconf.config_parser.models import ConfigFile
 from bbconf.const import PKG_NAME, ZARR_TOKENIZED_FOLDER
@@ -45,9 +48,10 @@ class BedBaseConfig:
 
         self._db_engine = self._init_db_engine()
         self._qdrant_engine = self._init_qdrant_backend()
-        self._t2bsi = self._init_t2bsi_object()
+        self._qdrant_text_engine = self._init_qdrant_text_backend()
         self._b2bsi = self._init_b2bsi_object()
         self._r2v = self._init_r2v_object()
+        self._bivec = self._init_bivec_object()
 
         self._phc = self._init_pephubclient()
         self._boto3_client = self._init_boto3_client()
@@ -95,15 +99,6 @@ class BedBaseConfig:
         return self._db_engine
 
     @property
-    def t2bsi(self) -> Union[Text2BEDSearchInterface, None]:
-        """
-        Get text2bednn object
-
-        :return: text2bednn object
-        """
-        return self._t2bsi
-
-    @property
     def b2bsi(self) -> Union[BED2BEDSearchInterface, None]:
         """
         Get bed2bednn object
@@ -120,6 +115,16 @@ class BedBaseConfig:
         :return: region2vec object
         """
         return self._r2v
+
+    @property
+    def bivec(self) -> BiVectorSearchInterface:
+        """
+        Get bivec search interface object
+
+        :return: bivec search interface object
+        """
+
+        return self._bivec
 
     @property
     def qdrant_engine(self) -> QdrantBackend:
@@ -194,7 +199,7 @@ class BedBaseConfig:
         """
         try:
             return QdrantBackend(
-                collection=self._config.qdrant.collection,
+                collection=self._config.qdrant.file_collection,
                 qdrant_host=self._config.qdrant.host,
                 qdrant_port=self._config.qdrant.port,
                 qdrant_api_key=self._config.qdrant.api_key,
@@ -205,28 +210,35 @@ class BedBaseConfig:
                 f"error in Connection to qdrant! skipping... Error: {err}", UserWarning
             )
 
-    def _init_t2bsi_object(self) -> Union[Text2BEDSearchInterface, None]:
+    def _init_qdrant_text_backend(self) -> QdrantBackend:
         """
-        Create Text 2 BED search interface and return this object
+        Create qdrant client text embedding object using credentials provided in config file
 
-        :return: Text2BEDSearchInterface object
+        :return: QdrantClient
         """
 
-        try:
-            return Text2BEDSearchInterface(
-                backend=self.qdrant_engine,
-                query2vec=Text2Vec(
-                    hf_repo=self._config.path.text2vec,
-                    v2v=self._config.path.vec2vec,
-                ),
-            )
-        except Exception as e:
-            _LOGGER.error("Error in creating Text2BEDSearchInterface object: " + str(e))
-            warnings.warn(
-                "Error in creating Text2BEDSearchInterface object: " + str(e),
-                UserWarning,
-            )
-            return None
+        return QdrantBackend(
+            dim=TEXT_EMBEDDING_DIMENSION,
+            collection=self.config.qdrant.text_collection,
+            qdrant_host=self.config.qdrant.host,
+            qdrant_api_key=self.config.qdrant.api_key,
+        )
+
+    def _init_bivec_object(self) -> Union[BiVectorSearchInterface, None]:
+        """
+        Create BiVectorSearchInterface object using credentials provided in config file
+
+        :return: BiVectorSearchInterface
+        """
+
+        search_backend = BiVectorBackend(
+            metadata_backend=self._qdrant_text_engine, bed_backend=self._qdrant_engine
+        )
+        search_interface = BiVectorSearchInterface(
+            backend=search_backend,
+            query2vec=self.config.path.text2vec,
+        )
+        return search_interface
 
     def _init_b2bsi_object(self) -> Union[BED2BEDSearchInterface, None]:
         """

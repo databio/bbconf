@@ -5,7 +5,7 @@ from typing import Optional, Union
 from pydantic import BaseModel, ConfigDict, computed_field, field_validator
 from yacman import load_yaml
 
-from bbconf.config_parser.const import (
+from bbconf.config_parser.const import (  # DEFAULT_VEC2VEC_MODEL,
     DEFAULT_DB_DIALECT,
     DEFAULT_DB_DRIVER,
     DEFAULT_DB_NAME,
@@ -15,12 +15,12 @@ from bbconf.config_parser.const import (
     DEFAULT_PEPHUB_TAG,
     DEFAULT_QDRANT_COLLECTION_NAME,
     DEFAULT_QDRANT_PORT,
+    DEFAULT_QDRANT_TEXT_COLLECTION_NAME,
     DEFAULT_REGION2_VEC_MODEL,
     DEFAULT_S3_BUCKET,
     DEFAULT_SERVER_HOST,
     DEFAULT_SERVER_PORT,
     DEFAULT_TEXT2VEC_MODEL,
-    DEFAULT_VEC2VEC_MODEL,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -52,7 +52,8 @@ class ConfigQdrant(BaseModel):
     host: str
     port: int = DEFAULT_QDRANT_PORT
     api_key: Optional[str] = None
-    collection: str = DEFAULT_QDRANT_COLLECTION_NAME
+    file_collection: str = DEFAULT_QDRANT_COLLECTION_NAME
+    text_collection: Optional[str] = DEFAULT_QDRANT_TEXT_COLLECTION_NAME
 
 
 class ConfigServer(BaseModel):
@@ -62,7 +63,7 @@ class ConfigServer(BaseModel):
 
 class ConfigPath(BaseModel):
     region2vec: str = DEFAULT_REGION2_VEC_MODEL
-    vec2vec: str = DEFAULT_VEC2VEC_MODEL
+    # vec2vec: str = DEFAULT_VEC2VEC_MODEL
     text2vec: str = DEFAULT_TEXT2VEC_MODEL
 
 
