@@ -48,7 +48,6 @@ class BedBaseConfig:
         self._db_engine = self._init_db_engine()
         self._qdrant_engine = self._init_qdrant_backend()
         self._qdrant_text_engine = self._init_qdrant_text_backend()
-        self._t2bsi = self._init_t2bsi_object()
         self._b2bsi = self._init_b2bsi_object()
         self._r2v = self._init_r2v_object()
         self._bivec = self._init_bivec_object()
@@ -98,7 +97,6 @@ class BedBaseConfig:
         """
         return self._db_engine
 
-
     @property
     def b2bsi(self) -> Union[BED2BEDSearchInterface, None]:
         """
@@ -120,9 +118,9 @@ class BedBaseConfig:
     @property
     def bivec(self) -> BiVectorSearchInterface:
         """
-        Get region2vec object
+        Get bivec search interface object
 
-        :return: region2vec object
+        :return: bivec search interface object
         """
 
         return self._bivec
@@ -236,32 +234,10 @@ class BedBaseConfig:
             metadata_backend=self._qdrant_text_engine, bed_backend=self._qdrant_engine
         )
         search_interface = BiVectorSearchInterface(
-            backend=search_backend, query2vec="sentence-transformers/all-MiniLM-L6-v2"
+            backend=search_backend,
+            query2vec=self.config.path.text2vec,
         )
         return search_interface
-
-    def _init_t2bsi_object(self) -> Union[Text2BEDSearchInterface, None]:
-        """
-        Create Text 2 BED search interface and return this object
-
-        :return: Text2BEDSearchInterface object
-        """
-
-        try:
-            return Text2BEDSearchInterface(
-                backend=self.qdrant_engine,
-                query2vec=Text2Vec(
-                    hf_repo=self._config.path.text2vec,
-                    v2v=self._config.path.vec2vec,
-                ),
-            )
-        except Exception as e:
-            _LOGGER.error("Error in creating Text2BEDSearchInterface object: " + str(e))
-            warnings.warn(
-                "Error in creating Text2BEDSearchInterface object: " + str(e),
-                UserWarning,
-            )
-            return None
 
     def _init_b2bsi_object(self) -> Union[BED2BEDSearchInterface, None]:
         """

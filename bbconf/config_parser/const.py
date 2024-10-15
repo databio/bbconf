@@ -13,7 +13,7 @@ DEFAULT_SERVER_PORT = 80
 DEFAULT_SERVER_HOST = "0.0.0.0"
 
 DEFAULT_TEXT2VEC_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
-DEFAULT_VEC2VEC_MODEL = "databio/v2v-MiniLM-v2-ATAC-hg38"
+# DEFAULT_VEC2VEC_MODEL = "databio/v2v-MiniLM-v2-ATAC-hg38"
 DEFAULT_REGION2_VEC_MODEL = "databio/r2v-ChIP-atlas-hg38"
 
 DEFAULT_PEPHUB_NAMESPACE = "databio"

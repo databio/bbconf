@@ -21,7 +21,7 @@ from bbconf.config_parser.const import (
     DEFAULT_SERVER_HOST,
     DEFAULT_SERVER_PORT,
     DEFAULT_TEXT2VEC_MODEL,
-    DEFAULT_VEC2VEC_MODEL,
+    # DEFAULT_VEC2VEC_MODEL,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -64,7 +64,7 @@ class ConfigServer(BaseModel):
 
 class ConfigPath(BaseModel):
     region2vec: str = DEFAULT_REGION2_VEC_MODEL
-    vec2vec: str = DEFAULT_VEC2VEC_MODEL
+    # vec2vec: str = DEFAULT_VEC2VEC_MODEL
     text2vec: str = DEFAULT_TEXT2VEC_MODEL
 
 
