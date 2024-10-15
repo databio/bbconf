@@ -11,10 +11,10 @@ import yacman
 import zarr
 from botocore.exceptions import BotoCoreError, EndpointConnectionError
 from geniml.region2vec.main import Region2VecExModel
-from geniml.search import BED2BEDSearchInterface, Text2BEDSearchInterface
-from geniml.search.query2vec import BED2Vec, Text2Vec
+from geniml.search import BED2BEDSearchInterface
 from geniml.search.backends import BiVectorBackend, QdrantBackend
 from geniml.search.interfaces import BiVectorSearchInterface
+from geniml.search.query2vec import BED2Vec
 from pephubclient import PEPHubClient
 from zarr import Group as Z_GROUP
 
@@ -22,6 +22,7 @@ from bbconf.config_parser.const import (
     S3_BEDSET_PATH_FOLDER,
     S3_FILE_PATH_FOLDER,
     S3_PLOTS_PATH_FOLDER,
+    TEXT_EMBEDDING_DIMENSION,
 )
 from bbconf.config_parser.models import ConfigFile
 from bbconf.const import PKG_NAME, ZARR_TOKENIZED_FOLDER
@@ -217,7 +218,7 @@ class BedBaseConfig:
         """
 
         return QdrantBackend(
-            dim=384,
+            dim=TEXT_EMBEDDING_DIMENSION,
             collection=self.config.qdrant.text_collection,
             qdrant_host=self.config.qdrant.host,
             qdrant_api_key=self.config.qdrant.api_key,

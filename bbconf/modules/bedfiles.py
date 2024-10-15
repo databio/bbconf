@@ -1,13 +1,13 @@
 import os
 from logging import getLogger
 from typing import Dict, Union
-from pydantic import BaseModel
 
 import numpy as np
 from geniml.bbclient import BBClient
 from geniml.io import RegionSet
 from gtars.tokenizers import RegionSet as GRegionSet
 from pephubclient.exceptions import ResponseError
+from pydantic import BaseModel
 from qdrant_client.models import Distance, PointIdsList, VectorParams
 from sqlalchemy import and_, delete, func, select
 from sqlalchemy.orm import Session
@@ -17,12 +17,12 @@ from bbconf.config_parser.bedbaseconfig import BedBaseConfig
 from bbconf.const import DEFAULT_LICENSE, PKG_NAME, ZARR_TOKENIZED_FOLDER
 from bbconf.db_utils import (
     Bed,
+    BedMetadata,
     BedStats,
     Files,
+    GenomeRefStats,
     TokenizedBed,
     Universes,
-    BedMetadata,
-    GenomeRefStats,
 )
 from bbconf.exceptions import (
     BedBaseConfError,
@@ -48,11 +48,11 @@ from bbconf.models.bed_models import (
     BedStatsModel,
     FileModel,
     QdrantSearchResult,
+    RefGenValidModel,
+    StandardMeta,
     TokenizedBedResponse,
     TokenizedPathResponse,
     UniverseMetadata,
-    StandardMeta,
-    RefGenValidModel,
 )
 
 _LOGGER = getLogger(PKG_NAME)

@@ -9,9 +9,9 @@ from sqlalchemy import (
     ForeignKey,
     Result,
     Select,
+    UniqueConstraint,
     event,
     select,
-    UniqueConstraint,
 )
 from sqlalchemy.dialects.postgresql import JSON
 from sqlalchemy.engine import URL, Engine, create_engine
