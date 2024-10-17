@@ -44,7 +44,7 @@ class BedClassification(BaseModel):
 
 
 class BedStatsModel(BaseModel):
-    number_of_regions: Optional[float] = Field(None, alias="regions_no")
+    number_of_regions: Optional[float] = None
     gc_content: Optional[float] = None
     median_tss_dist: Optional[float] = None
     mean_region_width: Optional[float] = None
