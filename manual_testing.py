@@ -163,8 +163,21 @@ def add_s3():
     )
 
 
+def get_pep():
+    from bbconf import BedBaseAgent
+
+    agent = BedBaseAgent(config="/home/bnt4me/virginia/repos/bedhost/config.yaml")
+
+    f = agent.bedset.get_bedset_pep(identifier="encode_batch_1")
+    import peppy
+
+    prj = peppy.Project.from_dict(f)
+    prj
+
+
 if __name__ == "__main__":
     # zarr_s3()
-    add_s3()
+    # add_s3()
     # get_from_s3()
     # biocframe()
+    get_pep()

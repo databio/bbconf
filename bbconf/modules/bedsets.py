@@ -15,6 +15,7 @@ from bbconf.models.bedset_models import (
     BedSetBedFiles,
     BedSetListResult,
     BedSetMetadata,
+    BedSetPEP,
     BedSetPlots,
     BedSetStats,
     FileModel,
@@ -150,6 +151,62 @@ class BedAgentBedSet:
                 mean=BedStatsModel(**bedset_object.bedset_means),
                 sd=BedStatsModel(**bedset_object.bedset_standard_deviation),
             )
+
+    def get_bedset_pep(self, identifier: str) -> dict:
+        """
+        Create pep file for a bedset.
+
+        :param identifier: bedset identifier
+        :return: pep dict
+        """
+
+        statement = select(BedFileBedSetRelation).where(
+            BedFileBedSetRelation.bedset_id == identifier
+        )
+
+        with Session(self._db_engine.engine) as session:
+            bedfile_bedset = session.scalars(statement)
+            bedfiles = [res.bedfile for res in bedfile_bedset]
+
+            if len(bedfiles) == 0:
+                raise BedSetNotFoundError(identifier)
+            else:
+                bedfile_meta_list = []
+
+                for bedfile in bedfiles:
+
+                    try:
+                        annotation = bedfile.annotations.__dict__
+                    except AttributeError:
+                        annotation = {}
+
+                    bedfile_metadata = BedSetPEP(
+                        sample_name=bedfile.id,
+                        original_name=bedfile.name,
+                        genome_alias=bedfile.genome_alias,
+                        genome_digest=bedfile.genome_digest,
+                        bed_type=bedfile.bed_type,
+                        bed_format=bedfile.bed_format,
+                        description=bedfile.description,
+                        url=f"https://data2.bedbase.org/files/{bedfile.id[0]}/{bedfile.id[1]}/{bedfile.id}.bed.gz",
+                        **annotation,
+                    )
+                    bedfile_meta_list.append(bedfile_metadata.model_dump())
+
+                bedset = session.scalar(select(BedSets).where(BedSets.id == identifier))
+
+                pep_config = {
+                    "pep_version": "2.1.0",
+                    "name": bedset.id,
+                    "description": bedset.description,
+                    "md5sum": bedset.md5sum,
+                }
+
+        return {
+            "_config": pep_config,
+            "_sample_dict": bedfile_meta_list,
+            "_subsample_list": [],
+        }
 
     def create(
         self,
