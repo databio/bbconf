@@ -1,6 +1,6 @@
 from typing import List, Union
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, model_validator
 
 from .base_models import FileModel
 from .bed_models import BedMetadataBasic, BedStatsModel
@@ -37,3 +37,23 @@ class BedSetListResult(BaseModel):
 class BedSetBedFiles(BaseModel):
     count: int
     results: List[BedMetadataBasic]
+
+
+class BedSetPEP(BaseModel):
+    sample_name: str
+    original_name: str
+    genome_alias: Union[str, None] = ""
+    genome_digest: Union[str, None] = ""
+    bed_type: Union[str, None] = ""
+    bed_format: Union[str, None] = ""
+    description: Union[str, None] = ""
+    url: Union[str, None] = ""
+
+    @model_validator(mode="before")
+    def remove_underscore_keys(cls, values):
+        """
+        Remove keys that start with an underscore, as these values are not sorted by sqlalchemy
+        """
+        return {k: v for k, v in values.items() if not k.startswith("_")}
+
+    model_config = ConfigDict(extra="allow")
