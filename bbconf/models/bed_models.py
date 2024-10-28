@@ -17,6 +17,7 @@ class BedPlots(BaseModel):
     widths_histogram: FileModel = None
     neighbor_distances: FileModel = None
     open_chromatin: FileModel = None
+    tss_distance: FileModel = None
 
     model_config = ConfigDict(extra="ignore")
 
