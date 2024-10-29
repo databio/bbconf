@@ -77,6 +77,14 @@ class BedAgentBedSet:
                 statistics=stats,
                 plots=plots,
                 bed_ids=list_of_bedfiles,
+                submission_date=bedset_obj.submission_date,
+                last_update_date=bedset_obj.last_update_date,
+                author=(
+                    bedset_obj.annotations.author if bedset_obj.annotations else None
+                ),
+                source=(
+                    bedset_obj.annotations.source if bedset_obj.annotations else None
+                ),
             )
 
         return bedset_metadata
