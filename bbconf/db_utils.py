@@ -300,24 +300,8 @@ class BedSets(Base):
     files: Mapped[List["Files"]] = relationship("Files", back_populates="bedset")
     universe: Mapped["Universes"] = relationship("Universes", back_populates="bedset")
 
-    annotations: Mapped["BedSetMetadata"] = relationship(
-        back_populates="bedset", cascade="all, delete-orphan", lazy="joined"
-    )
-
-
-class BedSetMetadata(Base):
-    __tablename__ = "bedsets_metadata"
-
-    id: Mapped[str] = mapped_column(
-        ForeignKey("bedsets.id", ondelete="CASCADE"),
-        primary_key=True,
-        index=True,
-    )
-
     author: Mapped[str] = mapped_column(nullable=True, comment="Author of the bedset")
-    soruce: Mapped[str] = mapped_column(nullable=True, comment="Source of the bedset")
-
-    bedset: Mapped["Bed"] = relationship("BedSets", back_populates="annotations")
+    source: Mapped[str] = mapped_column(nullable=True, comment="Source of the bedset")
 
 
 class Universes(Base):
