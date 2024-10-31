@@ -9,7 +9,7 @@ from bbconf.config_parser import BedBaseConfig
 from bbconf.const import PKG_NAME
 from bbconf.db_utils import Bed, BedFileBedSetRelation, BedSets, BedStats, Files
 from bbconf.exceptions import BedSetExistsError, BedSetNotFoundError
-from bbconf.models.bed_models import BedStatsModel
+from bbconf.models.bed_models import BedStatsModel, StandardMeta
 from bbconf.models.bedset_models import (
     BedMetadataBasic,
     BedSetBedFiles,
@@ -447,7 +447,16 @@ class BedAgentBedSet:
         with Session(self._db_engine.engine) as session:
             bedfiles_list = session.scalars(statement)
             results = [
-                BedMetadataBasic(**bedfile_obj.__dict__)
+                BedMetadataBasic(
+                    **bedfile_obj.__dict__,
+                    annotation=StandardMeta(
+                        **(
+                            bedfile_obj.annotations.__dict__
+                            if bedfile_obj.annotations
+                            else {}
+                        )
+                    ),
+                )
                 for bedfile_obj in bedfiles_list
             ]
 
