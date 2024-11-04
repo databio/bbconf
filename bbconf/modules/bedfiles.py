@@ -385,7 +385,12 @@ class BedAgentBedFile:
             count = session.execute(count_statement).one()
 
             for result in bed_ids:
-                result_list.append(BedMetadataBasic(**result.__dict__))
+                annotation = StandardMeta(
+                    **result.annotations.__dict__ if result.annotations else {}
+                )
+                result_list.append(
+                    BedMetadataBasic(**result.__dict__, annotation=annotation)
+                )
 
         return BedListResult(
             count=count[0],
@@ -865,36 +870,28 @@ class BedAgentBedFile:
         """
         bb_client = BBClient()
 
-        statement = select(Bed.id).where(and_(Bed.genome_alias == QDRANT_GENOME))
+        annotation_result = self.get_ids_list(limit=10, genome=QDRANT_GENOME)
 
-        with Session(self._db_engine.engine) as session:
-            bed_ids = session.execute(statement).all()
+        if not annotation_result.results:
+            _LOGGER.error("No bed files found.")
+            return None
+        results = annotation_result.results
 
-        bed_ids = [bed_result[0] for bed_result in bed_ids]
-
-        with tqdm(total=len(bed_ids), position=0, leave=True) as pbar:
-            for record_id in bed_ids:
+        with tqdm(total=len(results), position=0, leave=True) as pbar:
+            for record in results:
                 try:
-                    bed_region_set_obj = GRegionSet(bb_client.seek(record_id))
+                    bed_region_set_obj = GRegionSet(bb_client.seek(record.id))
                 except FileNotFoundError:
-                    bed_region_set_obj = bb_client.load_bed(record_id)
+                    bed_region_set_obj = bb_client.load_bed(record.id)
 
-                pbar.set_description(f"Processing file: {record_id}")
-
-                # TODO: create different way to get metadata
-                # metadata = self._config.phc.sample.get(
-                #     namespace=self._config.config.phc.namespace,
-                #     name=self._config.config.phc.name,
-                #     tag=self._config.config.phc.tag,
-                #     sample_name=record_id,
-                # )
+                pbar.set_description(f"Processing file: {record.id}")
 
                 self.upload_file_qdrant(
-                    bed_id=record_id,
+                    bed_id=record.id,
                     bed_file=bed_region_set_obj,
-                    payload={"bed_id": record_id},
+                    payload=record.annotation.model_dump() if record.annotation else {},
                 )
-                pbar.write(f"File: {record_id} uploaded to qdrant successfully.")
+                pbar.write(f"File: {record.id} uploaded to qdrant successfully.")
                 pbar.update(1)
 
         return None
