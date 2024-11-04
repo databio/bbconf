@@ -880,17 +880,19 @@ class BedAgentBedFile:
                     bed_region_set_obj = bb_client.load_bed(record_id)
 
                 pbar.set_description(f"Processing file: {record_id}")
-                metadata = self._config.phc.sample.get(
-                    namespace=self._config.config.phc.namespace,
-                    name=self._config.config.phc.name,
-                    tag=self._config.config.phc.tag,
-                    sample_name=record_id,
-                )
+
+                # TODO: create different way to get metadata
+                # metadata = self._config.phc.sample.get(
+                #     namespace=self._config.config.phc.namespace,
+                #     name=self._config.config.phc.name,
+                #     tag=self._config.config.phc.tag,
+                #     sample_name=record_id,
+                # )
 
                 self.upload_file_qdrant(
                     bed_id=record_id,
                     bed_file=bed_region_set_obj,
-                    payload=BedPEPHubRestrict(**metadata).model_dump(),
+                    # payload=BedPEPHubRestrict(**metadata).model_dump(),
                 )
                 pbar.write(f"File: {record_id} uploaded to qdrant successfully.")
                 pbar.update(1)
