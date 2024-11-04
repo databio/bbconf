@@ -870,7 +870,7 @@ class BedAgentBedFile:
         """
         bb_client = BBClient()
 
-        annotation_result = self.get_ids_list(limit=10, genome=QDRANT_GENOME)
+        annotation_result = self.get_ids_list(limit=100000, genome=QDRANT_GENOME)
 
         if not annotation_result.results:
             _LOGGER.error("No bed files found.")
