@@ -892,7 +892,7 @@ class BedAgentBedFile:
                 self.upload_file_qdrant(
                     bed_id=record_id,
                     bed_file=bed_region_set_obj,
-                    # payload=BedPEPHubRestrict(**metadata).model_dump(),
+                    payload={"bed_id": record_id},
                 )
                 pbar.write(f"File: {record_id} uploaded to qdrant successfully.")
                 pbar.update(1)
