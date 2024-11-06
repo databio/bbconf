@@ -1,6 +1,6 @@
 import os
 from logging import getLogger
-from typing import Dict, Union
+from typing import Dict, List, Union
 
 import numpy as np
 from geniml.bbclient import BBClient
@@ -10,7 +10,7 @@ from pephubclient.exceptions import ResponseError
 from pydantic import BaseModel
 from qdrant_client.models import Distance, PointIdsList, VectorParams
 from sqlalchemy import and_, delete, func, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, aliased
 from tqdm import tqdm
 
 from bbconf.config_parser.bedbaseconfig import BedBaseConfig
@@ -1179,3 +1179,41 @@ class BedAgentBedFile:
             bed_id=bed_id,
             universe_id=universe_id,
         )
+
+    def get_missing_plots(
+        self, plot_name: str, limit: int = 1000, offset: int = 0
+    ) -> List[str]:
+        """
+        Get list of bed files that are missing plot
+
+        :param plot_name: plot name
+        :param limit: number of results to return
+        :param offset: offset to start from
+
+        :return: list of bed file identifiers
+        """
+        if plot_name not in list(BedPlots.model_fields.keys()):
+            raise BedBaseConfError(
+                f"Plot name: {plot_name} is not valid. Valid names: {list(BedPlots.model_fields.keys())}"
+            )
+
+        with Session(self._sa_engine) as session:
+            # Alias for subquery
+            t2_alias = aliased(Files)
+
+            # Define the subquery
+            subquery = select(t2_alias).where(t2_alias.name == plot_name).subquery()
+
+            query = (
+                select(Bed.id)
+                .outerjoin(subquery, Bed.id == subquery.c.bedfile_id)
+                .where(subquery.c.bedfile_id.is_(None))
+                .limit(limit)
+                .offset(offset)
+            )
+
+            results = session.scalars(query)
+
+            results = [result for result in results]
+
+        return results

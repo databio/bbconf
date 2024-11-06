@@ -1,5 +1,5 @@
-from typing import List, Union
 import datetime
+from typing import List, Union
 
 from pydantic import BaseModel, ConfigDict, model_validator
 

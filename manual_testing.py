@@ -175,9 +175,20 @@ def get_pep():
     prj
 
 
+def get_id_plots_missing():
+    from bbconf import BedBaseAgent
+
+    agent = BedBaseAgent(config="/home/bnt4me/virginia/repos/bedhost/config.yaml")
+
+    results = agent.bed.get_missing_plots("gccontent", limit=5000)
+    print(results)
+    print(agent.get_list_genomes())
+
+
 if __name__ == "__main__":
     # zarr_s3()
     # add_s3()
     # get_from_s3()
     # biocframe()
-    get_pep()
+    # get_pep()
+    get_id_plots_missing()
