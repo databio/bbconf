@@ -62,6 +62,17 @@ class BedBaseAgent(object):
             genomes_number=number_of_genomes,
         )
 
+    def get_list_genomes(self) -> List[str]:
+        """
+        Get list of genomes from the database
+
+        :return: list of genomes
+        """
+        statement = select(distinct(Bed.genome_alias))
+        with Session(self.config.db_engine.engine) as session:
+            genomes = session.execute(statement).all()
+        return [result[0] for result in genomes]
+
     @cached_property
     def list_of_licenses(self) -> List[str]:
         """

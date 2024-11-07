@@ -300,6 +300,9 @@ class BedSets(Base):
     files: Mapped[List["Files"]] = relationship("Files", back_populates="bedset")
     universe: Mapped["Universes"] = relationship("Universes", back_populates="bedset")
 
+    author: Mapped[str] = mapped_column(nullable=True, comment="Author of the bedset")
+    source: Mapped[str] = mapped_column(nullable=True, comment="Source of the bedset")
+
 
 class Universes(Base):
     __tablename__ = "universes"
@@ -336,7 +339,7 @@ class TokenizedBed(Base):
         nullable=False,
     )
     universe_id: Mapped[str] = mapped_column(
-        ForeignKey("universes.id", ondelete="CASCADE"),
+        ForeignKey("universes.id", ondelete="CASCADE", passive_deletes=True),
         primary_key=True,
         index=True,
         nullable=False,
@@ -347,7 +350,9 @@ class TokenizedBed(Base):
 
     bed: Mapped["Bed"] = relationship("Bed", back_populates="tokenized")
     universe: Mapped["Universes"] = relationship(
-        "Universes", back_populates="tokenized"
+        "Universes",
+        back_populates="tokenized",
+        passive_deletes=True,
     )
 
 

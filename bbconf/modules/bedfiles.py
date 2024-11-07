@@ -1,6 +1,6 @@
 import os
 from logging import getLogger
-from typing import Dict, Union
+from typing import Dict, List, Union
 
 import numpy as np
 from geniml.bbclient import BBClient
@@ -10,7 +10,7 @@ from pephubclient.exceptions import ResponseError
 from pydantic import BaseModel
 from qdrant_client.models import Distance, PointIdsList, VectorParams
 from sqlalchemy import and_, delete, func, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, aliased
 from tqdm import tqdm
 
 from bbconf.config_parser.bedbaseconfig import BedBaseConfig
@@ -385,7 +385,12 @@ class BedAgentBedFile:
             count = session.execute(count_statement).one()
 
             for result in bed_ids:
-                result_list.append(BedMetadataBasic(**result.__dict__))
+                annotation = StandardMeta(
+                    **result.annotations.__dict__ if result.annotations else {}
+                )
+                result_list.append(
+                    BedMetadataBasic(**result.__dict__, annotation=annotation)
+                )
 
         return BedListResult(
             count=count[0],
@@ -865,34 +870,28 @@ class BedAgentBedFile:
         """
         bb_client = BBClient()
 
-        statement = select(Bed.id).where(and_(Bed.genome_alias == QDRANT_GENOME))
+        annotation_result = self.get_ids_list(limit=100000, genome=QDRANT_GENOME)
 
-        with Session(self._db_engine.engine) as session:
-            bed_ids = session.execute(statement).all()
+        if not annotation_result.results:
+            _LOGGER.error("No bed files found.")
+            return None
+        results = annotation_result.results
 
-        bed_ids = [bed_result[0] for bed_result in bed_ids]
-
-        with tqdm(total=len(bed_ids), position=0, leave=True) as pbar:
-            for record_id in bed_ids:
+        with tqdm(total=len(results), position=0, leave=True) as pbar:
+            for record in results:
                 try:
-                    bed_region_set_obj = GRegionSet(bb_client.seek(record_id))
+                    bed_region_set_obj = GRegionSet(bb_client.seek(record.id))
                 except FileNotFoundError:
-                    bed_region_set_obj = bb_client.load_bed(record_id)
+                    bed_region_set_obj = bb_client.load_bed(record.id)
 
-                pbar.set_description(f"Processing file: {record_id}")
-                metadata = self._config.phc.sample.get(
-                    namespace=self._config.config.phc.namespace,
-                    name=self._config.config.phc.name,
-                    tag=self._config.config.phc.tag,
-                    sample_name=record_id,
-                )
+                pbar.set_description(f"Processing file: {record.id}")
 
                 self.upload_file_qdrant(
-                    bed_id=record_id,
+                    bed_id=record.id,
                     bed_file=bed_region_set_obj,
-                    payload=BedPEPHubRestrict(**metadata).model_dump(),
+                    payload=record.annotation.model_dump() if record.annotation else {},
                 )
-                pbar.write(f"File: {record_id} uploaded to qdrant successfully.")
+                pbar.write(f"File: {record.id} uploaded to qdrant successfully.")
                 pbar.update(1)
 
         return None
@@ -1180,3 +1179,41 @@ class BedAgentBedFile:
             bed_id=bed_id,
             universe_id=universe_id,
         )
+
+    def get_missing_plots(
+        self, plot_name: str, limit: int = 1000, offset: int = 0
+    ) -> List[str]:
+        """
+        Get list of bed files that are missing plot
+
+        :param plot_name: plot name
+        :param limit: number of results to return
+        :param offset: offset to start from
+
+        :return: list of bed file identifiers
+        """
+        if plot_name not in list(BedPlots.model_fields.keys()):
+            raise BedBaseConfError(
+                f"Plot name: {plot_name} is not valid. Valid names: {list(BedPlots.model_fields.keys())}"
+            )
+
+        with Session(self._sa_engine) as session:
+            # Alias for subquery
+            t2_alias = aliased(Files)
+
+            # Define the subquery
+            subquery = select(t2_alias).where(t2_alias.name == plot_name).subquery()
+
+            query = (
+                select(Bed.id)
+                .outerjoin(subquery, Bed.id == subquery.c.bedfile_id)
+                .where(subquery.c.bedfile_id.is_(None))
+                .limit(limit)
+                .offset(offset)
+            )
+
+            results = session.scalars(query)
+
+            results = [result for result in results]
+
+        return results

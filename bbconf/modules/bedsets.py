@@ -9,7 +9,7 @@ from bbconf.config_parser import BedBaseConfig
 from bbconf.const import PKG_NAME
 from bbconf.db_utils import Bed, BedFileBedSetRelation, BedSets, BedStats, Files
 from bbconf.exceptions import BedSetExistsError, BedSetNotFoundError
-from bbconf.models.bed_models import BedStatsModel
+from bbconf.models.bed_models import BedStatsModel, StandardMeta
 from bbconf.models.bedset_models import (
     BedMetadataBasic,
     BedSetBedFiles,
@@ -77,6 +77,10 @@ class BedAgentBedSet:
                 statistics=stats,
                 plots=plots,
                 bed_ids=list_of_bedfiles,
+                submission_date=bedset_obj.submission_date,
+                last_update_date=bedset_obj.last_update_date,
+                author=bedset_obj.author,
+                source=bedset_obj.source,
             )
 
         return bedset_metadata
@@ -200,6 +204,8 @@ class BedAgentBedSet:
                     "name": bedset.id,
                     "description": bedset.description,
                     "md5sum": bedset.md5sum,
+                    "author": bedset.author,
+                    "source": bedset.source,
                 }
 
         return {
@@ -215,6 +221,7 @@ class BedAgentBedSet:
         bedid_list: List[str],
         description: str = None,
         statistics: bool = False,
+        annotation: dict = None,
         plots: dict = None,
         upload_pephub: bool = False,
         upload_s3: bool = False,
@@ -230,6 +237,7 @@ class BedAgentBedSet:
         :param description: bedset description
         :param bedid_list: list of bed file identifiers
         :param statistics: calculate statistics for bedset
+        :param annotation: bedset annotation (author, source)
         :param plots: dictionary with plots
         :param upload_pephub: upload bedset to pephub (create view in pephub)
         :param upload_s3: upload bedset to s3
@@ -249,6 +257,9 @@ class BedAgentBedSet:
                 raise BedSetExistsError(identifier)
             self.delete(identifier)
 
+        if not isinstance(annotation, dict):
+            annotation = {}
+
         if upload_pephub:
             try:
                 self._create_pephub_view(identifier, description, bedid_list, no_fail)
@@ -264,6 +275,8 @@ class BedAgentBedSet:
             bedset_means=stats.mean.model_dump() if stats else None,
             bedset_standard_deviation=stats.sd.model_dump() if stats else None,
             md5sum=compute_md5sum_bedset(bedid_list),
+            author=annotation.get("author"),
+            source=annotation.get("source"),
         )
 
         if upload_s3:
@@ -434,7 +447,16 @@ class BedAgentBedSet:
         with Session(self._db_engine.engine) as session:
             bedfiles_list = session.scalars(statement)
             results = [
-                BedMetadataBasic(**bedfile_obj.__dict__)
+                BedMetadataBasic(
+                    **bedfile_obj.__dict__,
+                    annotation=StandardMeta(
+                        **(
+                            bedfile_obj.annotations.__dict__
+                            if bedfile_obj.annotations
+                            else {}
+                        )
+                    ),
+                )
                 for bedfile_obj in bedfiles_list
             ]
 

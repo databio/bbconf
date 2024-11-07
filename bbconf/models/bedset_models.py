@@ -1,3 +1,4 @@
+import datetime
 from typing import List, Union
 
 from pydantic import BaseModel, ConfigDict, model_validator
@@ -21,10 +22,14 @@ class BedSetMetadata(BaseModel):
     id: str
     name: str
     md5sum: str
+    submission_date: datetime.datetime = None
+    last_update_date: datetime.datetime = None
     statistics: Union[BedSetStats, None] = None
     plots: Union[BedSetPlots, None] = None
     description: str = None
     bed_ids: List[str] = None
+    author: Union[str, None] = None
+    source: Union[str, None] = None
 
 
 class BedSetListResult(BaseModel):

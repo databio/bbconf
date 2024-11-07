@@ -2,6 +2,15 @@
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) and [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) format.
 
+# [0.9.0] - 2024-11-06
+## Changed
+- Fixed bug with uploading tss dist plot\
+
+## Added
+- Added annotations to bedsets (author, source)
+- get_genome_list method to bedfiles, that lists all available genomes
+- Added method that lists all missing plots for bedfiles (get_missing_plots)
+
 # [0.8.0] - 2024-10-23
 ## Changed
 - Updated text to bed search (now using bivec)
