@@ -214,6 +214,54 @@ class BedAgentBedSet:
             "_subsample_list": [],
         }
 
+    def get_track_hub_file(self, identifier: str) -> str:
+        """
+        Get track hub file for bedset.
+
+        :param identifier: bedset identifier
+        :return: track hub file
+        """
+        statement = select(BedFileBedSetRelation).where(
+            BedFileBedSetRelation.bedset_id == identifier
+        )
+
+        trackDb_txt = ""
+
+        with Session(self._db_engine.engine) as session:
+            bs2bf_objects = session.scalars(statement)
+            if not bs2bf_objects:
+                raise BedSetNotFoundError(f"Bedset with id: {identifier} not found.")
+
+            for bs2bf_obj in bs2bf_objects:
+                bed_obj = bs2bf_obj.bedfile
+                try:
+                    bigbed_url = None
+                    for bedfile in bed_obj.files:
+                        if bedfile.name == "bigbed_file":
+                            bigbed_url = self.config.get_prefixed_uri(
+                                postfix=bedfile.path, access_id="http"
+                            )
+                            break
+                    if not bigbed_url:
+                        _LOGGER.debug(
+                            f"BigBed file for bedfile {bs2bf_obj.bedfile_id} not found."
+                        )
+                        continue
+                except AttributeError:
+                    _LOGGER.debug(
+                        f"BigBed file for bedfile {bs2bf_obj.bedfile_id} not found."
+                    )
+                    continue
+                trackDb_txt = (
+                    trackDb_txt + f"track\t {bed_obj.name}\n"
+                    "type\t bigBed\n"
+                    f"bigDataUrl\t {bigbed_url} \n"
+                    f"shortLabel\t {bed_obj.name}\n"
+                    f"longLabel\t {bed_obj.description}\n"
+                    "visibility\t full\n\n"
+                )
+        return trackDb_txt
+
     def create(
         self,
         identifier: str,
