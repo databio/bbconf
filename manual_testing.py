@@ -185,10 +185,19 @@ def get_id_plots_missing():
     print(agent.get_list_genomes())
 
 
+def neighbour_beds():
+    from bbconf import BedBaseAgent
+
+    agent = BedBaseAgent(config="/home/bnt4me/virginia/repos/bedhost/config.yaml")
+    restults = agent.bed.get_neighbours("95900d67ed6411a322af35098e445eb0")
+    restults
+
+
 if __name__ == "__main__":
     # zarr_s3()
     # add_s3()
     # get_from_s3()
     # biocframe()
     # get_pep()
-    get_id_plots_missing()
+    # get_id_plots_missing()
+    neighbour_beds()

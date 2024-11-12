@@ -4,6 +4,10 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 
 # [0.9.1] - 2024-XX-XX
+## Added
+- Search neighbours files for bed record
+
+
 ## Changed
 - Added trackHub file creation to bedset
 

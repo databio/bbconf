@@ -241,6 +241,45 @@ class BedAgentBedFile:
                     )
         return bed_plots
 
+    def get_neighbours(
+        self, identifier: str, limit: int = 10, offset: int = 0
+    ) -> BedListSearchResult:
+        """
+        Get nearest neighbours of bed file from qdrant.
+
+        :param identifier: bed file identifier
+        :param limit: number of results to return
+        :param offset: offset to start from
+
+        :return: list of nearest neighbours
+        """
+        if not self.exists(identifier):
+            raise BEDFileNotFoundError(f"Bed file with id: {identifier} not found.")
+        s = identifier
+        results = self._qdrant_engine.qd_client.query_points(
+            collection_name=self._config.config.qdrant.file_collection,
+            query="-".join([s[:8], s[8:12], s[12:16], s[16:20], s[20:]]),
+            limit=limit,
+            offset=offset,
+        )
+        result_list = []
+        for result in results.points:
+            result_id = result.id.replace("-", "")
+            result_list.append(
+                QdrantSearchResult(
+                    id=result_id,
+                    payload=result.payload,
+                    score=result.score,
+                    metadata=self.get(result_id, full=False),
+                )
+            )
+        return BedListSearchResult(
+            count=0,
+            limit=limit,
+            offset=offset,
+            results=result_list,
+        )
+
     def get_files(self, identifier: str) -> BedFiles:
         """
         Get file files by identifier.
