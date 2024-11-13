@@ -3,12 +3,16 @@ from typing import Dict, List
 
 from geniml.io.utils import compute_md5sum_bedset
 from sqlalchemy import Float, Numeric, func, or_, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, relationship
 
 from bbconf.config_parser import BedBaseConfig
 from bbconf.const import PKG_NAME
 from bbconf.db_utils import Bed, BedFileBedSetRelation, BedSets, BedStats, Files
-from bbconf.exceptions import BedSetExistsError, BedSetNotFoundError
+from bbconf.exceptions import (
+    BedSetExistsError,
+    BedSetNotFoundError,
+    BedSetTrackHubLimitError,
+)
 from bbconf.models.bed_models import BedStatsModel, StandardMeta
 from bbconf.models.bedset_models import (
     BedMetadataBasic,
@@ -232,8 +236,16 @@ class BedAgentBedSet:
             if not bs2bf_objects:
                 raise BedSetNotFoundError(f"Bedset with id: {identifier} not found.")
 
-            for bs2bf_obj in bs2bf_objects:
+            relationship_objects = [relationship for relationship in bs2bf_objects]
+
+            if len(relationship_objects) > 20:
+                raise BedSetTrackHubLimitError(
+                    "Number of bedfiles exceeds 20. Unable to process request for track hub."
+                )
+
+            for bs2bf_obj in relationship_objects:
                 bed_obj = bs2bf_obj.bedfile
+
                 try:
                     bigbed_url = None
                     for bedfile in bed_obj.files:
