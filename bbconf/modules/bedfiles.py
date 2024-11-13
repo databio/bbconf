@@ -9,7 +9,7 @@ from gtars.tokenizers import RegionSet as GRegionSet
 from pephubclient.exceptions import ResponseError
 from pydantic import BaseModel
 from qdrant_client.models import Distance, PointIdsList, VectorParams
-from sqlalchemy import and_, delete, func, select
+from sqlalchemy import and_, delete, func, or_, select
 from sqlalchemy.orm import Session, aliased
 from tqdm import tqdm
 
@@ -274,7 +274,7 @@ class BedAgentBedFile:
                 )
             )
         return BedListSearchResult(
-            count=0,
+            count=self.bb_agent.get_stats().bedfiles_number,
             limit=limit,
             offset=offset,
             results=result_list,
@@ -898,12 +898,91 @@ class BedAgentBedFile:
             results=results_list,
         )
 
+    def sql_search(
+        self, query: str, limit: int = 10, offset: int = 0
+    ) -> BedListSearchResult:
+        """
+        Search for bed files by using sql exact search.
+        This search will search files by id, name, and description
+
+        :param query: text query
+        :param limit: number of results to return
+        :param offset: offset to start from
+
+        :return: list of bed file metadata
+        """
+        _LOGGER.debug(f"Looking for: {query}")
+
+        sql_search_str = f"%{query}%"
+        with Session(self._sa_engine) as session:
+            statement = (
+                select(Bed)
+                .where(
+                    or_(
+                        Bed.id.ilike(sql_search_str),
+                        Bed.name.ilike(sql_search_str),
+                        Bed.description.ilike(sql_search_str),
+                    )
+                )
+                .limit(limit)
+                .offset(offset)
+            )
+            bed_objects = session.scalars(statement)
+            results = [
+                BedMetadataBasic(
+                    **bedfile_obj.__dict__,
+                    annotation=StandardMeta(
+                        **(
+                            bedfile_obj.annotations.__dict__
+                            if bedfile_obj.annotations
+                            else {}
+                        )
+                    ),
+                )
+                for bedfile_obj in bed_objects
+            ]
+            result_list = [
+                QdrantSearchResult(id=result.id, score=1, metadata=result)
+                for result in results
+            ]
+
+        return BedListSearchResult(
+            count=self._sql_search_count(query),
+            limit=limit,
+            offset=offset,
+            results=result_list,
+        )
+
+    def _sql_search_count(self, query: str) -> int:
+        """
+        Get number of total found files in the database.
+
+        :param query: text query
+
+        :return: number of found files
+        """
+        sql_search_str = f"%{query}%"
+        with Session(self._sa_engine) as session:
+            statement = (
+                select(func.count())
+                .select_from(Bed)
+                .where(
+                    or_(
+                        Bed.id.ilike(sql_search_str),
+                        Bed.name.ilike(sql_search_str),
+                        Bed.description.ilike(sql_search_str),
+                    )
+                )
+            )
+            count = session.execute(statement).one()
+        return count[0]
+
     def reindex_qdrant(self) -> None:
         """
         Re-upload all files to quadrant.
         !Warning: only hg38 genome can be added to qdrant!
 
-        If you want want to fully reindex/reupload to qdrant, first delete collection and create new one.
+        If you want to fully reindex/reupload to qdrant, first delete collection and create new one.
 
         Upload all files to qdrant.
         """

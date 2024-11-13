@@ -189,8 +189,16 @@ def neighbour_beds():
     from bbconf import BedBaseAgent
 
     agent = BedBaseAgent(config="/home/bnt4me/virginia/repos/bedhost/config.yaml")
-    restults = agent.bed.get_neighbours("95900d67ed6411a322af35098e445eb0")
-    restults
+    results = agent.bed.get_neighbours("e76e41597622b3df45435dde1a8eb19d")
+    results
+
+
+def sql_search():
+    from bbconf import BedBaseAgent
+
+    agent = BedBaseAgent(config="/home/bnt4me/virginia/repos/bedhost/config.yaml")
+    results = agent.bed.sql_search("K562", limit=100)
+    results
 
 
 if __name__ == "__main__":
@@ -200,4 +208,5 @@ if __name__ == "__main__":
     # biocframe()
     # get_pep()
     # get_id_plots_missing()
-    neighbour_beds()
+    # neighbour_beds()
+    sql_search()

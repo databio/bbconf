@@ -192,8 +192,8 @@ class BedListResult(BaseModel):
 
 class QdrantSearchResult(BaseModel):
     id: str
-    payload: dict
-    score: float
+    payload: dict = None
+    score: float = None
     metadata: Union[BedMetadataBasic, None] = None
 
 
