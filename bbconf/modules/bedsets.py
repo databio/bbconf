@@ -4,14 +4,17 @@ from typing import Dict, List
 from geniml.io.utils import compute_md5sum_bedset
 from sqlalchemy import Float, Numeric, func, or_, select
 from sqlalchemy.orm import Session, relationship
+from sqlalchemy.exc import IntegrityError
 
 from bbconf.config_parser import BedBaseConfig
 from bbconf.const import PKG_NAME
 from bbconf.db_utils import Bed, BedFileBedSetRelation, BedSets, BedStats, Files
 from bbconf.exceptions import (
+    BedBaseConfError,
     BedSetExistsError,
     BedSetNotFoundError,
     BedSetTrackHubLimitError,
+    BEDFileNotFoundError,
 )
 from bbconf.models.bed_models import BedStatsModel, StandardMeta
 from bbconf.models.bedset_models import (
@@ -313,8 +316,15 @@ class BedAgentBedSet:
         else:
             stats = None
         if self.exists(identifier):
-            if not overwrite and not no_fail:
-                raise BedSetExistsError(identifier)
+            if not overwrite:
+                raise BedSetExistsError(
+                    f"BEDset already exist in the database: {identifier}"
+                )
+            if no_fail and not overwrite:
+                _LOGGER.warning(
+                    f"Bedset '{identifier}' already exists. no_fail=True. Skipping updating bedset."
+                )
+                return None
             self.delete(identifier)
 
         if not isinstance(annotation, dict):
@@ -366,10 +376,13 @@ class BedAgentBedSet:
                             session.add(new_file)
 
                 session.commit()
-        except Exception as e:
-            _LOGGER.error(f"Failed to create bedset: {e}")
+        except IntegrityError as _:
+            raise BEDFileNotFoundError(
+                "Failed to create bedset. One of the bedfiles does not exist."
+            )
+        except Exception as _:
             if not no_fail:
-                raise e
+                raise BedBaseConfError("Failed to create bedset. SQL error.")
 
         _LOGGER.info(f"Bedset '{identifier}' was created successfully")
         return None
