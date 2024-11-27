@@ -41,18 +41,31 @@ from bbconf.models.drs_models import AccessMethod, AccessURL
 _LOGGER = logging.getLogger(PKG_NAME)
 
 
-class BedBaseConfig:
+class BedBaseConfig(object):
+    """
+    Class to handle BEDbase configuration file and create objects for different modules.
+    """
     def __init__(self, config: Union[Path, str]):
+        _LOGGER.info(f"Loading configuration file: {config}")
         self.cfg_path = get_bedbase_cfg(config)
         self._config = self._read_config_file(self.cfg_path)
 
+        _LOGGER.info(f"Initializing database engine...")
         self._db_engine = self._init_db_engine()
+        _LOGGER.info(f"Initializing qdrant engine...")
         self._qdrant_engine = self._init_qdrant_backend()
+
+        _LOGGER.info(f"Initializing qdrant text engine...")
         self._qdrant_text_engine = self._init_qdrant_text_backend()
+
+        _LOGGER.info(f"Initializing search interfaces...")
         self._b2bsi = self._init_b2bsi_object()
+        _LOGGER.info(f"Initializing R2V object...")
         self._r2v = self._init_r2v_object()
+        _LOGGER.info(f"Initializing Bivec object...")
         self._bivec = self._init_bivec_object()
 
+        _LOGGER.info(f"Initializing PEPHub client...")
         self._phc = self._init_pephubclient()
         self._boto3_client = self._init_boto3_client()
 
