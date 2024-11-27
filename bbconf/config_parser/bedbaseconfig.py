@@ -45,7 +45,7 @@ class BedBaseConfig(object):
     """
     Class to handle BEDbase configuration file and create objects for different modules.
     """
-    def __init__(self, config: Union[Path, str]):
+    def __init__(self, config: Union[Path, str], init_search_interfaces: bool = True):
         _LOGGER.info(f"Loading configuration file: {config}")
         self.cfg_path = get_bedbase_cfg(config)
         self._config = self._read_config_file(self.cfg_path)
@@ -58,12 +58,13 @@ class BedBaseConfig(object):
         _LOGGER.info(f"Initializing qdrant text engine...")
         self._qdrant_text_engine = self._init_qdrant_text_backend()
 
-        _LOGGER.info(f"Initializing search interfaces...")
-        self._b2bsi = self._init_b2bsi_object()
-        _LOGGER.info(f"Initializing R2V object...")
-        self._r2v = self._init_r2v_object()
-        _LOGGER.info(f"Initializing Bivec object...")
-        self._bivec = self._init_bivec_object()
+        if init_search_interfaces:
+            _LOGGER.info(f"Initializing search interfaces...")
+            self._b2bsi = self._init_b2bsi_object()
+            _LOGGER.info(f"Initializing R2V object...")
+            self._r2v = self._init_r2v_object()
+            _LOGGER.info(f"Initializing Bivec object...")
+            self._bivec = self._init_bivec_object()
 
         _LOGGER.info(f"Initializing PEPHub client...")
         self._phc = self._init_pephubclient()
@@ -244,9 +245,11 @@ class BedBaseConfig(object):
         :return: BiVectorSearchInterface
         """
 
+        _LOGGER.info(f"Initializing BiVectorBackend...")
         search_backend = BiVectorBackend(
             metadata_backend=self._qdrant_text_engine, bed_backend=self._qdrant_engine
         )
+        _LOGGER.info(f"Initializing BiVectorSearchInterface...")
         search_interface = BiVectorSearchInterface(
             backend=search_backend,
             query2vec=self.config.path.text2vec,
