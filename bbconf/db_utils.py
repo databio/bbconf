@@ -339,7 +339,7 @@ class TokenizedBed(Base):
         nullable=False,
     )
     universe_id: Mapped[str] = mapped_column(
-        ForeignKey("universes.id", ondelete="CASCADE", passive_deletes=True),
+        ForeignKey("universes.id", ondelete="CASCADE"),
         primary_key=True,
         index=True,
         nullable=False,
@@ -351,8 +351,9 @@ class TokenizedBed(Base):
     bed: Mapped["Bed"] = relationship("Bed", back_populates="tokenized")
     universe: Mapped["Universes"] = relationship(
         "Universes",
+        "Universes",
         back_populates="tokenized",
-        passive_deletes=True,
+        passive_deletes="all",
     )
 
 
