@@ -83,3 +83,9 @@ class QdrantInstanceNotInitializedError(BedBaseConfError):
     """Error type for missing qdrant instance"""
 
     pass
+
+
+class BedSetTrackHubLimitError(BedBaseConfError):
+    """Limit for visualizing trackhub exceeded"""
+
+    pass
