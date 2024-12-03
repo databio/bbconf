@@ -45,6 +45,7 @@ class BedBaseConfig(object):
     """
     Class to handle BEDbase configuration file and create objects for different modules.
     """
+
     def __init__(self, config: Union[Path, str], init_search_interfaces: bool = True):
         _LOGGER.info(f"Loading configuration file: {config}")
         self.cfg_path = get_bedbase_cfg(config)

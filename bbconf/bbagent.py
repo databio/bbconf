@@ -18,6 +18,7 @@ from .const import PKG_NAME
 
 _LOGGER = logging.getLogger(PKG_NAME)
 
+
 class BedBaseAgent(object):
     def __init__(
         self,
@@ -53,7 +54,7 @@ class BedBaseAgent(object):
         repr += f"\n{self.bed}"
         repr += f"\n{self.bedset}"
         repr += f"\n{self.objects}"
-        return repr 
+        return repr
 
     def get_stats(self) -> StatsReturn:
         """
