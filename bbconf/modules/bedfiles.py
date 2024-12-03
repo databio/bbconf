@@ -1,3 +1,4 @@
+import datetime
 import os
 from logging import getLogger
 from typing import Dict, List, Union
@@ -10,6 +11,7 @@ from pephubclient.exceptions import ResponseError
 from pydantic import BaseModel
 from qdrant_client.models import Distance, PointIdsList, VectorParams
 from sqlalchemy import and_, delete, func, or_, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, aliased
 from tqdm import tqdm
 
@@ -454,6 +456,7 @@ class BedAgentBedFile:
         local_path: str = None,
         overwrite: bool = False,
         nofail: bool = False,
+        processed: bool = True,
     ) -> None:
         """
         Add bed file to the database.
@@ -473,6 +476,7 @@ class BedAgentBedFile:
         :param local_path: local path to the output files
         :param overwrite: overwrite bed file if it already exists
         :param nofail: do not raise an error for error in pephub/s3/qdrant or record exsist and not overwrite
+        :param processed: true if bedfile was processed and statistics and plots were calculated
         :return: None
         """
         _LOGGER.info(f"Adding bed file to database. bed_id: {identifier}")
@@ -554,6 +558,7 @@ class BedAgentBedFile:
                 license_id=license_id,
                 indexed=upload_qdrant,
                 pephub=upload_pephub,
+                processed=processed,
             )
             session.add(new_bed)
             if upload_s3:
@@ -612,13 +617,16 @@ class BedAgentBedFile:
         plots: dict = None,
         files: dict = None,
         classification: dict = None,
-        add_to_qdrant: bool = False,
-        upload_pephub: bool = False,
-        upload_s3: bool = False,
+        ref_validation: Dict[str, BaseModel] = None,
+        license_id: str = DEFAULT_LICENSE,
+        upload_qdrant: bool = True,
+        upload_pephub: bool = True,
+        upload_s3: bool = True,
         local_path: str = None,
         overwrite: bool = False,
         nofail: bool = False,
-    ):
+        processed: bool = True,
+    ) -> None:
         """
         Update bed file to the database.
 
@@ -630,22 +638,33 @@ class BedAgentBedFile:
         :param plots: bed file plots
         :param files: bed file files
         :param classification: bed file classification
-        :param add_to_qdrant: add bed file to qdrant indexs
+        :param ref_validation: reference validation data.  RefGenValidModel
+        :param license_id: bed file license id (default: 'DUO:0000042').
+        :param upload_qdrant: add bed file to qdrant indexs
         :param upload_pephub: add bed file to pephub
         :param upload_s3: upload files to s3
         :param local_path: local path to the output files
         :param overwrite: overwrite bed file if it already exists
         :param nofail: do not raise an error for error in pephub/s3/qdrant or record exsist and not overwrite
+        :param processed: true if bedfile was processed and statistics and plots were calculated
         :return: None
         """
         if not self.exists(identifier):
             raise BEDFileNotFoundError(
                 f"Bed file with id: {identifier} not found. Cannot update."
             )
+        _LOGGER.info(f"Updating bed file: '{identifier}'")
+
+        if license_id not in self.bb_agent.list_of_licenses and not license_id:
+            raise BedBaseConfError(
+                f"License: {license_id} is not in the list of licenses. Please provide a valid license."
+                f"List of licenses: {self.bb_agent.list_of_licenses}"
+            )
 
         stats = BedStatsModel(**stats)
         plots = BedPlots(**plots)
         files = BedFiles(**files)
+        bed_metadata = StandardMeta(**metadata)
         classification = BedClassification(**classification)
 
         if upload_pephub:
@@ -661,56 +680,259 @@ class BedAgentBedFile:
         else:
             _LOGGER.info("upload_pephub set to false. Skipping pephub..")
 
-        if add_to_qdrant:
+        if upload_qdrant:
             self.upload_file_qdrant(
                 identifier, files.bed_file.path, payload=metadata.model_dump()
             )
 
-        statement = select(Bed).where(and_(Bed.id == identifier))
-
-        if upload_s3:
-            _LOGGER.warning("S3 upload is not implemented yet")
-            # if files:
-            #     files = self._config.upload_files_s3(
-            #         identifier, files=files, base_path=local_path, type="files"
-            #     )
-            #
-            # if plots:
-            #     plots = self._config.upload_files_s3(
-            #         identifier, files=plots, base_path=local_path, type="plots"
-            #     )
-
         with Session(self._sa_engine) as session:
-            bed_object = session.scalar(statement)
+            bed_statement = select(Bed).where(and_(Bed.id == identifier))
+            bed_object = session.scalar(bed_statement)
 
-            setattr(bed_object, **stats.model_dump())
-            setattr(bed_object, **classification.model_dump())
+            self._update_classification(
+                sa_session=session, bed_object=bed_object, classification=classification
+            )
 
-            bed_object.indexed = add_to_qdrant
-            bed_object.pephub = upload_pephub
+            self._update_metadata(
+                sa_session=session,
+                bed_object=bed_object,
+                bed_metadata=bed_metadata,
+            )
+            self._update_stats(sa_session=session, bed_object=bed_object, stats=stats)
 
             if upload_s3:
-                _LOGGER.warning("S3 upload is not implemented yet")
-                # for k, v in files:
-                #     if v:
-                #         new_file = Files(
-                #             **v.model_dump(exclude_none=True, exclude_unset=True),
-                #             bedfile_id=identifier,
-                #             type="file",
-                #         )
-                #         session.add(new_file)
-                # for k, v in plots:
-                #     if v:
-                #         new_plot = Files(
-                #             **v.model_dump(exclude_none=True, exclude_unset=True),
-                #             bedfile_id=identifier,
-                #             type="plot",
-                #         )
-                #         session.add(new_plot)
+                self._update_plots(
+                    sa_session=session,
+                    bed_object=bed_object,
+                    plots=plots,
+                    local_path=local_path,
+                )
+                self._update_files(
+                    sa_session=session,
+                    bed_object=bed_object,
+                    files=files,
+                    local_path=local_path,
+                )
+
+            self._update_ref_validation(
+                sa_session=session, bed_object=bed_object, ref_validation=ref_validation
+            )
+
+            bed_object.processed = processed
+            bed_object.indexed = upload_qdrant
+            bed_object.last_update_date = datetime.datetime.now(datetime.timezone.utc)
 
             session.commit()
 
-        raise NotImplementedError
+        return None
+
+    @staticmethod
+    def _update_classification(
+        sa_session: Session, bed_object: Bed, classification: BedClassification
+    ) -> None:
+        """
+        Update bed file classification
+
+        :param sa_session: sqlalchemy session
+        :param bed_object: bed sqlalchemy object
+        :param classification: bed file classification as BedClassification object
+
+        :return: None
+        """
+        classification_dict = classification.model_dump(
+            exclude_defaults=True, exclude_none=True, exclude_unset=True
+        )
+        for k, v in classification_dict.items():
+            setattr(bed_object, k, v)
+
+        sa_session.commit()
+
+    @staticmethod
+    def _update_stats(
+        sa_session: Session, bed_object: Bed, stats: BedStatsModel
+    ) -> None:
+        """
+        Update bed file statistics
+
+        :param sa_session: sqlalchemy session
+        :param bed_object: bed sqlalchemy object
+        :param stats: bed file statistics as BedStatsModel object
+        :return: None
+        """
+
+        stats_dict = stats.model_dump(
+            exclude_defaults=True, exclude_none=True, exclude_unset=True
+        )
+        if not bed_object.stats:
+            new_bedstat = BedStats(**stats.model_dump(), id=bed_object.id)
+            sa_session.add(new_bedstat)
+        else:
+            for k, v in stats_dict.items():
+                setattr(bed_object.stats, k, v)
+
+        sa_session.commit()
+
+    @staticmethod
+    def _update_metadata(
+        sa_session: Session, bed_object: Bed, bed_metadata: StandardMeta
+    ) -> None:
+        """
+        Update bed file metadata
+
+        :param sa_session: sqlalchemy session
+        :param bed_object: bed sqlalchemy object
+        :param bed_metadata: bed file metadata as StandardMeta object
+
+        :return: None
+        """
+
+        metadata_dict = bed_metadata.model_dump(
+            exclude_defaults=True, exclude_none=True, exclude_unset=True
+        )
+        if not bed_object.annotations:
+            new_metadata = BedMetadata(
+                **bed_metadata.model_dump(exclude={"description"}), id=bed_object.id
+            )
+            sa_session.add(new_metadata)
+        else:
+            for k, v in metadata_dict.items():
+                setattr(bed_object.annotations, k, v)
+
+        sa_session.commit()
+
+    def _update_plots(
+        self,
+        sa_session: Session,
+        bed_object: Bed,
+        plots: BedPlots,
+        local_path: str = None,
+    ) -> None:
+        """
+        Update bed file plots
+
+        :param sa_session: sqlalchemy session
+        :param bed_object: bed sqlalchemy object
+        :param plots: bed file plots
+        :param local_path: local path to the output files
+        """
+
+        _LOGGER.info("Updating bed file plots..")
+        if plots:
+            plots = self._config.upload_files_s3(
+                bed_object.id, files=plots, base_path=local_path, type="plots"
+            )
+        plots_dict = plots.model_dump(
+            exclude_defaults=True, exclude_none=True, exclude_unset=True
+        )
+        if not plots_dict:
+            return None
+
+        for k, v in plots:
+            if v:
+                new_plot = Files(
+                    **v.model_dump(
+                        exclude_none=True,
+                        exclude_unset=True,
+                        exclude={"object_id", "access_methods"},
+                    ),
+                    bedfile_id=bed_object.id,
+                    type="plot",
+                )
+                try:
+                    sa_session.add(new_plot)
+                    sa_session.commit()
+                except IntegrityError as _:
+                    sa_session.rollback()
+                    _LOGGER.debug(
+                        f"Plot with name: {v.name} already exists. Updating.."
+                    )
+
+        return None
+
+    def _update_files(
+        self,
+        sa_session: Session,
+        bed_object: Bed,
+        files: BedFiles,
+        local_path: str = None,
+    ) -> None:
+        """
+        Update bed files
+
+        :param sa_session: sqlalchemy session
+        :param bed_object: bed sqlalchemy object
+        :param files: bed file files
+        """
+
+        _LOGGER.info("Updating bed files..")
+        if files:
+            files = self._config.upload_files_s3(
+                bed_object.id, files=files, base_path=local_path, type="files"
+            )
+
+        files_dict = files.model_dump(
+            exclude_defaults=True, exclude_none=True, exclude_unset=True
+        )
+        if not files_dict:
+            return None
+
+        for k, v in files:
+            if v:
+                new_file = Files(
+                    **v.model_dump(
+                        exclude_none=True,
+                        exclude_unset=True,
+                        exclude={"object_id", "access_methods"},
+                    ),
+                    bedfile_id=bed_object.id,
+                    type="file",
+                )
+
+                try:
+                    sa_session.add(new_file)
+                    sa_session.commit()
+                except IntegrityError as _:
+                    sa_session.rollback()
+                    _LOGGER.debug(
+                        f"File with name: {v.name} already exists. Updating.."
+                    )
+
+    @staticmethod
+    def _update_ref_validation(
+        sa_session: Session, bed_object: Bed, ref_validation: Dict[str, BaseModel]
+    ) -> None:
+        """
+        Update reference validation data
+
+        :param sa_session: sqlalchemy session
+        :param bed_object: bed sqlalchemy object
+        :param ref_validation: bed file metadata
+        """
+
+        if not ref_validation:
+            return None
+
+        _LOGGER.info("Updating reference validation data..")
+
+        for ref_gen_check, data in ref_validation.items():
+            new_gen_ref = GenomeRefStats(
+                **RefGenValidModel(
+                    **data.model_dump(),
+                    provided_genome=bed_object.genome_alias,
+                    compared_genome=ref_gen_check,
+                ).model_dump(),
+                bed_id=bed_object.id,
+            )
+            try:
+                sa_session.add(new_gen_ref)
+                sa_session.commit()
+            except IntegrityError as _:
+                sa_session.rollback()
+                _LOGGER.info(
+                    f"Reference validation exists for BED id: {bed_object.id} and ref_gen_check."
+                )
+
+        return None
 
     def delete(self, identifier: str) -> None:
         """

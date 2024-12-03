@@ -3,18 +3,18 @@ from typing import Dict, List
 
 from geniml.io.utils import compute_md5sum_bedset
 from sqlalchemy import Float, Numeric, func, or_, select
-from sqlalchemy.orm import Session, relationship
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session, relationship
 
 from bbconf.config_parser import BedBaseConfig
 from bbconf.const import PKG_NAME
 from bbconf.db_utils import Bed, BedFileBedSetRelation, BedSets, BedStats, Files
 from bbconf.exceptions import (
     BedBaseConfError,
+    BEDFileNotFoundError,
     BedSetExistsError,
     BedSetNotFoundError,
     BedSetTrackHubLimitError,
-    BEDFileNotFoundError,
 )
 from bbconf.models.bed_models import BedStatsModel, StandardMeta
 from bbconf.models.bedset_models import (
