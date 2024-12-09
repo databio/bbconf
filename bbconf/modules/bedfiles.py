@@ -64,9 +64,9 @@ QDRANT_GENOME = "hg38"
 
 class BedAgentBedFile:
     """
-    Class that represents Bedfile in Database.
+    Class that represents a BED file in the Database.
 
-    This class has method to add, delete, get files and metadata from the database.
+    Provides methods to add, delete, get BED files and metadata from the database.
     """
 
     def __init__(self, config: BedBaseConfig, bbagent_obj=None):
