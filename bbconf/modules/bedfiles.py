@@ -518,6 +518,7 @@ class BedAgentBedFile:
                 _LOGGER.warning(
                     f"Could not upload to pephub. Error: {e}. nofail: {nofail}"
                 )
+                upload_pephub = False
                 if not nofail:
                     raise e
         else:
