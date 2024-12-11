@@ -16,16 +16,17 @@ docker run --rm -it --name bedbase-test \
   -p 5432:5432 postgres
 """
 
-try:
-    subprocess.check_output(
-        "docker inspect bedbase-test --format '{{.State.Status}}'", shell=True
-    )
-    SERVICE_UNAVAILABLE = False
-except:
-    register(
-        print, f"Some tests require a test database. To initiate it, run:\n{DB_CMD}"
-    )
-    SERVICE_UNAVAILABLE = True
+# try:
+#     subprocess.check_output(
+#         "docker inspect bedbase-test --format '{{.State.Status}}'", shell=True
+#     )
+#     SERVICE_UNAVAILABLE = False
+# except:
+#     register(
+#         print, f"Some tests require a test database. To initiate it, run:\n{DB_CMD}"
+#     )
+#     SERVICE_UNAVAILABLE = True
+SERVICE_UNAVAILABLE = False
 
 
 TESTS_DIR = os.path.dirname(os.path.abspath(__file__))

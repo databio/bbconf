@@ -41,18 +41,33 @@ from bbconf.models.drs_models import AccessMethod, AccessURL
 _LOGGER = logging.getLogger(PKG_NAME)
 
 
-class BedBaseConfig:
-    def __init__(self, config: Union[Path, str]):
+class BedBaseConfig(object):
+    """
+    Class to handle BEDbase configuration file and create objects for different modules.
+    """
+
+    def __init__(self, config: Union[Path, str], init_search_interfaces: bool = True):
+        _LOGGER.info(f"Loading configuration file: {config}")
         self.cfg_path = get_bedbase_cfg(config)
         self._config = self._read_config_file(self.cfg_path)
 
+        _LOGGER.info(f"Initializing database engine...")
         self._db_engine = self._init_db_engine()
+        _LOGGER.info(f"Initializing qdrant engine...")
         self._qdrant_engine = self._init_qdrant_backend()
-        self._qdrant_text_engine = self._init_qdrant_text_backend()
-        self._b2bsi = self._init_b2bsi_object()
-        self._r2v = self._init_r2v_object()
-        self._bivec = self._init_bivec_object()
 
+        _LOGGER.info(f"Initializing qdrant text engine...")
+        self._qdrant_text_engine = self._init_qdrant_text_backend()
+
+        if init_search_interfaces:
+            _LOGGER.info(f"Initializing search interfaces...")
+            self._b2bsi = self._init_b2bsi_object()
+            _LOGGER.info(f"Initializing R2V object...")
+            self._r2v = self._init_r2v_object()
+            _LOGGER.info(f"Initializing Bivec object...")
+            self._bivec = self._init_bivec_object()
+
+        _LOGGER.info(f"Initializing PEPHub client...")
         self._phc = self._init_pephubclient()
         self._boto3_client = self._init_boto3_client()
 
@@ -216,13 +231,15 @@ class BedBaseConfig:
 
         :return: QdrantClient
         """
-
-        return QdrantBackend(
-            dim=TEXT_EMBEDDING_DIMENSION,
-            collection=self.config.qdrant.text_collection,
-            qdrant_host=self.config.qdrant.host,
-            qdrant_api_key=self.config.qdrant.api_key,
-        )
+        try:
+            return QdrantBackend(
+                dim=TEXT_EMBEDDING_DIMENSION,
+                collection=self.config.qdrant.text_collection,
+                qdrant_host=self.config.qdrant.host,
+                qdrant_api_key=self.config.qdrant.api_key,
+            )
+        except Exception as e:
+            _LOGGER.error(f"Error while connecting to qdrant text engine: {e}")
 
     def _init_bivec_object(self) -> Union[BiVectorSearchInterface, None]:
         """
@@ -231,9 +248,11 @@ class BedBaseConfig:
         :return: BiVectorSearchInterface
         """
 
+        _LOGGER.info(f"Initializing BiVectorBackend...")
         search_backend = BiVectorBackend(
             metadata_backend=self._qdrant_text_engine, bed_backend=self._qdrant_engine
         )
+        _LOGGER.info(f"Initializing BiVectorSearchInterface...")
         search_interface = BiVectorSearchInterface(
             backend=search_backend,
             query2vec=self.config.path.text2vec,
