@@ -40,7 +40,7 @@ jobs:
       run: if [ -f requirements/requirements-dev.txt ]; then uv pip install -r requirements/requirements-dev.txt --system; fi
 
     - name: Install test dependencies
-      run: if [ -f requirements/requirements-test.txt ]; then pip install -r requirements/requirements-test.txt --system; fi
+      run: if [ -f requirements/requirements-test.txt ]; then uv pip install -r requirements/requirements-test.txt --system; fi
 
     - name: Install package
       run: uv pip install . --system
