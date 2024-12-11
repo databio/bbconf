@@ -446,7 +446,7 @@ class BedAgentBedFile:
         plots: dict = None,
         files: dict = None,
         classification: dict = None,
-        ref_validation: Dict[str, BaseModel] = None,
+        ref_validation: Union[Dict[str, BaseModel], None] = None,
         license_id: str = DEFAULT_LICENSE,
         upload_qdrant: bool = False,
         upload_pephub: bool = False,
@@ -590,16 +590,17 @@ class BedAgentBedFile:
             session.add(new_bedstat)
             session.add(new_metadata)
 
-            for ref_gen_check, data in ref_validation.items():
-                new_gen_ref = GenomeRefStats(
-                    **RefGenValidModel(
-                        **data.model_dump(),
-                        provided_genome=classification.genome_alias,
-                        compared_genome=ref_gen_check,
-                    ).model_dump(),
-                    bed_id=identifier,
-                )
-                session.add(new_gen_ref)
+            if ref_validation:
+                for ref_gen_check, data in ref_validation.items():
+                    new_gen_ref = GenomeRefStats(
+                        **RefGenValidModel(
+                            **data.model_dump(),
+                            provided_genome=classification.genome_alias,
+                            compared_genome=ref_gen_check,
+                        ).model_dump(),
+                        bed_id=identifier,
+                    )
+                    session.add(new_gen_ref)
             session.commit()
 
         return None

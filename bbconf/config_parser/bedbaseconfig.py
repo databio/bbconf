@@ -231,13 +231,15 @@ class BedBaseConfig(object):
 
         :return: QdrantClient
         """
-
-        return QdrantBackend(
-            dim=TEXT_EMBEDDING_DIMENSION,
-            collection=self.config.qdrant.text_collection,
-            qdrant_host=self.config.qdrant.host,
-            qdrant_api_key=self.config.qdrant.api_key,
-        )
+        try:
+            return QdrantBackend(
+                dim=TEXT_EMBEDDING_DIMENSION,
+                collection=self.config.qdrant.text_collection,
+                qdrant_host=self.config.qdrant.host,
+                qdrant_api_key=self.config.qdrant.api_key,
+            )
+        except Exception as e:
+            _LOGGER.error(f"Error while connecting to qdrant text engine: {e}")
 
     def _init_bivec_object(self) -> Union[BiVectorSearchInterface, None]:
         """
