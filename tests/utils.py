@@ -39,6 +39,7 @@ def get_example_dict() -> dict:
         "genome_alias": "hg38",
         "genome_digest": "2230c535660fb4774114bfa966a62f823fdb6d21acf138d4",
         "name": "random_name",
+        "processed": False,
     }
     return value
 
@@ -109,6 +110,7 @@ class ContextManagerDBTesting:
                 self._add_bedset_data()
 
     def __exit__(self, exc_type, exc_value, exc_traceback):
+        # If we want to keep data, and schema, comment out the following line
         self.db_engine.delete_schema()
         pass
 

@@ -75,7 +75,7 @@ class BedStatsModel(BaseModel):
 
 
 class BedPEPHub(BaseModel):
-    sample_name: str
+    sample_name: str = ""
     genome: str = ""
     organism: str = ""
     species_id: str = ""

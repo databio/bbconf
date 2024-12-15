@@ -238,7 +238,7 @@ class BedBaseConfig(object):
                 f"error in Connection to qdrant! skipping... Error: {err}", UserWarning
             )
 
-    def _init_qdrant_text_backend(self) -> QdrantBackend:
+    def _init_qdrant_text_backend(self) -> Union[QdrantBackend, None]:
         """
         Create qdrant client text embedding object using credentials provided in config file
 
@@ -246,12 +246,19 @@ class BedBaseConfig(object):
         """
 
         _LOGGER.info(f"Initializing qdrant text engine...")
-        return QdrantBackend(
-            dim=TEXT_EMBEDDING_DIMENSION,
-            collection=self.config.qdrant.text_collection,
-            qdrant_host=self.config.qdrant.host,
-            qdrant_api_key=self.config.qdrant.api_key,
-        )
+        try:
+            return QdrantBackend(
+                dim=TEXT_EMBEDDING_DIMENSION,
+                collection=self.config.qdrant.text_collection,
+                qdrant_host=self.config.qdrant.host,
+                qdrant_api_key=self.config.qdrant.api_key,
+            )
+        except Exception as _:
+            _LOGGER.error("Error in Connection to qdrant text! skipping...")
+            warnings.warn(
+                "Error in Connection to qdrant text! skipping...", UserWarning
+            )
+            return None
 
     def _init_bivec_object(self) -> Union[BiVectorSearchInterface, None]:
         """

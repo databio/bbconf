@@ -614,12 +614,12 @@ class BedAgentBedFile:
     def update(
         self,
         identifier: str,
-        stats: dict,
-        metadata: dict = None,
-        plots: dict = None,
-        files: dict = None,
-        classification: dict = None,
-        ref_validation: Dict[str, BaseModel] = None,
+        stats: Union[dict, None] = None,
+        metadata: Union[dict, None] = None,
+        plots: Union[dict, None] = None,
+        files: Union[dict, None] = None,
+        classification: Union[dict, None] = None,
+        ref_validation: Union[Dict[str, BaseModel], None] = None,
         license_id: str = DEFAULT_LICENSE,
         upload_qdrant: bool = True,
         upload_pephub: bool = True,
@@ -663,11 +663,11 @@ class BedAgentBedFile:
                 f"List of licenses: {self.bb_agent.list_of_licenses}"
             )
 
-        stats = BedStatsModel(**stats)
-        plots = BedPlots(**plots)
-        files = BedFiles(**files)
-        bed_metadata = StandardMeta(**metadata)
-        classification = BedClassification(**classification)
+        stats = BedStatsModel(**stats if stats else {})
+        plots = BedPlots(**plots if plots else {})
+        files = BedFiles(**files if files else {})
+        bed_metadata = StandardMeta(**metadata if metadata else {})
+        classification = BedClassification(**classification if classification else {})
 
         if upload_pephub:
             metadata = BedPEPHub(**metadata)
@@ -978,16 +978,19 @@ class BedAgentBedFile:
         )
 
     def update_pephub(self, identifier: str, metadata: dict, overwrite: bool = False):
-        if not metadata:
-            _LOGGER.warning("No metadata provided. Skipping pephub upload..")
-            return False
-        self._config.phc.sample.update(
-            namespace=self._config.config.phc.namespace,
-            name=self._config.config.phc.name,
-            tag=self._config.config.phc.tag,
-            sample_name=identifier,
-            sample_dict=metadata,
-        )
+        try:
+            if not metadata:
+                _LOGGER.warning("No metadata provided. Skipping pephub upload..")
+                return False
+            self._config.phc.sample.update(
+                namespace=self._config.config.phc.namespace,
+                name=self._config.config.phc.name,
+                tag=self._config.config.phc.tag,
+                sample_name=identifier,
+                sample_dict=metadata,
+            )
+        except ResponseError as e:
+            _LOGGER.warning(f"Could not update pephub. Error: {e}")
 
     def delete_pephub_sample(self, identifier: str):
         """
@@ -1023,6 +1026,10 @@ class BedAgentBedFile:
         """
 
         _LOGGER.debug(f"Adding bed file to qdrant. bed_id: {bed_id}")
+
+        if not self._qdrant_engine:
+            raise QdrantInstanceNotInitializedError("Could not upload file.")
+
         bed_embedding = self._embed_file(bed_file)
 
         self._qdrant_engine.load(
@@ -1559,3 +1566,54 @@ class BedAgentBedFile:
             results = [result for result in results]
 
         return results
+
+    def get_unprocessed(self, limit: int = 1000, offset: int = 0) -> BedListResult:
+        """
+        Get bed files that are not processed.
+
+        :param limit: number of results to return
+        :param offset: offset to start from
+
+        :return: list of bed file identifiers
+        """
+        with Session(self._sa_engine) as session:
+            query = (
+                select(Bed).where(Bed.processed.is_(False)).limit(limit).offset(offset)
+            )
+            count_query = select(func.count()).where(Bed.processed.is_(False))
+
+            count = session.execute(count_query).one()[0]
+
+            bed_results = session.scalars(query)
+
+            results = []
+            for bed_object in bed_results:
+                results.append(
+                    BedMetadataBasic(
+                        id=bed_object.id,
+                        name=bed_object.name,
+                        genome_alias=bed_object.genome_alias,
+                        genome_digest=bed_object.genome_digest,
+                        bed_type=bed_object.bed_type,
+                        bed_format=bed_object.bed_format,
+                        description=bed_object.description,
+                        annotation=StandardMeta(
+                            **(
+                                bed_object.annotations.__dict__
+                                if bed_object.annotations
+                                else {}
+                            )
+                        ),
+                        last_update_date=bed_object.last_update_date,
+                        submission_date=bed_object.submission_date,
+                        is_universe=bed_object.is_universe,
+                        license_id=bed_object.license_id,
+                    )
+                )
+
+        return BedListResult(
+            count=count,
+            limit=limit,
+            offset=offset,
+            results=results,
+        )
