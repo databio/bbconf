@@ -291,6 +291,7 @@ class BedAgentBedSet:
         local_path: str = "",
         no_fail: bool = False,
         overwrite: bool = False,
+        processed: bool = True,
     ) -> None:
         """
         Create bedset in the database.
@@ -307,6 +308,7 @@ class BedAgentBedSet:
         :param local_path: local path to the output files
         :param no_fail: do not raise an error if bedset already exists
         :param overwrite: overwrite the record in the database
+        :param processed: flag to indicate that bedset is processed. [Default: True]
         :return: None
         """
         _LOGGER.info(f"Creating bedset '{identifier}'")
@@ -347,6 +349,7 @@ class BedAgentBedSet:
             md5sum=compute_md5sum_bedset(bedid_list),
             author=annotation.get("author"),
             source=annotation.get("source"),
+            processed=processed,
         )
 
         if upload_s3:
@@ -598,6 +601,60 @@ class BedAgentBedSet:
         if result:
             return True
         return False
+
+    def get_unprocessed(self, limit: int = 100, offset: int = 0) -> BedSetListResult:
+        """
+        Get unprocessed bedset from the database.
+
+        :param limit: limit of results
+        :param offset: offset of results
+
+        :return: bedset metadata
+        """
+
+        with Session(self._db_engine.engine) as session:
+
+            statement = (
+                select(BedSets)
+                .where(BedSets.processed.is_(False))
+                .limit(limit)
+                .offset(offset)
+            )
+            count_statement = select(func.count()).where(BedSets.processed.is_(False))
+
+            count = session.execute(count_statement).one()[0]
+
+            bedset_object_list = session.scalars(statement)
+
+            results = []
+
+            for bedset_obj in bedset_object_list:
+                list_of_bedfiles = [
+                    bedset_obj.bedfile_id for bedset_obj in bedset_obj.bedfiles
+                ]
+
+                results.append(
+                    BedSetMetadata(
+                        id=bedset_obj.id,
+                        name=bedset_obj.name,
+                        description=bedset_obj.description,
+                        md5sum=bedset_obj.md5sum,
+                        statistics=None,
+                        plots=None,
+                        bed_ids=list_of_bedfiles,
+                        submission_date=bedset_obj.submission_date,
+                        last_update_date=bedset_obj.last_update_date,
+                        author=bedset_obj.author,
+                        source=bedset_obj.source,
+                    )
+                )
+
+        return BedSetListResult(
+            count=count,
+            limit=limit,
+            offset=offset,
+            results=results,
+        )
 
     def add_bedfile(self, identifier: str, bedfile: str) -> None:
         raise NotImplementedError

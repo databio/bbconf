@@ -311,6 +311,10 @@ class BedSets(Base):
     author: Mapped[str] = mapped_column(nullable=True, comment="Author of the bedset")
     source: Mapped[str] = mapped_column(nullable=True, comment="Source of the bedset")
 
+    processed: Mapped[bool] = mapped_column(
+        default=False, comment="Whether the bedset was processed"
+    )
+
 
 class Universes(Base):
     __tablename__ = "universes"
