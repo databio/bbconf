@@ -1,5 +1,6 @@
 import datetime
 import logging
+from pickle import LONG1
 from typing import List, Optional
 
 import pandas as pd
@@ -21,7 +22,11 @@ from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, relationship
 from sqlalchemy_schemadisplay import create_schema_graph
 
-from bbconf.const import LICENSES_CSV_URL, PKG_NAME
+from alembic.migration import MigrationContext
+
+from bbconf.const import LICENSES_CSV_URL, PKG_NAME, TARGET_ALEMBIC_VERSION
+from bbconf.exceptions import BedBaseConfError
+from bbconf.db_migrations.utils import run_sql_migrations
 
 _LOGGER = logging.getLogger(PKG_NAME)
 
@@ -464,6 +469,20 @@ class GeoGsmStatus(Base):
     gse_status_mapper: Mapped["GeoGseStatus"] = relationship(
         "GeoGseStatus", back_populates="gsm_status_mapper"
     )
+    something: Mapped[str] = mapped_column(nullable=True, comment="Something")
+
+
+class AlembicVersion(Base):
+    """
+    Table to manage the alembic version:
+
+    Col ('cid', 'name', 'type', 'notnull', 'dflt_value', 'pk')
+    Row (0, 'version_num', 'VARCHAR(32)', 1, None, 1)
+    """
+
+    __tablename__ = "alembic_version"
+
+    version_num: Mapped[str] = mapped_column(primary_key=True)
 
 
 class BaseEngine:
@@ -482,6 +501,7 @@ class BaseEngine:
         drivername: str = POSTGRES_DIALECT,
         dsn: str = None,
         echo: bool = False,
+        suppress_migrations: bool = False,
     ):
         """
         Initialize connection to the bedbase database. You can use The basic connection parameters
@@ -495,6 +515,8 @@ class BaseEngine:
         :param drivername: driver used in
         :param dsn: libpq connection string using the dsn parameter
         (e.g. 'postgresql://user_name:password@host_name:port/db_name')
+        :param echo: If True, the engine will log all statementse
+        :param suppress_migrations: suppress migration with alembic
         """
         if not dsn:
             dsn = URL.create(
@@ -505,8 +527,15 @@ class BaseEngine:
                 password=password,
                 drivername=drivername,
             )
+        self.dsn = dsn
 
         self._engine = create_engine(dsn, echo=echo)
+
+        if not suppress_migrations and self.check_for_db_migrations():
+            self.migrate_db()
+        else:
+            _LOGGER.info(f"Database schema is up-to-date: {TARGET_ALEMBIC_VERSION}, or migrations are suppressed [{suppress_migrations}].")
+
         self.create_schema(self._engine)
         self.check_db_connection()
 
@@ -610,3 +639,47 @@ class BaseEngine:
             session.commit()
 
         _LOGGER.info("Licenses uploaded successfully!")
+
+    def check_for_db_migrations(self, log: bool = True) -> bool:
+        """
+        Check for database migrations, and apply them if needed.
+
+        :raises ConfigError: If the current revision is None == refgenie not initialized.
+
+        :returns boo: Whether the database schema is outdated.
+        """
+        context = MigrationContext.configure(self.engine.connect())
+        if (current_rev := context.get_current_revision()) is None:
+            raise BedBaseConfError(
+                "Could not determine the current revision of the database schema. Please reinit bedbase database."
+            )
+        if (target := TARGET_ALEMBIC_VERSION) is None or target == current_rev:
+            _LOGGER.debug(f"Database schema is up-to-date: {current_rev}")
+            return False
+
+        if log:
+            _LOGGER.warning("Database schema is outdated. Please apply migrations.")
+            _LOGGER.info(
+                f"Current database schema version: {current_rev}. "
+                f"Required database schema version: {target}"
+            )
+        return True
+
+    def migrate_db(self):
+        """
+        Migrate the database to the required version.
+        """
+        if not self.check_for_db_migrations():
+            _LOGGER.info("Database schema is up-to-date")
+            return
+        try:
+            run_sql_migrations(
+                db_url=self.dsn, revision=TARGET_ALEMBIC_VERSION
+            )
+        except Exception as e:
+            _LOGGER.error(
+                f"Failed to apply database migrations: {e}. "
+                "BEDbase configuration may be corrupted. Please contact the developers."
+            )
+        else:
+            _LOGGER.info("Database schema updated successfully")

@@ -4,7 +4,7 @@ from typing import Dict, List
 from geniml.io.utils import compute_md5sum_bedset
 from sqlalchemy import Float, Numeric, func, or_, select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session, relationship
+from sqlalchemy.orm import Session
 
 from bbconf.config_parser import BedBaseConfig
 from bbconf.const import PKG_NAME

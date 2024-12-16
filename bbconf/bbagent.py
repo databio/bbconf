@@ -24,6 +24,7 @@ class BedBaseAgent(object):
         self,
         config: Union[Path, str],
         init_ml: bool = True,
+        suppress_migrations: bool = False,
     ):
         """
         Initialize connection to the pep_db database. You can use the basic connection parameters
@@ -31,9 +32,10 @@ class BedBaseAgent(object):
 
         :param config: path to the configuration file
         :param init_ml: initialize ML models for search (default: True)
+        :param suppress_migrations: suppress migration with alembic
         """
 
-        self.config = BedBaseConfig(config, init_ml)
+        self.config = BedBaseConfig(config, init_ml, suppress_migrations = suppress_migrations)
 
         self._bed = BedAgentBedFile(self.config, self)
         self._bedset = BedAgentBedSet(self.config)

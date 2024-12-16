@@ -1,0 +1,15 @@
+version: "3"
+
+dotenv:
+  - env/.test.env
+
+tasks:
+  alembic_revision:
+    desc: 'Create a new alembic revision (must accompany every DB schema change). Example: task alembic_revision MESSAGE="Add new table" DB_CONN_STR="postgresql+psycopg://postgres:docker@localhost:5432/bedbase"'
+    dir: bbconf
+    cmds:
+      - pwd
+      - alembic -x database_connection_string={{.DB_CONN_STR}} revision --autogenerate -m "{{.MESSAGE}} "
+      - echo "Alembic revision created. !!!REMEMBER TO SET THE TARGET_ALEMBIC_VERSION ^^^ IN config.py AND REMOVE UNNECESSARY COMMANDS IN THE SCRIPT!!!"
+    requires:
+      vars: [MESSAGE, DB_CONN_STR]

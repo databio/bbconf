@@ -46,17 +46,18 @@ class BedBaseConfig(object):
     Class to handle BEDbase configuration file and create objects for different modules.
     """
 
-    def __init__(self, config: Union[Path, str], init_ml: bool = True):
+    def __init__(self, config: Union[Path, str], init_ml: bool = True, suppress_migrations: bool = False,):
         """
         Initialize BedBaseConfig object
 
         :param config: path to the configuration file
         :param init_ml: initialize machine learning models used for search
+        :param suppress_migrations: suppress migration with alembic
         """
 
         self.cfg_path = get_bedbase_cfg(config)
         self._config = self._read_config_file(self.cfg_path)
-        self._db_engine = self._init_db_engine()
+        self._db_engine = self._init_db_engine(suppress_migrations)
 
         self._qdrant_engine = self._init_qdrant_backend()
         self._qdrant_text_engine = self._init_qdrant_text_backend()
@@ -202,9 +203,11 @@ class BedBaseConfig(object):
 
         return zarr.group(store=cache, overwrite=False)
 
-    def _init_db_engine(self) -> BaseEngine:
+    def _init_db_engine(self, suppress_migrations: bool = False) -> BaseEngine:
         """
         Create database engine object using credentials provided in config file
+
+        :param suppress_migrations: suppress migration with alembic
         """
 
         _LOGGER.info(f"Initializing database engine...")
@@ -215,6 +218,7 @@ class BedBaseConfig(object):
             user=self._config.database.user,
             password=self._config.database.password,
             drivername=f"{self._config.database.dialect}+{self._config.database.driver}",
+            suppress_migrations=suppress_migrations,
         )
 
     def _init_qdrant_backend(self) -> QdrantBackend:

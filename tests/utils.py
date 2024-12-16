@@ -111,7 +111,7 @@ class ContextManagerDBTesting:
 
     def __exit__(self, exc_type, exc_value, exc_traceback):
         # If we want to keep data, and schema, comment out the following line
-        self.db_engine.delete_schema()
+        # self.db_engine.delete_schema()
         pass
 
     def _add_data(self):

@@ -6,3 +6,5 @@ ZARR_TOKENIZED_FOLDER = "tokenized.zarr"
 
 LICENSES_CSV_URL = "https://raw.githubusercontent.com/EBISPOT/DUO/master/duo.csv"
 DEFAULT_LICENSE = "DUO:0000042"
+
+TARGET_ALEMBIC_VERSION = "6a7dd9655e79"
