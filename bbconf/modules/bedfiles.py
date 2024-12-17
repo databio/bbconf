@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session, aliased
 from tqdm import tqdm
 
 from bbconf.config_parser.bedbaseconfig import BedBaseConfig
+from geniml.search.backends import QdrantBackend
 from bbconf.const import DEFAULT_LICENSE, PKG_NAME, ZARR_TOKENIZED_FOLDER
 from bbconf.db_utils import (
     Bed,
@@ -1027,7 +1028,7 @@ class BedAgentBedFile:
 
         _LOGGER.debug(f"Adding bed file to qdrant. bed_id: {bed_id}")
 
-        if not self._qdrant_engine:
+        if not isinstance(self._qdrant_engine, QdrantBackend):
             raise QdrantInstanceNotInitializedError("Could not upload file.")
 
         bed_embedding = self._embed_file(bed_file)
@@ -1056,7 +1057,11 @@ class BedAgentBedFile:
             )
 
         if isinstance(bed_file, str):
-            bed_region_set = GRegionSet(bed_file)
+            # Use try if file is corrupted. In Python RegionSet we have functionality to tackle this problem
+            try:
+                bed_region_set = GRegionSet(bed_file)
+            except RuntimeError as _:
+                bed_region_set = RegionSet(bed_file)
         elif isinstance(bed_file, RegionSet) or isinstance(bed_file, GRegionSet):
             bed_region_set = bed_file
         else:
