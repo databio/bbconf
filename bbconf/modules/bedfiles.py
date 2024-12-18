@@ -52,6 +52,7 @@ from bbconf.models.bed_models import (
     FileModel,
     QdrantSearchResult,
     RefGenValidModel,
+    RefGenValidReturnModel,
     StandardMeta,
     TokenizedBedResponse,
     TokenizedPathResponse,
@@ -439,6 +440,45 @@ class BedAgentBedFile:
             limit=limit,
             offset=offset,
             results=result_list,
+        )
+
+    def get_reference_validation(self, identifier: str) -> RefGenValidReturnModel:
+        """
+        Get results of reference genome validation for the bed file.
+
+        :param identifier: bed file identifier
+        :return: reference genome validation results
+        """
+
+        if not self.exists(identifier):
+            raise BEDFileNotFoundError(f"Bed file with id: {identifier} not found.")
+
+        with Session(self._sa_engine) as session:
+            statement = select(GenomeRefStats).where(
+                GenomeRefStats.bed_id == identifier
+            )
+
+            results = session.scalars(statement)
+
+            result_list = []
+
+            for result in results:
+                result_list.append(
+                    RefGenValidModel(
+                        provided_genome=result.provided_genome,
+                        compared_genome=result.compared_genome,
+                        xs=result.xs,
+                        oobr=result.oobr,
+                        sequence_fit=result.sequence_fit,
+                        assigned_points=result.assigned_points,
+                        tier_ranking=result.tier_ranking,
+                    )
+                )
+
+        return RefGenValidReturnModel(
+            id=identifier,
+            provided_genome=result.provided_genome,
+            compared_genome=result_list,
         )
 
     def add(

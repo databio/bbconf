@@ -233,3 +233,9 @@ class RefGenValidModel(BaseModel):
     tier_ranking: int
 
     model_config = ConfigDict(extra="forbid")
+
+
+class RefGenValidReturnModel(BaseModel):
+    id: str
+    provided_genome: Union[str, None] = None
+    compared_genome: List[RefGenValidModel]
