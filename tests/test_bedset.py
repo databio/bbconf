@@ -204,3 +204,10 @@ class TestBedset:
         ):
             with pytest.raises(BedbaseS3ConnectionError):
                 bbagent_obj.bedset.delete(BEDSET_TEST_ID)
+
+    def test_retrieve_unprocessed(self, bbagent_obj):
+        with ContextManagerDBTesting(
+            config=bbagent_obj.config, add_data=True, bedset=True
+        ):
+            result = bbagent_obj.bedset.get_unprocessed()
+            assert result.count == 1

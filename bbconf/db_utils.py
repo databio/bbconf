@@ -130,6 +130,9 @@ class Bed(Base):
     ref_classifier: Mapped["GenomeRefStats"] = relationship(
         "GenomeRefStats", back_populates="bed", cascade="all, delete-orphan"
     )
+    processed: Mapped[bool] = mapped_column(
+        default=False, comment="Whether the bed file was processed"
+    )
 
 
 class BedMetadata(Base):
@@ -255,6 +258,11 @@ class Files(Base):
     bedfile: Mapped["Bed"] = relationship("Bed", back_populates="files")
     bedset: Mapped["BedSets"] = relationship("BedSets", back_populates="files")
 
+    __table_args__ = (
+        UniqueConstraint("name", "bedfile_id"),
+        UniqueConstraint("name", "bedset_id"),
+    )
+
 
 class BedFileBedSetRelation(Base):
     __tablename__ = "bedfile_bedset_relation"
@@ -303,6 +311,10 @@ class BedSets(Base):
     author: Mapped[str] = mapped_column(nullable=True, comment="Author of the bedset")
     source: Mapped[str] = mapped_column(nullable=True, comment="Source of the bedset")
 
+    processed: Mapped[bool] = mapped_column(
+        default=False, comment="Whether the bedset was processed"
+    )
+
 
 class Universes(Base):
     __tablename__ = "universes"
@@ -339,7 +351,7 @@ class TokenizedBed(Base):
         nullable=False,
     )
     universe_id: Mapped[str] = mapped_column(
-        ForeignKey("universes.id", ondelete="CASCADE", passive_deletes=True),
+        ForeignKey("universes.id", ondelete="CASCADE"),
         primary_key=True,
         index=True,
         nullable=False,
@@ -352,7 +364,7 @@ class TokenizedBed(Base):
     universe: Mapped["Universes"] = relationship(
         "Universes",
         back_populates="tokenized",
-        passive_deletes=True,
+        passive_deletes="all",
     )
 
 
