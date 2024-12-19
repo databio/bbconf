@@ -204,13 +204,44 @@ class Test_BedFile_Agent:
             with pytest.raises(BEDFileNotFoundError):
                 bbagent_obj.bed.delete("not_found")
 
-    @pytest.mark.skip("Skipped, not fully implemented")
-    def test_bed_update(self):
-        # agent = BedBaseAgent(config=config)
-        # ff = agent.bed.update("91b2754c8ff01769bacfc80e6923c46e", {"number_of_regions": 44})
-        # print(ff)
-        # assert ff != None
-        pass
+    def test_bed_update(self, bbagent_obj):
+
+        # TODO: has to be expanded
+        with ContextManagerDBTesting(config=bbagent_obj.config, add_data=True):
+
+            bed_file = bbagent_obj.bed.get(BED_TEST_ID, full=True)
+            # assert bed_file.annotation.model_dump(exclude_defaults=True) == {}
+            assert bed_file.annotation.cell_line == ""
+
+            new_metadata = {
+                "cell_line": "K562",
+                "tissue": "blood",
+            }
+            bbagent_obj.bed.update(
+                identifier=BED_TEST_ID,
+                metadata=new_metadata,
+                upload_qdrant=False,
+                upload_s3=False,
+            )
+
+            new_bed_file = bbagent_obj.bed.get(BED_TEST_ID, full=True)
+
+            assert new_bed_file.annotation.cell_line == "K562"
+
+    def test_get_unprocessed(self, bbagent_obj):
+        with ContextManagerDBTesting(config=bbagent_obj.config, add_data=True):
+            return_result = bbagent_obj.bed.get_unprocessed(limit=100, offset=0)
+
+            assert return_result.count == 1
+            assert return_result.results[0].id == BED_TEST_ID
+
+    def test_get_missing_plots(self, bbagent_obj):
+        with ContextManagerDBTesting(config=bbagent_obj.config, add_data=True):
+            return_result = bbagent_obj.bed.get_missing_plots(
+                "tss_distance", limit=100, offset=0
+            )
+
+            assert return_result[0] == BED_TEST_ID
 
 
 @pytest.mark.skip("Skipped, because ML models and qdrant needed")

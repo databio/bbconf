@@ -75,7 +75,7 @@ class BedStatsModel(BaseModel):
 
 
 class BedPEPHub(BaseModel):
-    sample_name: str
+    sample_name: str = ""
     genome: str = ""
     organism: str = ""
     species_id: str = ""
@@ -233,3 +233,9 @@ class RefGenValidModel(BaseModel):
     tier_ranking: int
 
     model_config = ConfigDict(extra="forbid")
+
+
+class RefGenValidReturnModel(BaseModel):
+    id: str
+    provided_genome: Union[str, None] = None
+    compared_genome: List[RefGenValidModel]

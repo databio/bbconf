@@ -23,18 +23,20 @@ class BedBaseAgent(object):
     def __init__(
         self,
         config: Union[Path, str],
+        init_ml: bool = True,
     ):
         """
         Initialize connection to the pep_db database. You can use the basic connection parameters
         or libpq connection string.
+
+        :param config: path to the configuration file
+        :param init_ml: initialize ML models for search (default: True)
         """
-        _LOGGER.info(f"Initializing BedBaseConfig object")
-        self.config = BedBaseConfig(config)
-        _LOGGER.info(f"Initializing BedBaseAgent object")
+
+        self.config = BedBaseConfig(config, init_ml)
+
         self._bed = BedAgentBedFile(self.config, self)
-        _LOGGER.info(f"Initializing BedAgentBedSet object")
         self._bedset = BedAgentBedSet(self.config)
-        _LOGGER.info(f"Initializing BBObjects object")
         self._objects = BBObjects(self.config)
 
     @property
