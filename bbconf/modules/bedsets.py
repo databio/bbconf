@@ -3,12 +3,19 @@ from typing import Dict, List
 
 from geniml.io.utils import compute_md5sum_bedset
 from sqlalchemy import Float, Numeric, func, or_, select
-from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session, relationship
 
 from bbconf.config_parser import BedBaseConfig
 from bbconf.const import PKG_NAME
 from bbconf.db_utils import Bed, BedFileBedSetRelation, BedSets, BedStats, Files
-from bbconf.exceptions import BedSetExistsError, BedSetNotFoundError
+from bbconf.exceptions import (
+    BedBaseConfError,
+    BEDFileNotFoundError,
+    BedSetExistsError,
+    BedSetNotFoundError,
+    BedSetTrackHubLimitError,
+)
 from bbconf.models.bed_models import BedStatsModel, StandardMeta
 from bbconf.models.bedset_models import (
     BedMetadataBasic,
@@ -214,6 +221,62 @@ class BedAgentBedSet:
             "_subsample_list": [],
         }
 
+    def get_track_hub_file(self, identifier: str) -> str:
+        """
+        Get track hub file for bedset.
+
+        :param identifier: bedset identifier
+        :return: track hub file
+        """
+        statement = select(BedFileBedSetRelation).where(
+            BedFileBedSetRelation.bedset_id == identifier
+        )
+
+        trackDb_txt = ""
+
+        with Session(self._db_engine.engine) as session:
+            bs2bf_objects = session.scalars(statement)
+            if not bs2bf_objects:
+                raise BedSetNotFoundError(f"Bedset with id: {identifier} not found.")
+
+            relationship_objects = [relationship for relationship in bs2bf_objects]
+
+            if len(relationship_objects) > 20:
+                raise BedSetTrackHubLimitError(
+                    "Number of bedfiles exceeds 20. Unable to process request for track hub."
+                )
+
+            for bs2bf_obj in relationship_objects:
+                bed_obj = bs2bf_obj.bedfile
+
+                try:
+                    bigbed_url = None
+                    for bedfile in bed_obj.files:
+                        if bedfile.name == "bigbed_file":
+                            bigbed_url = self.config.get_prefixed_uri(
+                                postfix=bedfile.path, access_id="http"
+                            )
+                            break
+                    if not bigbed_url:
+                        _LOGGER.debug(
+                            f"BigBed file for bedfile {bs2bf_obj.bedfile_id} not found."
+                        )
+                        continue
+                except AttributeError:
+                    _LOGGER.debug(
+                        f"BigBed file for bedfile {bs2bf_obj.bedfile_id} not found."
+                    )
+                    continue
+                trackDb_txt = (
+                    trackDb_txt + f"track\t {bed_obj.name}\n"
+                    "type\t bigBed\n"
+                    f"bigDataUrl\t {bigbed_url} \n"
+                    f"shortLabel\t {bed_obj.name}\n"
+                    f"longLabel\t {bed_obj.description}\n"
+                    "visibility\t full\n\n"
+                )
+        return trackDb_txt
+
     def create(
         self,
         identifier: str,
@@ -228,6 +291,7 @@ class BedAgentBedSet:
         local_path: str = "",
         no_fail: bool = False,
         overwrite: bool = False,
+        processed: bool = True,
     ) -> None:
         """
         Create bedset in the database.
@@ -244,6 +308,7 @@ class BedAgentBedSet:
         :param local_path: local path to the output files
         :param no_fail: do not raise an error if bedset already exists
         :param overwrite: overwrite the record in the database
+        :param processed: flag to indicate that bedset is processed. [Default: True]
         :return: None
         """
         _LOGGER.info(f"Creating bedset '{identifier}'")
@@ -253,8 +318,15 @@ class BedAgentBedSet:
         else:
             stats = None
         if self.exists(identifier):
-            if not overwrite and not no_fail:
-                raise BedSetExistsError(identifier)
+            if not overwrite:
+                raise BedSetExistsError(
+                    f"BEDset already exist in the database: {identifier}"
+                )
+            if no_fail and not overwrite:
+                _LOGGER.warning(
+                    f"Bedset '{identifier}' already exists. no_fail=True. Skipping updating bedset."
+                )
+                return None
             self.delete(identifier)
 
         if not isinstance(annotation, dict):
@@ -277,6 +349,7 @@ class BedAgentBedSet:
             md5sum=compute_md5sum_bedset(bedid_list),
             author=annotation.get("author"),
             source=annotation.get("source"),
+            processed=processed,
         )
 
         if upload_s3:
@@ -306,10 +379,13 @@ class BedAgentBedSet:
                             session.add(new_file)
 
                 session.commit()
-        except Exception as e:
-            _LOGGER.error(f"Failed to create bedset: {e}")
+        except IntegrityError as _:
+            raise BEDFileNotFoundError(
+                "Failed to create bedset. One of the bedfiles does not exist."
+            )
+        except Exception as _:
             if not no_fail:
-                raise e
+                raise BedBaseConfError("Failed to create bedset. SQL error.")
 
         _LOGGER.info(f"Bedset '{identifier}' was created successfully")
         return None
@@ -525,6 +601,60 @@ class BedAgentBedSet:
         if result:
             return True
         return False
+
+    def get_unprocessed(self, limit: int = 100, offset: int = 0) -> BedSetListResult:
+        """
+        Get unprocessed bedset from the database.
+
+        :param limit: limit of results
+        :param offset: offset of results
+
+        :return: bedset metadata
+        """
+
+        with Session(self._db_engine.engine) as session:
+
+            statement = (
+                select(BedSets)
+                .where(BedSets.processed.is_(False))
+                .limit(limit)
+                .offset(offset)
+            )
+            count_statement = select(func.count()).where(BedSets.processed.is_(False))
+
+            count = session.execute(count_statement).one()[0]
+
+            bedset_object_list = session.scalars(statement)
+
+            results = []
+
+            for bedset_obj in bedset_object_list:
+                list_of_bedfiles = [
+                    bedset_obj.bedfile_id for bedset_obj in bedset_obj.bedfiles
+                ]
+
+                results.append(
+                    BedSetMetadata(
+                        id=bedset_obj.id,
+                        name=bedset_obj.name,
+                        description=bedset_obj.description,
+                        md5sum=bedset_obj.md5sum,
+                        statistics=None,
+                        plots=None,
+                        bed_ids=list_of_bedfiles,
+                        submission_date=bedset_obj.submission_date,
+                        last_update_date=bedset_obj.last_update_date,
+                        author=bedset_obj.author,
+                        source=bedset_obj.source,
+                    )
+                )
+
+        return BedSetListResult(
+            count=count,
+            limit=limit,
+            offset=offset,
+            results=results,
+        )
 
     def add_bedfile(self, identifier: str, bedfile: str) -> None:
         raise NotImplementedError

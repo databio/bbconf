@@ -185,10 +185,28 @@ def get_id_plots_missing():
     print(agent.get_list_genomes())
 
 
+def neighbour_beds():
+    from bbconf import BedBaseAgent
+
+    agent = BedBaseAgent(config="/home/bnt4me/virginia/repos/bedhost/config.yaml")
+    results = agent.bed.get_neighbours("e76e41597622b3df45435dde1a8eb19d")
+    results
+
+
+def sql_search():
+    from bbconf import BedBaseAgent
+
+    agent = BedBaseAgent(config="/home/bnt4me/virginia/repos/bedhost/config.yaml")
+    results = agent.bed.sql_search("K562", limit=100)
+    results
+
+
 if __name__ == "__main__":
     # zarr_s3()
     # add_s3()
     # get_from_s3()
     # biocframe()
     # get_pep()
-    get_id_plots_missing()
+    # get_id_plots_missing()
+    # neighbour_beds()
+    sql_search()

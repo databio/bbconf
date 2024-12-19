@@ -16,18 +16,6 @@ docker run --rm -it --name bedbase-test \
   -p 5432:5432 postgres
 """
 
-try:
-    subprocess.check_output(
-        "docker inspect bedbase-test --format '{{.State.Status}}'", shell=True
-    )
-    SERVICE_UNAVAILABLE = False
-except:
-    register(
-        print, f"Some tests require a test database. To initiate it, run:\n{DB_CMD}"
-    )
-    SERVICE_UNAVAILABLE = True
-
-
 TESTS_DIR = os.path.dirname(os.path.abspath(__file__))
 
 CONFIG_PATH = os.path.join(
@@ -38,6 +26,14 @@ DATA_PATH = os.path.join(
     TESTS_DIR,
     "data",
 )
+
+# try:
+#     BedBaseAgent(config=CONFIG_PATH)
+#     SERVICE_UNAVAILABLE = False
+# except Exception as _:
+#     SERVICE_UNAVAILABLE = True
+SERVICE_UNAVAILABLE = False
+
 
 if not SERVICE_UNAVAILABLE:
     agent = BedBaseAgent(config=CONFIG_PATH)
