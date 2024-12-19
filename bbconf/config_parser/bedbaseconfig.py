@@ -253,8 +253,8 @@ class BedBaseConfig(object):
                 qdrant_host=self.config.qdrant.host,
                 qdrant_api_key=self.config.qdrant.api_key,
             )
-        except Exception as _:
-            _LOGGER.error("Error in Connection to qdrant text! skipping...")
+        except Exception as e:
+            _LOGGER.error(f"Error in Connection to qdrant text! skipping {e}")
             warnings.warn(
                 "Error in Connection to qdrant text! skipping...", UserWarning
             )

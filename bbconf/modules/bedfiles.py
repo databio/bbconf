@@ -947,6 +947,8 @@ class BedAgentBedFile:
         """
         Update reference validation data
 
+        ! This function won't update the reference validation data, if it exists, it will skip it.
+
         :param sa_session: sqlalchemy session
         :param bed_object: bed sqlalchemy object
         :param ref_validation: bed file metadata
@@ -1018,11 +1020,13 @@ class BedAgentBedFile:
             overwrite=overwrite,
         )
 
-    def update_pephub(self, identifier: str, metadata: dict, overwrite: bool = False):
+    def update_pephub(
+        self, identifier: str, metadata: dict, overwrite: bool = False
+    ) -> None:
         try:
             if not metadata:
                 _LOGGER.warning("No metadata provided. Skipping pephub upload..")
-                return False
+                return None
             self._config.phc.sample.update(
                 namespace=self._config.config.phc.namespace,
                 name=self._config.config.phc.name,
