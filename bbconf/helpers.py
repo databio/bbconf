@@ -22,6 +22,8 @@ def get_bedbase_cfg(cfg: str = None) -> str:
         Optional, the $BEDBASE config env var will be used if not provided
     :return str: absolute configuration file path
     """
+
+    _LOGGER.info(f"Loading configuration file: {cfg}")
     selected_cfg = select_config(config_filepath=cfg, config_env_vars=CFG_ENV_VARS)
     if not selected_cfg:
         raise BedBaseConnectionError(

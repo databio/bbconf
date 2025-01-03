@@ -1,3 +1,4 @@
+import datetime
 import os
 from logging import getLogger
 from typing import Dict, List, Union
@@ -9,11 +10,14 @@ from gtars.tokenizers import RegionSet as GRegionSet
 from pephubclient.exceptions import ResponseError
 from pydantic import BaseModel
 from qdrant_client.models import Distance, PointIdsList, VectorParams
-from sqlalchemy import and_, delete, func, select
+from sqlalchemy import and_, delete, func, or_, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, aliased
 from tqdm import tqdm
+from qdrant_client.http.models import PointStruct
 
 from bbconf.config_parser.bedbaseconfig import BedBaseConfig
+from geniml.search.backends import QdrantBackend
 from bbconf.const import DEFAULT_LICENSE, PKG_NAME, ZARR_TOKENIZED_FOLDER
 from bbconf.db_utils import (
     Bed,
@@ -49,6 +53,7 @@ from bbconf.models.bed_models import (
     FileModel,
     QdrantSearchResult,
     RefGenValidModel,
+    RefGenValidReturnModel,
     StandardMeta,
     TokenizedBedResponse,
     TokenizedPathResponse,
@@ -62,9 +67,9 @@ QDRANT_GENOME = "hg38"
 
 class BedAgentBedFile:
     """
-    Class that represents Bedfile in Database.
+    Class that represents a BED file in the Database.
 
-    This class has method to add, delete, get files and metadata from the database.
+    Provides methods to add, delete, get BED files and metadata from the database.
     """
 
     def __init__(self, config: BedBaseConfig, bbagent_obj=None):
@@ -241,6 +246,45 @@ class BedAgentBedFile:
                     )
         return bed_plots
 
+    def get_neighbours(
+        self, identifier: str, limit: int = 10, offset: int = 0
+    ) -> BedListSearchResult:
+        """
+        Get nearest neighbours of bed file from qdrant.
+
+        :param identifier: bed file identifier
+        :param limit: number of results to return
+        :param offset: offset to start from
+
+        :return: list of nearest neighbours
+        """
+        if not self.exists(identifier):
+            raise BEDFileNotFoundError(f"Bed file with id: {identifier} not found.")
+        s = identifier
+        results = self._qdrant_engine.qd_client.query_points(
+            collection_name=self._config.config.qdrant.file_collection,
+            query="-".join([s[:8], s[8:12], s[12:16], s[16:20], s[20:]]),
+            limit=limit,
+            offset=offset,
+        )
+        result_list = []
+        for result in results.points:
+            result_id = result.id.replace("-", "")
+            result_list.append(
+                QdrantSearchResult(
+                    id=result_id,
+                    payload=result.payload,
+                    score=result.score,
+                    metadata=self.get(result_id, full=False),
+                )
+            )
+        return BedListSearchResult(
+            count=self.bb_agent.get_stats().bedfiles_number,
+            limit=limit,
+            offset=offset,
+            results=result_list,
+        )
+
     def get_files(self, identifier: str) -> BedFiles:
         """
         Get file files by identifier.
@@ -399,6 +443,45 @@ class BedAgentBedFile:
             results=result_list,
         )
 
+    def get_reference_validation(self, identifier: str) -> RefGenValidReturnModel:
+        """
+        Get results of reference genome validation for the bed file.
+
+        :param identifier: bed file identifier
+        :return: reference genome validation results
+        """
+
+        if not self.exists(identifier):
+            raise BEDFileNotFoundError(f"Bed file with id: {identifier} not found.")
+
+        with Session(self._sa_engine) as session:
+            statement = select(GenomeRefStats).where(
+                GenomeRefStats.bed_id == identifier
+            )
+
+            results = session.scalars(statement)
+
+            result_list = []
+
+            for result in results:
+                result_list.append(
+                    RefGenValidModel(
+                        provided_genome=result.provided_genome,
+                        compared_genome=result.compared_genome,
+                        xs=result.xs,
+                        oobr=result.oobr,
+                        sequence_fit=result.sequence_fit,
+                        assigned_points=result.assigned_points,
+                        tier_ranking=result.tier_ranking,
+                    )
+                )
+
+        return RefGenValidReturnModel(
+            id=identifier,
+            provided_genome=result.provided_genome,
+            compared_genome=result_list,
+        )
+
     def add(
         self,
         identifier: str,
@@ -407,7 +490,7 @@ class BedAgentBedFile:
         plots: dict = None,
         files: dict = None,
         classification: dict = None,
-        ref_validation: Dict[str, BaseModel] = None,
+        ref_validation: Union[Dict[str, BaseModel], None] = None,
         license_id: str = DEFAULT_LICENSE,
         upload_qdrant: bool = False,
         upload_pephub: bool = False,
@@ -415,6 +498,7 @@ class BedAgentBedFile:
         local_path: str = None,
         overwrite: bool = False,
         nofail: bool = False,
+        processed: bool = True,
     ) -> None:
         """
         Add bed file to the database.
@@ -434,6 +518,7 @@ class BedAgentBedFile:
         :param local_path: local path to the output files
         :param overwrite: overwrite bed file if it already exists
         :param nofail: do not raise an error for error in pephub/s3/qdrant or record exsist and not overwrite
+        :param processed: true if bedfile was processed and statistics and plots were calculated
         :return: None
         """
         _LOGGER.info(f"Adding bed file to database. bed_id: {identifier}")
@@ -475,6 +560,7 @@ class BedAgentBedFile:
                 _LOGGER.warning(
                     f"Could not upload to pephub. Error: {e}. nofail: {nofail}"
                 )
+                upload_pephub = False
                 if not nofail:
                     raise e
         else:
@@ -515,6 +601,7 @@ class BedAgentBedFile:
                 license_id=license_id,
                 indexed=upload_qdrant,
                 pephub=upload_pephub,
+                processed=processed,
             )
             session.add(new_bed)
             if upload_s3:
@@ -551,16 +638,17 @@ class BedAgentBedFile:
             session.add(new_bedstat)
             session.add(new_metadata)
 
-            for ref_gen_check, data in ref_validation.items():
-                new_gen_ref = GenomeRefStats(
-                    **RefGenValidModel(
-                        **data.model_dump(),
-                        provided_genome=classification.genome_alias,
-                        compared_genome=ref_gen_check,
-                    ).model_dump(),
-                    bed_id=identifier,
-                )
-                session.add(new_gen_ref)
+            if ref_validation:
+                for ref_gen_check, data in ref_validation.items():
+                    new_gen_ref = GenomeRefStats(
+                        **RefGenValidModel(
+                            **data.model_dump(),
+                            provided_genome=classification.genome_alias,
+                            compared_genome=ref_gen_check,
+                        ).model_dump(),
+                        bed_id=identifier,
+                    )
+                    session.add(new_gen_ref)
             session.commit()
 
         return None
@@ -568,18 +656,21 @@ class BedAgentBedFile:
     def update(
         self,
         identifier: str,
-        stats: dict,
-        metadata: dict = None,
-        plots: dict = None,
-        files: dict = None,
-        classification: dict = None,
-        add_to_qdrant: bool = False,
-        upload_pephub: bool = False,
-        upload_s3: bool = False,
+        stats: Union[dict, None] = None,
+        metadata: Union[dict, None] = None,
+        plots: Union[dict, None] = None,
+        files: Union[dict, None] = None,
+        classification: Union[dict, None] = None,
+        ref_validation: Union[Dict[str, BaseModel], None] = None,
+        license_id: str = DEFAULT_LICENSE,
+        upload_qdrant: bool = True,
+        upload_pephub: bool = True,
+        upload_s3: bool = True,
         local_path: str = None,
         overwrite: bool = False,
         nofail: bool = False,
-    ):
+        processed: bool = True,
+    ) -> None:
         """
         Update bed file to the database.
 
@@ -591,23 +682,34 @@ class BedAgentBedFile:
         :param plots: bed file plots
         :param files: bed file files
         :param classification: bed file classification
-        :param add_to_qdrant: add bed file to qdrant indexs
+        :param ref_validation: reference validation data.  RefGenValidModel
+        :param license_id: bed file license id (default: 'DUO:0000042').
+        :param upload_qdrant: add bed file to qdrant indexs
         :param upload_pephub: add bed file to pephub
         :param upload_s3: upload files to s3
         :param local_path: local path to the output files
         :param overwrite: overwrite bed file if it already exists
         :param nofail: do not raise an error for error in pephub/s3/qdrant or record exsist and not overwrite
+        :param processed: true if bedfile was processed and statistics and plots were calculated
         :return: None
         """
         if not self.exists(identifier):
             raise BEDFileNotFoundError(
                 f"Bed file with id: {identifier} not found. Cannot update."
             )
+        _LOGGER.info(f"Updating bed file: '{identifier}'")
 
-        stats = BedStatsModel(**stats)
-        plots = BedPlots(**plots)
-        files = BedFiles(**files)
-        classification = BedClassification(**classification)
+        if license_id not in self.bb_agent.list_of_licenses and not license_id:
+            raise BedBaseConfError(
+                f"License: {license_id} is not in the list of licenses. Please provide a valid license."
+                f"List of licenses: {self.bb_agent.list_of_licenses}"
+            )
+
+        stats = BedStatsModel(**stats if stats else {})
+        plots = BedPlots(**plots if plots else {})
+        files = BedFiles(**files if files else {})
+        bed_metadata = StandardMeta(**metadata if metadata else {})
+        classification = BedClassification(**classification if classification else {})
 
         if upload_pephub:
             metadata = BedPEPHub(**metadata)
@@ -622,56 +724,261 @@ class BedAgentBedFile:
         else:
             _LOGGER.info("upload_pephub set to false. Skipping pephub..")
 
-        if add_to_qdrant:
+        if upload_qdrant:
             self.upload_file_qdrant(
                 identifier, files.bed_file.path, payload=metadata.model_dump()
             )
 
-        statement = select(Bed).where(and_(Bed.id == identifier))
-
-        if upload_s3:
-            _LOGGER.warning("S3 upload is not implemented yet")
-            # if files:
-            #     files = self._config.upload_files_s3(
-            #         identifier, files=files, base_path=local_path, type="files"
-            #     )
-            #
-            # if plots:
-            #     plots = self._config.upload_files_s3(
-            #         identifier, files=plots, base_path=local_path, type="plots"
-            #     )
-
         with Session(self._sa_engine) as session:
-            bed_object = session.scalar(statement)
+            bed_statement = select(Bed).where(and_(Bed.id == identifier))
+            bed_object = session.scalar(bed_statement)
 
-            setattr(bed_object, **stats.model_dump())
-            setattr(bed_object, **classification.model_dump())
+            self._update_classification(
+                sa_session=session, bed_object=bed_object, classification=classification
+            )
 
-            bed_object.indexed = add_to_qdrant
-            bed_object.pephub = upload_pephub
+            self._update_metadata(
+                sa_session=session,
+                bed_object=bed_object,
+                bed_metadata=bed_metadata,
+            )
+            self._update_stats(sa_session=session, bed_object=bed_object, stats=stats)
 
             if upload_s3:
-                _LOGGER.warning("S3 upload is not implemented yet")
-                # for k, v in files:
-                #     if v:
-                #         new_file = Files(
-                #             **v.model_dump(exclude_none=True, exclude_unset=True),
-                #             bedfile_id=identifier,
-                #             type="file",
-                #         )
-                #         session.add(new_file)
-                # for k, v in plots:
-                #     if v:
-                #         new_plot = Files(
-                #             **v.model_dump(exclude_none=True, exclude_unset=True),
-                #             bedfile_id=identifier,
-                #             type="plot",
-                #         )
-                #         session.add(new_plot)
+                self._update_plots(
+                    sa_session=session,
+                    bed_object=bed_object,
+                    plots=plots,
+                    local_path=local_path,
+                )
+                self._update_files(
+                    sa_session=session,
+                    bed_object=bed_object,
+                    files=files,
+                    local_path=local_path,
+                )
+
+            self._update_ref_validation(
+                sa_session=session, bed_object=bed_object, ref_validation=ref_validation
+            )
+
+            bed_object.processed = processed
+            bed_object.indexed = upload_qdrant
+            bed_object.last_update_date = datetime.datetime.now(datetime.timezone.utc)
 
             session.commit()
 
-        raise NotImplementedError
+        return None
+
+    @staticmethod
+    def _update_classification(
+        sa_session: Session, bed_object: Bed, classification: BedClassification
+    ) -> None:
+        """
+        Update bed file classification
+
+        :param sa_session: sqlalchemy session
+        :param bed_object: bed sqlalchemy object
+        :param classification: bed file classification as BedClassification object
+
+        :return: None
+        """
+        classification_dict = classification.model_dump(
+            exclude_defaults=True, exclude_none=True, exclude_unset=True
+        )
+        for k, v in classification_dict.items():
+            setattr(bed_object, k, v)
+
+        sa_session.commit()
+
+    @staticmethod
+    def _update_stats(
+        sa_session: Session, bed_object: Bed, stats: BedStatsModel
+    ) -> None:
+        """
+        Update bed file statistics
+
+        :param sa_session: sqlalchemy session
+        :param bed_object: bed sqlalchemy object
+        :param stats: bed file statistics as BedStatsModel object
+        :return: None
+        """
+
+        stats_dict = stats.model_dump(
+            exclude_defaults=True, exclude_none=True, exclude_unset=True
+        )
+        if not bed_object.stats:
+            new_bedstat = BedStats(**stats.model_dump(), id=bed_object.id)
+            sa_session.add(new_bedstat)
+        else:
+            for k, v in stats_dict.items():
+                setattr(bed_object.stats, k, v)
+
+        sa_session.commit()
+
+    @staticmethod
+    def _update_metadata(
+        sa_session: Session, bed_object: Bed, bed_metadata: StandardMeta
+    ) -> None:
+        """
+        Update bed file metadata
+
+        :param sa_session: sqlalchemy session
+        :param bed_object: bed sqlalchemy object
+        :param bed_metadata: bed file metadata as StandardMeta object
+
+        :return: None
+        """
+
+        metadata_dict = bed_metadata.model_dump(
+            exclude_defaults=True, exclude_none=True, exclude_unset=True
+        )
+        if not bed_object.annotations:
+            new_metadata = BedMetadata(
+                **bed_metadata.model_dump(exclude={"description"}), id=bed_object.id
+            )
+            sa_session.add(new_metadata)
+        else:
+            for k, v in metadata_dict.items():
+                setattr(bed_object.annotations, k, v)
+
+        sa_session.commit()
+
+    def _update_plots(
+        self,
+        sa_session: Session,
+        bed_object: Bed,
+        plots: BedPlots,
+        local_path: str = None,
+    ) -> None:
+        """
+        Update bed file plots
+
+        :param sa_session: sqlalchemy session
+        :param bed_object: bed sqlalchemy object
+        :param plots: bed file plots
+        :param local_path: local path to the output files
+        """
+
+        _LOGGER.info("Updating bed file plots..")
+        if plots:
+            plots = self._config.upload_files_s3(
+                bed_object.id, files=plots, base_path=local_path, type="plots"
+            )
+        plots_dict = plots.model_dump(
+            exclude_defaults=True, exclude_none=True, exclude_unset=True
+        )
+        if not plots_dict:
+            return None
+
+        for k, v in plots:
+            if v:
+                new_plot = Files(
+                    **v.model_dump(
+                        exclude_none=True,
+                        exclude_unset=True,
+                        exclude={"object_id", "access_methods"},
+                    ),
+                    bedfile_id=bed_object.id,
+                    type="plot",
+                )
+                try:
+                    sa_session.add(new_plot)
+                    sa_session.commit()
+                except IntegrityError as _:
+                    sa_session.rollback()
+                    _LOGGER.debug(
+                        f"Plot with name: {v.name} already exists. Updating.."
+                    )
+
+        return None
+
+    def _update_files(
+        self,
+        sa_session: Session,
+        bed_object: Bed,
+        files: BedFiles,
+        local_path: str = None,
+    ) -> None:
+        """
+        Update bed files
+
+        :param sa_session: sqlalchemy session
+        :param bed_object: bed sqlalchemy object
+        :param files: bed file files
+        """
+
+        _LOGGER.info("Updating bed files..")
+        if files:
+            files = self._config.upload_files_s3(
+                bed_object.id, files=files, base_path=local_path, type="files"
+            )
+
+        files_dict = files.model_dump(
+            exclude_defaults=True, exclude_none=True, exclude_unset=True
+        )
+        if not files_dict:
+            return None
+
+        for k, v in files:
+            if v:
+                new_file = Files(
+                    **v.model_dump(
+                        exclude_none=True,
+                        exclude_unset=True,
+                        exclude={"object_id", "access_methods"},
+                    ),
+                    bedfile_id=bed_object.id,
+                    type="file",
+                )
+
+                try:
+                    sa_session.add(new_file)
+                    sa_session.commit()
+                except IntegrityError as _:
+                    sa_session.rollback()
+                    _LOGGER.debug(
+                        f"File with name: {v.name} already exists. Updating.."
+                    )
+
+    @staticmethod
+    def _update_ref_validation(
+        sa_session: Session, bed_object: Bed, ref_validation: Dict[str, BaseModel]
+    ) -> None:
+        """
+        Update reference validation data
+
+        ! This function won't update the reference validation data, if it exists, it will skip it.
+
+        :param sa_session: sqlalchemy session
+        :param bed_object: bed sqlalchemy object
+        :param ref_validation: bed file metadata
+        """
+
+        if not ref_validation:
+            return None
+
+        _LOGGER.info("Updating reference validation data..")
+
+        for ref_gen_check, data in ref_validation.items():
+            new_gen_ref = GenomeRefStats(
+                **RefGenValidModel(
+                    **data.model_dump(),
+                    provided_genome=bed_object.genome_alias,
+                    compared_genome=ref_gen_check,
+                ).model_dump(),
+                bed_id=bed_object.id,
+            )
+            try:
+                sa_session.add(new_gen_ref)
+                sa_session.commit()
+            except IntegrityError as _:
+                sa_session.rollback()
+                _LOGGER.info(
+                    f"Reference validation exists for BED id: {bed_object.id} and ref_gen_check."
+                )
+
+        return None
 
     def delete(self, identifier: str) -> None:
         """
@@ -714,17 +1021,22 @@ class BedAgentBedFile:
             overwrite=overwrite,
         )
 
-    def update_pephub(self, identifier: str, metadata: dict, overwrite: bool = False):
-        if not metadata:
-            _LOGGER.warning("No metadata provided. Skipping pephub upload..")
-            return False
-        self._config.phc.sample.update(
-            namespace=self._config.config.phc.namespace,
-            name=self._config.config.phc.name,
-            tag=self._config.config.phc.tag,
-            sample_name=identifier,
-            sample_dict=metadata,
-        )
+    def update_pephub(
+        self, identifier: str, metadata: dict, overwrite: bool = False
+    ) -> None:
+        try:
+            if not metadata:
+                _LOGGER.warning("No metadata provided. Skipping pephub upload..")
+                return None
+            self._config.phc.sample.update(
+                namespace=self._config.config.phc.namespace,
+                name=self._config.config.phc.name,
+                tag=self._config.config.phc.tag,
+                sample_name=identifier,
+                sample_dict=metadata,
+            )
+        except ResponseError as e:
+            _LOGGER.warning(f"Could not update pephub. Error: {e}")
 
     def delete_pephub_sample(self, identifier: str):
         """
@@ -760,6 +1072,10 @@ class BedAgentBedFile:
         """
 
         _LOGGER.debug(f"Adding bed file to qdrant. bed_id: {bed_id}")
+
+        if not isinstance(self._qdrant_engine, QdrantBackend):
+            raise QdrantInstanceNotInitializedError("Could not upload file.")
+
         bed_embedding = self._embed_file(bed_file)
 
         self._qdrant_engine.load(
@@ -786,7 +1102,11 @@ class BedAgentBedFile:
             )
 
         if isinstance(bed_file, str):
-            bed_region_set = GRegionSet(bed_file)
+            # Use try if file is corrupted. In Python RegionSet we have functionality to tackle this problem
+            try:
+                bed_region_set = GRegionSet(bed_file)
+            except RuntimeError as _:
+                bed_region_set = RegionSet(bed_file)
         elif isinstance(bed_file, RegionSet) or isinstance(bed_file, GRegionSet):
             bed_region_set = bed_file
         else:
@@ -859,18 +1179,101 @@ class BedAgentBedFile:
             results=results_list,
         )
 
-    def reindex_qdrant(self) -> None:
+    def sql_search(
+        self, query: str, limit: int = 10, offset: int = 0
+    ) -> BedListSearchResult:
+        """
+        Search for bed files by using sql exact search.
+        This search will search files by id, name, and description
+
+        :param query: text query
+        :param limit: number of results to return
+        :param offset: offset to start from
+
+        :return: list of bed file metadata
+        """
+        _LOGGER.debug(f"Looking for: {query}")
+
+        sql_search_str = f"%{query}%"
+        with Session(self._sa_engine) as session:
+            statement = (
+                select(Bed)
+                .where(
+                    or_(
+                        Bed.id.ilike(sql_search_str),
+                        Bed.name.ilike(sql_search_str),
+                        Bed.description.ilike(sql_search_str),
+                    )
+                )
+                .limit(limit)
+                .offset(offset)
+            )
+            bed_objects = session.scalars(statement)
+            results = [
+                BedMetadataBasic(
+                    **bedfile_obj.__dict__,
+                    annotation=StandardMeta(
+                        **(
+                            bedfile_obj.annotations.__dict__
+                            if bedfile_obj.annotations
+                            else {}
+                        )
+                    ),
+                )
+                for bedfile_obj in bed_objects
+            ]
+            result_list = [
+                QdrantSearchResult(id=result.id, score=1, metadata=result)
+                for result in results
+            ]
+
+        return BedListSearchResult(
+            count=self._sql_search_count(query),
+            limit=limit,
+            offset=offset,
+            results=result_list,
+        )
+
+    def _sql_search_count(self, query: str) -> int:
+        """
+        Get number of total found files in the database.
+
+        :param query: text query
+
+        :return: number of found files
+        """
+        sql_search_str = f"%{query}%"
+        with Session(self._sa_engine) as session:
+            statement = (
+                select(func.count())
+                .select_from(Bed)
+                .where(
+                    or_(
+                        Bed.id.ilike(sql_search_str),
+                        Bed.name.ilike(sql_search_str),
+                        Bed.description.ilike(sql_search_str),
+                    )
+                )
+            )
+            count = session.execute(statement).one()
+        return count[0]
+
+    def reindex_qdrant(self, batch: int = 100) -> None:
         """
         Re-upload all files to quadrant.
         !Warning: only hg38 genome can be added to qdrant!
 
-        If you want want to fully reindex/reupload to qdrant, first delete collection and create new one.
+        If you want to fully reindex/reupload to qdrant, first delete collection and create new one.
 
         Upload all files to qdrant.
+
+        :param batch: number of files to upload in one batch
         """
         bb_client = BBClient()
 
-        annotation_result = self.get_ids_list(limit=100000, genome=QDRANT_GENOME)
+        annotation_result = self.get_ids_list(
+            limit=100000, genome=QDRANT_GENOME, offset=0
+        )
 
         if not annotation_result.results:
             _LOGGER.error("No bed files found.")
@@ -878,6 +1281,8 @@ class BedAgentBedFile:
         results = annotation_result.results
 
         with tqdm(total=len(results), position=0, leave=True) as pbar:
+            points_list = []
+            processed_number = 0
             for record in results:
                 try:
                     bed_region_set_obj = GRegionSet(bb_client.seek(record.id))
@@ -886,14 +1291,36 @@ class BedAgentBedFile:
 
                 pbar.set_description(f"Processing file: {record.id}")
 
-                self.upload_file_qdrant(
-                    bed_id=record.id,
-                    bed_file=bed_region_set_obj,
-                    payload=record.annotation.model_dump() if record.annotation else {},
+                file_embedding = self._embed_file(bed_region_set_obj)
+                points_list.append(
+                    PointStruct(
+                        id=record.id,
+                        vector=file_embedding.tolist()[0],
+                        payload=(
+                            record.annotation.model_dump() if record.annotation else {}
+                        ),
+                    )
                 )
-                pbar.write(f"File: {record.id} uploaded to qdrant successfully.")
+                processed_number += 1
+                if processed_number % batch == 0:
+                    pbar.set_description(f"Uploading points to qdrant using batch...")
+                    operation_info = self._config.qdrant_engine.qd_client.upsert(
+                        collection_name=self._config.config.qdrant.file_collection,
+                        points=points_list,
+                    )
+                    pbar.write("Uploaded batch to qdrant.")
+                    points_list = []
+                    assert operation_info.status == "completed"
+
+                pbar.write(f"File: {record.id} successfully indexed.")
                 pbar.update(1)
 
+        _LOGGER.info(f"Uploading points to qdrant using batches...")
+        operation_info = self._config.qdrant_engine.qd_client.upsert(
+            collection_name=self._config.config.qdrant.file_collection,
+            points=points_list,
+        )
+        assert operation_info.status == "completed"
         return None
 
     def delete_qdrant_point(self, identifier: str) -> None:
@@ -1217,3 +1644,54 @@ class BedAgentBedFile:
             results = [result for result in results]
 
         return results
+
+    def get_unprocessed(self, limit: int = 1000, offset: int = 0) -> BedListResult:
+        """
+        Get bed files that are not processed.
+
+        :param limit: number of results to return
+        :param offset: offset to start from
+
+        :return: list of bed file identifiers
+        """
+        with Session(self._sa_engine) as session:
+            query = (
+                select(Bed).where(Bed.processed.is_(False)).limit(limit).offset(offset)
+            )
+            count_query = select(func.count()).where(Bed.processed.is_(False))
+
+            count = session.execute(count_query).one()[0]
+
+            bed_results = session.scalars(query)
+
+            results = []
+            for bed_object in bed_results:
+                results.append(
+                    BedMetadataBasic(
+                        id=bed_object.id,
+                        name=bed_object.name,
+                        genome_alias=bed_object.genome_alias,
+                        genome_digest=bed_object.genome_digest,
+                        bed_type=bed_object.bed_type,
+                        bed_format=bed_object.bed_format,
+                        description=bed_object.description,
+                        annotation=StandardMeta(
+                            **(
+                                bed_object.annotations.__dict__
+                                if bed_object.annotations
+                                else {}
+                            )
+                        ),
+                        last_update_date=bed_object.last_update_date,
+                        submission_date=bed_object.submission_date,
+                        is_universe=bed_object.is_universe,
+                        license_id=bed_object.license_id,
+                    )
+                )
+
+        return BedListResult(
+            count=count,
+            limit=limit,
+            offset=offset,
+            results=results,
+        )

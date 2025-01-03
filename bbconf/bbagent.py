@@ -1,3 +1,5 @@
+import logging
+
 from functools import cached_property
 from pathlib import Path
 from typing import List, Union
@@ -12,19 +14,26 @@ from bbconf.modules.bedfiles import BedAgentBedFile
 from bbconf.modules.bedsets import BedAgentBedSet
 from bbconf.modules.objects import BBObjects
 
+from .const import PKG_NAME
+
+_LOGGER = logging.getLogger(PKG_NAME)
+
 
 class BedBaseAgent(object):
     def __init__(
         self,
         config: Union[Path, str],
+        init_ml: bool = True,
     ):
         """
-        Initialize connection to the pep_db database. You can use The basic connection parameters
+        Initialize connection to the pep_db database. You can use the basic connection parameters
         or libpq connection string.
 
+        :param config: path to the configuration file
+        :param init_ml: initialize ML models for search (default: True)
         """
 
-        self.config = BedBaseConfig(config)
+        self.config = BedBaseConfig(config, init_ml)
 
         self._bed = BedAgentBedFile(self.config, self)
         self._bedset = BedAgentBedSet(self.config)
@@ -41,6 +50,13 @@ class BedBaseAgent(object):
     @property
     def objects(self) -> BBObjects:
         return self._objects
+
+    def __repr__(self) -> str:
+        repr = f"BedBaseAgent(config={self.config})"
+        repr += f"\n{self.bed}"
+        repr += f"\n{self.bedset}"
+        repr += f"\n{self.objects}"
+        return repr
 
     def get_stats(self) -> StatsReturn:
         """
