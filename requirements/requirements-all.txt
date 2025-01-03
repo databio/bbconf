@@ -12,4 +12,3 @@ zarr
 pyyaml >= 6.0.1 # for s3fs because of the errors
 s3fs >= 2024.3.1
 pandas >= 2.0.0
-pybiocfilecache < 0.5.0
