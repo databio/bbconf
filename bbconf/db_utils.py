@@ -445,6 +445,7 @@ class GeoGseStatus(Base):
     gsm_status_mapper: Mapped[List["GeoGsmStatus"]] = relationship(
         "GeoGsmStatus", back_populates="gse_status_mapper"
     )
+    error: Mapped[str] = mapped_column(nullable=True, comment="Error message")
 
 
 class GeoGsmStatus(Base):
@@ -463,6 +464,12 @@ class GeoGsmStatus(Base):
     genome: Mapped[str] = mapped_column(nullable=True, comment="Genome")
     gse_status_mapper: Mapped["GeoGseStatus"] = relationship(
         "GeoGseStatus", back_populates="gsm_status_mapper"
+    )
+    submission_date: Mapped[datetime.datetime] = mapped_column(
+        default=deliver_update_date, onupdate=deliver_update_date
+    )
+    bed_id: Mapped[str] = mapped_column(
+        nullable=True, index=True, comment="Bed identifier"
     )
 
 
