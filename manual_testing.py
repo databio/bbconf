@@ -201,6 +201,14 @@ def sql_search():
     results
 
 
+def config_t():
+    from bbconf.config_parser.utils import config_analyzer
+
+    is_valid = config_analyzer("/home/bnt4me/virginia/repos/bbconf/config.yaml")
+
+    print(is_valid)
+
+
 if __name__ == "__main__":
     # zarr_s3()
     # add_s3()
@@ -209,4 +217,6 @@ if __name__ == "__main__":
     # get_pep()
     # get_id_plots_missing()
     # neighbour_beds()
-    sql_search()
+    # sql_search()
+
+    config_t()
