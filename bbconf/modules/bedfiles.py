@@ -6,18 +6,18 @@ from typing import Dict, List, Union
 import numpy as np
 from geniml.bbclient import BBClient
 from geniml.io import RegionSet
+from geniml.search.backends import QdrantBackend
 from gtars.tokenizers import RegionSet as GRegionSet
 from pephubclient.exceptions import ResponseError
 from pydantic import BaseModel
+from qdrant_client.http.models import PointStruct
 from qdrant_client.models import Distance, PointIdsList, VectorParams
 from sqlalchemy import and_, delete, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, aliased
 from tqdm import tqdm
-from qdrant_client.http.models import PointStruct
 
 from bbconf.config_parser.bedbaseconfig import BedBaseConfig
-from geniml.search.backends import QdrantBackend
 from bbconf.const import DEFAULT_LICENSE, PKG_NAME, ZARR_TOKENIZED_FOLDER
 from bbconf.db_utils import (
     Bed,
@@ -1630,6 +1630,61 @@ class BedAgentBedFile:
 
             # Define the subquery
             subquery = select(t2_alias).where(t2_alias.name == plot_name).subquery()
+
+            query = (
+                select(Bed.id)
+                .outerjoin(subquery, Bed.id == subquery.c.bedfile_id)
+                .where(subquery.c.bedfile_id.is_(None))
+                .limit(limit)
+                .offset(offset)
+            )
+
+            results = session.scalars(query)
+
+            results = [result for result in results]
+
+        return results
+
+    def get_missing_stats(self, limit: int = 1000, offset: int = 0) -> List[str]:
+        """
+        Get list of bed files that are missing statistics
+
+        :param limit: number of results to return
+        :param offset: offset to start from
+
+        :return: list of bed file identifiers
+        """
+
+        with Session(self._sa_engine) as session:
+            query = (
+                select(BedStats)
+                .where(BedStats.number_of_regions.is_(None))
+                .limit(limit)
+                .offset(offset)
+            )
+
+            results = session.scalars(query)
+
+            results = [result.id for result in results]
+
+        return results
+
+    def get_missing_files(self, limit: int = 1000, offset: int = 0) -> List[str]:
+        """
+        Get list of bed files that are missing files (bigBed files)
+
+        :param limit: number of results to return
+        :param offset: offset to start from
+
+        :return: list of bed file identifiers
+        """
+
+        with Session(self._sa_engine) as session:
+            # Alias for subquery
+            t2_alias = aliased(Files)
+
+            # Define the subquery
+            subquery = select(t2_alias).where(t2_alias.name == "bigbed_file").subquery()
 
             query = (
                 select(Bed.id)

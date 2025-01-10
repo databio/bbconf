@@ -1,5 +1,4 @@
 import logging
-
 from functools import cached_property
 from pathlib import Path
 from typing import List, Union
