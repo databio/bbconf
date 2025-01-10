@@ -2,6 +2,12 @@
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) and [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) format.
 
+## [0.10.2] - 2025-01-09
+
+### Changed:
+- Updated version of zarr
+
+
 ## [0.10.1] - 2025-01-07
 
 ### Changed:
@@ -24,7 +30,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 ## [0.9.0] - 2024-11-07
 
 ### Changed
-- Fixed bug with uploading tss dist plot\
+- Fixed bug with uploading tss dist plot
 
 ### Added
 - Added annotations to bedsets (author, source)
