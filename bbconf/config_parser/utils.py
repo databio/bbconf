@@ -39,7 +39,7 @@ def config_analyzer(config_path: str) -> bool:
                     f"Config info: `{field_name}` Field is not set in the configuration file. Using default value."
                 )
             try:
-                config_dict[field_name] = annotation.annotation()
+                config_dict[field_name] = None
             except ValidationError as e:
                 print(
                     str(
