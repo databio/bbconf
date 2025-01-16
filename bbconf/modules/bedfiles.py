@@ -674,8 +674,6 @@ class BedAgentBedFile:
         """
         Update bed file to the database.
 
-        !! WARNING: this method is in development. Please, void of using it!
-
         :param identifier: bed file identifier
         :param stats: bed file results {statistics, plots, files, metadata}
         :param metadata: bed file metadata (will be saved in pephub)
@@ -725,9 +723,18 @@ class BedAgentBedFile:
             _LOGGER.info("upload_pephub set to false. Skipping pephub..")
 
         if upload_qdrant:
-            self.upload_file_qdrant(
-                identifier, files.bed_file.path, payload=metadata.model_dump()
-            )
+            if classification.genome_alias == "hg38":
+                _LOGGER.info(f"Uploading bed file to qdrant.. [{identifier}]")
+                self.upload_file_qdrant(
+                    identifier,
+                    files.bed_file.path,
+                    bed_metadata.model_dump(exclude_none=False),
+                )
+                _LOGGER.info(f"File uploaded to qdrant. {identifier}")
+            else:
+                _LOGGER.warning(
+                    f"Could not upload to qdrant. Genome: {classification.genome_alias} is not supported."
+                )
 
         with Session(self._sa_engine) as session:
             bed_statement = select(Bed).where(and_(Bed.id == identifier))
