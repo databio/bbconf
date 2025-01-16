@@ -2,6 +2,13 @@
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) and [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) format.
 
+## [0.10.3] - 2025-XX-XX
+
+### Added:
+- Get missing stats and files in bedfiles
+- Config analyzer for quick analysis if the config is correct
+
+
 ## [0.10.2] - 2025-01-09
 
 ### Changed:
