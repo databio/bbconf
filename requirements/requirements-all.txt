@@ -4,8 +4,8 @@ geniml[ml] >= 0.6.0
 psycopg >= 3.1.15
 colorlogs
 pydantic >= 2.9.0
-botocore
-boto3 >=  1.34.54
+botocore >= 1.34.0, < 1.36.0
+boto3 >= 1.34.54, < 1.36.0
 pephubclient >= 0.4.5
 sqlalchemy_schemadisplay
 zarr < 3.0.0
