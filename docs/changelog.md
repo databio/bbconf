@@ -2,11 +2,20 @@
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) and [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) format.
 
-## [0.10.3] - 2025-XX-XX
+## [0.10.4] - 2025-01-21
+
+### Fixed:
+- Changes boto3 [#78](https://github.com/databio/bbconf/issues/78)
+
+
+## [0.10.3] - 2025-01-16
 
 ### Added:
-- Get missing stats and files in bedfiles
-- Config analyzer for quick analysis if the config is correct
+- Added config analyzer
+- Added new methods `get_missing_stats` and `get_missing_files` to retrieve lists of bed files that are missing statistics and files, respectively.
+
+### Fixed:
+- Fixed bugs in updating bed files
 
 
 ## [0.10.2] - 2025-01-09
