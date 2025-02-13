@@ -5,13 +5,23 @@ from typing import List, Union
 
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import distinct, func, select
+from sqlalchemy.exc import IntegrityError
 
 from bbconf.config_parser.bedbaseconfig import BedBaseConfig
-from bbconf.db_utils import Bed, BedSets, License
-from bbconf.models.base_models import StatsReturn
+from bbconf.db_utils import (
+    Bed,
+    BedSets,
+    License,
+    StatsBedSetMeta,
+    StatsBedMeta,
+    StatsFiles,
+    StatsSearch,
+)
+from bbconf.models.base_models import StatsReturn, UsageModel
 from bbconf.modules.bedfiles import BedAgentBedFile
 from bbconf.modules.bedsets import BedAgentBedSet
 from bbconf.modules.objects import BBObjects
+from bbconf.exceptions import BedBaseConfError
 
 from .const import PKG_NAME
 
@@ -99,3 +109,83 @@ class BedBaseAgent(object):
         with Session(self.config.db_engine.engine) as session:
             licenses = session.execute(statement).all()
         return [result[0] for result in licenses]
+
+    # def add_usage(self, usage: UsageModel) -> None:
+    #     """
+    #     Add usage to the database
+    #
+    #     :param usage: usage model
+    #     """
+    #
+    #     event_name = usage.event
+    #     usage = usage.model_dump(
+    #         exclude_unset=True, exclude_defaults=True, exclude={"event"}
+    #     )
+    #
+    #     try:
+    #         with Session(self.config.db_engine.engine) as session:
+    #
+    #             event = session.scalar(
+    #                 select(UsageEvent).where(UsageEvent.event == event_name)
+    #             )
+    #
+    #             session.add(UsageStats(**usage, event_mapper=event))
+    #             session.commit()
+    #
+    #             _LOGGER.debug(f"Usage added: {usage}")
+    #     except IntegrityError as e:
+    #         _LOGGER.error(f"Error adding usage: {e}")
+    #         _LOGGER.error(f"Usage: {usage}")
+    #         raise BedBaseConfError("Error adding usage")
+
+    def add_usage(self, stats: UsageModel) -> None:
+
+        with Session(self.config.db_engine.engine) as session:
+            for key, value in stats.files.items():
+                new_stats = StatsFiles(
+                    file_path=key,
+                    count=value,
+                    date_from=stats.date_from,
+                    date_to=stats.date_to,
+                )
+                session.add(new_stats)
+
+            for key, value in stats.bed_meta.items():
+                new_stats = StatsBedMeta(
+                    bed_id=key,
+                    count=value,
+                    date_from=stats.date_from,
+                    date_to=stats.date_to,
+                )
+                session.add(new_stats)
+
+            for key, value in stats.bedset_meta.items():
+                new_stats = StatsBedSetMeta(
+                    bedset_id=key,
+                    count=value,
+                    date_from=stats.date_from,
+                    date_to=stats.date_to,
+                )
+                session.add(new_stats)
+
+            for key, value in stats.bed_search.items():
+                new_stats = StatsSearch(
+                    query=key,
+                    count=value,
+                    type="bed",
+                    date_from=stats.date_from,
+                    date_to=stats.date_to,
+                )
+                session.add(new_stats)
+
+            for key, value in stats.bedset_search.items():
+                new_stats = StatsSearch(
+                    query=key,
+                    count=value,
+                    type="bedset",
+                    date_from=stats.date_from,
+                    date_to=stats.date_to,
+                )
+                session.add(new_stats)
+
+            session.commit()

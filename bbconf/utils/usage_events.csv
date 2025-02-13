@@ -1,0 +1,7 @@
+id,event
+1,bed_search
+2,bedset_search
+3,bed_metadata
+4,bedset_metadata
+5,bed_files
+6,bedset_files
