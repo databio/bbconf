@@ -474,53 +474,8 @@ class GeoGsmStatus(Base):
     )
 
 
-# class UsageEvent(Base):
-#     __tablename__ = "usage_events"
-#
-#     id: Mapped[int] = mapped_column(primary_key=True, index=True, autoincrement=True)
-#     event: Mapped[str] = mapped_column(nullable=False, comment="Event name")
-#
-#     usage_stats: Mapped[List["UsageStats"]] = relationship(
-#         "UsageStats", back_populates="event_mapper"
-#     )
-
-
-# class UsageStats(Base):
-#     __tablename__ = "usage_stats"
-#
-#     id: Mapped[int] = mapped_column(primary_key=True, index=True, autoincrement=True)
-#     event: Mapped[int] = mapped_column(
-#         ForeignKey("usage_events.id", ondelete="CASCADE"), nullable=False, index=True
-#     )
-#
-#     bed_id: Mapped[str] = mapped_column(
-#         ForeignKey("bed.id", ondelete="CASCADE"), nullable=True, index=True
-#     )
-#     bedset_id: Mapped[str] = mapped_column(
-#         ForeignKey("bedsets.id", ondelete="CASCADE"), nullable=True, index=True
-#     )
-#     query: Mapped[str] = mapped_column(nullable=True, comment="Search query if any")
-#
-#     file_name: Mapped[str] = mapped_column(nullable=True, comment="File name if any")
-#
-#     timestamp: Mapped[datetime.datetime] = mapped_column(
-#         default=deliver_update_date, onupdate=deliver_update_date
-#     )
-#
-#     ipaddress: Mapped[str] = mapped_column(
-#         nullable=True, comment="IP address of the user"
-#     )
-#     user_agent: Mapped[str] = mapped_column(
-#         nullable=True, comment="User agent of the user"
-#     )
-#
-#     event_mapper: Mapped["UsageEvent"] = relationship(
-#         "UsageEvent", back_populates="usage_stats"
-#     )
-
-
-class StatsBedMeta(Base):
-    __tablename__ = "stats_bed_meta"
+class UsageBedMeta(Base):
+    __tablename__ = "usage_bed_meta"
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True, autoincrement=True)
 
@@ -534,8 +489,8 @@ class StatsBedMeta(Base):
     date_to: Mapped[datetime.datetime] = mapped_column(comment="Date to")
 
 
-class StatsBedSetMeta(Base):
-    __tablename__ = "stats_bedset_meta"
+class UsageBedSetMeta(Base):
+    __tablename__ = "usage_bedset_meta"
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True, autoincrement=True)
 
@@ -548,8 +503,8 @@ class StatsBedSetMeta(Base):
     date_to: Mapped[datetime.datetime] = mapped_column(comment="Date to")
 
 
-class StatsFiles(Base):
-    __tablename__ = "stats_files"
+class UsageFiles(Base):
+    __tablename__ = "usage_files"
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True, autoincrement=True)
     file_path: Mapped[str] = mapped_column(nullable=False, comment="Path to the file")
@@ -559,8 +514,8 @@ class StatsFiles(Base):
     date_to: Mapped[datetime.datetime] = mapped_column(comment="Date to")
 
 
-class StatsSearch(Base):
-    __tablename__ = "stats_search"
+class UsageSearch(Base):
+    __tablename__ = "usage_search"
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True, autoincrement=True)
     query: Mapped[str] = mapped_column(nullable=False, comment="Search query")

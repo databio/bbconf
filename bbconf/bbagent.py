@@ -12,10 +12,10 @@ from bbconf.db_utils import (
     Bed,
     BedSets,
     License,
-    StatsBedSetMeta,
-    StatsBedMeta,
-    StatsFiles,
-    StatsSearch,
+    UsageBedSetMeta,
+    UsageBedMeta,
+    UsageFiles,
+    UsageSearch,
 )
 from bbconf.models.base_models import StatsReturn, UsageModel
 from bbconf.modules.bedfiles import BedAgentBedFile
@@ -110,39 +110,11 @@ class BedBaseAgent(object):
             licenses = session.execute(statement).all()
         return [result[0] for result in licenses]
 
-    # def add_usage(self, usage: UsageModel) -> None:
-    #     """
-    #     Add usage to the database
-    #
-    #     :param usage: usage model
-    #     """
-    #
-    #     event_name = usage.event
-    #     usage = usage.model_dump(
-    #         exclude_unset=True, exclude_defaults=True, exclude={"event"}
-    #     )
-    #
-    #     try:
-    #         with Session(self.config.db_engine.engine) as session:
-    #
-    #             event = session.scalar(
-    #                 select(UsageEvent).where(UsageEvent.event == event_name)
-    #             )
-    #
-    #             session.add(UsageStats(**usage, event_mapper=event))
-    #             session.commit()
-    #
-    #             _LOGGER.debug(f"Usage added: {usage}")
-    #     except IntegrityError as e:
-    #         _LOGGER.error(f"Error adding usage: {e}")
-    #         _LOGGER.error(f"Usage: {usage}")
-    #         raise BedBaseConfError("Error adding usage")
-
     def add_usage(self, stats: UsageModel) -> None:
 
         with Session(self.config.db_engine.engine) as session:
             for key, value in stats.files.items():
-                new_stats = StatsFiles(
+                new_stats = UsageFiles(
                     file_path=key,
                     count=value,
                     date_from=stats.date_from,
@@ -151,7 +123,7 @@ class BedBaseAgent(object):
                 session.add(new_stats)
 
             for key, value in stats.bed_meta.items():
-                new_stats = StatsBedMeta(
+                new_stats = UsageBedMeta(
                     bed_id=key,
                     count=value,
                     date_from=stats.date_from,
@@ -160,7 +132,7 @@ class BedBaseAgent(object):
                 session.add(new_stats)
 
             for key, value in stats.bedset_meta.items():
-                new_stats = StatsBedSetMeta(
+                new_stats = UsageBedSetMeta(
                     bedset_id=key,
                     count=value,
                     date_from=stats.date_from,
@@ -169,7 +141,7 @@ class BedBaseAgent(object):
                 session.add(new_stats)
 
             for key, value in stats.bed_search.items():
-                new_stats = StatsSearch(
+                new_stats = UsageSearch(
                     query=key,
                     count=value,
                     type="bed",
@@ -179,7 +151,7 @@ class BedBaseAgent(object):
                 session.add(new_stats)
 
             for key, value in stats.bedset_search.items():
-                new_stats = StatsSearch(
+                new_stats = UsageSearch(
                     query=key,
                     count=value,
                     type="bedset",

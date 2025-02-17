@@ -25,21 +25,6 @@ class StatsReturn(BaseModel):
     genomes_number: int = 0
 
 
-# class UsageModel(BaseModel):
-#     """
-#     Usage model. Used to track usage of the bedbase.
-#     """
-#
-#     event: str
-#     bed_id: Optional[Union[str, None]] = None
-#     bedset_id: Optional[Union[str, None]] = None
-#     query: Optional[Union[str, None]] = None
-#     file_name: Optional[Union[str, None]] = None
-#
-#     ipaddress: str
-#     user_agent: str
-
-
 class UsageModel(BaseModel):
     """
     Usage model. Used to track usage of the bedbase.
