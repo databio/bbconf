@@ -25,6 +25,12 @@ class StatsReturn(BaseModel):
     genomes_number: int = 0
 
 
+class FileStats(BaseModel):
+    file_type: Dict[str, int]
+    file_format: Dict[str, int]
+    file_genome: Dict[str, int]
+
+
 class UsageModel(BaseModel):
     """
     Usage model. Used to track usage of the bedbase.

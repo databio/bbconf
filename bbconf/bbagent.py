@@ -5,7 +5,6 @@ from typing import List, Union
 
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import distinct, func, select
-from sqlalchemy.exc import IntegrityError
 
 from bbconf.config_parser.bedbaseconfig import BedBaseConfig
 from bbconf.db_utils import (
@@ -17,11 +16,10 @@ from bbconf.db_utils import (
     UsageFiles,
     UsageSearch,
 )
-from bbconf.models.base_models import StatsReturn, UsageModel
+from bbconf.models.base_models import StatsReturn, UsageModel, FileStats
 from bbconf.modules.bedfiles import BedAgentBedFile
 from bbconf.modules.bedsets import BedAgentBedSet
 from bbconf.modules.objects import BBObjects
-from bbconf.exceptions import BedBaseConfError
 
 from .const import PKG_NAME
 
@@ -85,6 +83,43 @@ class BedBaseAgent(object):
             bedfiles_number=number_of_bed,
             bedsets_number=number_of_bedset,
             genomes_number=number_of_genomes,
+        )
+
+    def get_detailed_stats(self) -> FileStats:
+        """
+        Get comprehensive statistics for all bed files
+
+        """
+        with Session(self.config.db_engine.engine) as session:
+            file_types = {
+                f[0]: f[1]
+                for f in session.execute(
+                    select(Bed.bed_type, func.count(Bed.bed_type)).group_by(
+                        Bed.bed_type
+                    )
+                ).all()
+            }
+            file_formats = {
+                f[0]: f[1]
+                for f in session.execute(
+                    select(Bed.bed_format, func.count(Bed.bed_format)).group_by(
+                        Bed.bed_format
+                    )
+                ).all()
+            }
+            file_genomes = {
+                f[0]: f[1]
+                for f in session.execute(
+                    select(Bed.genome_alias, func.count(Bed.genome_alias)).group_by(
+                        Bed.genome_alias
+                    )
+                ).all()
+            }
+
+        return FileStats(
+            file_type=file_types,
+            file_format=file_formats,
+            file_genome=file_genomes,
         )
 
     def get_list_genomes(self) -> List[str]:
