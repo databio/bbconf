@@ -209,6 +209,14 @@ def config_t():
     print(is_valid)
 
 
+def compreh_stats():
+    from bbconf import BedBaseAgent
+
+    agent = BedBaseAgent(config="/home/bnt4me/virginia/repos/bedhost/config.yaml")
+    results = agent.get_file_stats()
+    results
+
+
 if __name__ == "__main__":
     # zarr_s3()
     # add_s3()
@@ -218,5 +226,5 @@ if __name__ == "__main__":
     # get_id_plots_missing()
     # neighbour_beds()
     # sql_search()
-
-    config_t()
+    # config_t()
+    compreh_stats()

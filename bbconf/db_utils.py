@@ -1,5 +1,6 @@
 import datetime
 import logging
+import os
 from typing import List, Optional
 
 import pandas as pd
@@ -471,6 +472,60 @@ class GeoGsmStatus(Base):
     bed_id: Mapped[str] = mapped_column(
         nullable=True, index=True, comment="Bed identifier"
     )
+
+
+class UsageBedMeta(Base):
+    __tablename__ = "usage_bed_meta"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True, autoincrement=True)
+
+    bed_id: Mapped[str] = mapped_column(
+        ForeignKey("bed.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+
+    count: Mapped[int] = mapped_column(default=0, comment="Number of visits")
+
+    date_from: Mapped[datetime.datetime] = mapped_column(comment="Date from")
+    date_to: Mapped[datetime.datetime] = mapped_column(comment="Date to")
+
+
+class UsageBedSetMeta(Base):
+    __tablename__ = "usage_bedset_meta"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True, autoincrement=True)
+
+    bedset_id: Mapped[str] = mapped_column(
+        ForeignKey("bedsets.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+    count: Mapped[int] = mapped_column(default=0, comment="Number of visits")
+
+    date_from: Mapped[datetime.datetime] = mapped_column(comment="Date from")
+    date_to: Mapped[datetime.datetime] = mapped_column(comment="Date to")
+
+
+class UsageFiles(Base):
+    __tablename__ = "usage_files"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True, autoincrement=True)
+    file_path: Mapped[str] = mapped_column(nullable=False, comment="Path to the file")
+    count: Mapped[int] = mapped_column(default=0, comment="Number of downloads")
+
+    date_from: Mapped[datetime.datetime] = mapped_column(comment="Date from")
+    date_to: Mapped[datetime.datetime] = mapped_column(comment="Date to")
+
+
+class UsageSearch(Base):
+    __tablename__ = "usage_search"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True, autoincrement=True)
+    query: Mapped[str] = mapped_column(nullable=False, comment="Search query")
+    type: Mapped[str] = mapped_column(
+        nullable=False, comment="Type of the search. Bed/Bedset"
+    )
+    count: Mapped[int] = mapped_column(default=0, comment="Number of searches")
+
+    date_from: Mapped[datetime.datetime] = mapped_column(comment="Date from")
+    date_to: Mapped[datetime.datetime] = mapped_column(comment="Date to")
 
 
 class BaseEngine:
