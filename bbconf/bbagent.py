@@ -7,8 +7,16 @@ from sqlalchemy.orm import Session
 from sqlalchemy.sql import distinct, func, select
 
 from bbconf.config_parser.bedbaseconfig import BedBaseConfig
-from bbconf.db_utils import Bed, BedSets, License
-from bbconf.models.base_models import StatsReturn
+from bbconf.db_utils import (
+    Bed,
+    BedSets,
+    License,
+    UsageBedSetMeta,
+    UsageBedMeta,
+    UsageFiles,
+    UsageSearch,
+)
+from bbconf.models.base_models import StatsReturn, UsageModel, FileStats
 from bbconf.modules.bedfiles import BedAgentBedFile
 from bbconf.modules.bedsets import BedAgentBedSet
 from bbconf.modules.objects import BBObjects
@@ -77,6 +85,43 @@ class BedBaseAgent(object):
             genomes_number=number_of_genomes,
         )
 
+    def get_detailed_stats(self) -> FileStats:
+        """
+        Get comprehensive statistics for all bed files
+
+        """
+        with Session(self.config.db_engine.engine) as session:
+            file_types = {
+                f[0]: f[1]
+                for f in session.execute(
+                    select(Bed.bed_type, func.count(Bed.bed_type)).group_by(
+                        Bed.bed_type
+                    )
+                ).all()
+            }
+            file_formats = {
+                f[0]: f[1]
+                for f in session.execute(
+                    select(Bed.bed_format, func.count(Bed.bed_format)).group_by(
+                        Bed.bed_format
+                    )
+                ).all()
+            }
+            file_genomes = {
+                f[0]: f[1]
+                for f in session.execute(
+                    select(Bed.genome_alias, func.count(Bed.genome_alias)).group_by(
+                        Bed.genome_alias
+                    )
+                ).all()
+            }
+
+        return FileStats(
+            file_type=file_types,
+            file_format=file_formats,
+            file_genome=file_genomes,
+        )
+
     def get_list_genomes(self) -> List[str]:
         """
         Get list of genomes from the database
@@ -99,3 +144,55 @@ class BedBaseAgent(object):
         with Session(self.config.db_engine.engine) as session:
             licenses = session.execute(statement).all()
         return [result[0] for result in licenses]
+
+    def add_usage(self, stats: UsageModel) -> None:
+
+        with Session(self.config.db_engine.engine) as session:
+            for key, value in stats.files.items():
+                new_stats = UsageFiles(
+                    file_path=key,
+                    count=value,
+                    date_from=stats.date_from,
+                    date_to=stats.date_to,
+                )
+                session.add(new_stats)
+
+            for key, value in stats.bed_meta.items():
+                new_stats = UsageBedMeta(
+                    bed_id=key,
+                    count=value,
+                    date_from=stats.date_from,
+                    date_to=stats.date_to,
+                )
+                session.add(new_stats)
+
+            for key, value in stats.bedset_meta.items():
+                new_stats = UsageBedSetMeta(
+                    bedset_id=key,
+                    count=value,
+                    date_from=stats.date_from,
+                    date_to=stats.date_to,
+                )
+                session.add(new_stats)
+
+            for key, value in stats.bed_search.items():
+                new_stats = UsageSearch(
+                    query=key,
+                    count=value,
+                    type="bed",
+                    date_from=stats.date_from,
+                    date_to=stats.date_to,
+                )
+                session.add(new_stats)
+
+            for key, value in stats.bedset_search.items():
+                new_stats = UsageSearch(
+                    query=key,
+                    count=value,
+                    type="bedset",
+                    date_from=stats.date_from,
+                    date_to=stats.date_to,
+                )
+                session.add(new_stats)
+
+            session.commit()
