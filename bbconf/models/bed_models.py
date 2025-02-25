@@ -37,7 +37,7 @@ class BedClassification(BaseModel):
     genome_alias: str = None
     genome_digest: Union[str, None] = None
     bed_type: str = Field(
-        default="bed3", pattern="^bed(?:[3-9]|1[0-5])(?:\+|$)[0-9]?+$"
+        default="bed3", pattern=r"^bed(?:[3-9]|1[0-5])(?:\+|$)[0-9]?+$"
     )
     bed_format: str = None
 
