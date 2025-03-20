@@ -36,10 +36,12 @@ class BedClassification(BaseModel):
     name: Optional[str] = None
     genome_alias: str = None
     genome_digest: Union[str, None] = None
-    bed_type: str = Field(
+    bed_compliance: str = Field(
         default="bed3", pattern=r"^bed(?:[3-9]|1[0-5])(?:\+|$)[0-9]?+$"
     )
-    bed_format: str = None
+    data_format: str = None
+    compliant_columns: int = 3
+    non_compliant_columns: int = 0
 
     model_config = ConfigDict(extra="ignore")
 
@@ -140,6 +142,8 @@ class StandardMeta(BaseModel):
     global_experiment_id: str = Field(
         "", description="Global experiment identifier. e.g. GSE000"
     )  # excluded in training
+
+    original_file_name: str = Field("", description="Original file name")
 
     model_config = ConfigDict(
         populate_by_name=True,

@@ -187,12 +187,11 @@ class BedAgentBedFile:
             raw_metadata=bed_metadata,
             genome_alias=bed_object.genome_alias,
             genome_digest=bed_object.genome_digest,
-            bed_type=bed_object.bed_type,
-            bed_format=bed_object.bed_format,
+            bed_compliance=bed_object.bed_compliance,
+            data_format=bed_object.data_format,
             is_universe=bed_object.is_universe,
             license_id=bed_object.license_id or DEFAULT_LICENSE,
             universe_metadata=universe_meta,
-            full_response=full,
             bedsets=bed_bedsets,
             annotation=StandardMeta(
                 **bed_object.annotations.__dict__ if bed_object.annotations else {}
@@ -397,7 +396,7 @@ class BedAgentBedFile:
         limit: int = 100,
         offset: int = 0,
         genome: str = None,
-        bed_type: str = None,
+        bed_compliance: str = None,
     ) -> BedListResult:
         """
         Get list of bed file identifiers.
@@ -405,7 +404,7 @@ class BedAgentBedFile:
         :param limit: number of results to return
         :param offset: offset to start from
         :param genome: filter by genome
-        :param bed_type: filter by bed type. e.g. 'bed6+4'
+        :param bed_compliance: filter by bed type. e.g. 'bed6+4'
 
         :return: list of bed file identifiers
         """
@@ -417,9 +416,11 @@ class BedAgentBedFile:
             statement = statement.where(and_(Bed.genome_alias == genome))
             count_statement = count_statement.where(and_(Bed.genome_alias == genome))
 
-        if bed_type:
-            statement = statement.where(and_(Bed.bed_type == bed_type))
-            count_statement = count_statement.where(and_(Bed.bed_type == bed_type))
+        if bed_compliance:
+            statement = statement.where(and_(Bed.bed_compliance == bed_compliance))
+            count_statement = count_statement.where(
+                and_(Bed.bed_compliance == bed_compliance)
+            )
 
         statement = statement.limit(limit).offset(offset)
 
@@ -1734,8 +1735,8 @@ class BedAgentBedFile:
                         name=bed_object.name,
                         genome_alias=bed_object.genome_alias,
                         genome_digest=bed_object.genome_digest,
-                        bed_type=bed_object.bed_type,
-                        bed_format=bed_object.bed_format,
+                        bed_compliance=bed_object.bed_compliance,
+                        data_format=bed_object.data_format,
                         description=bed_object.description,
                         annotation=StandardMeta(
                             **(

@@ -83,8 +83,11 @@ class Bed(Base):
     genome_alias: Mapped[Optional[str]]
     genome_digest: Mapped[Optional[str]]
     description: Mapped[Optional[str]]
-    bed_type: Mapped[str] = mapped_column(default="bed3")
-    bed_format: Mapped[str] = mapped_column(default="bed")
+    bed_compliance: Mapped[str] = mapped_column(default="bed3+0")
+    data_format: Mapped[str] = mapped_column(default="bed")
+    compliant_columns: Mapped[int] = mapped_column(default=3)
+    non_compliant_columns: Mapped[int] = mapped_column(default=0)
+
     indexed: Mapped[bool] = mapped_column(
         default=False, comment="Whether sample was added to qdrant"
     )
@@ -182,6 +185,10 @@ class BedMetadata(Base):
         default=None,
         nullable=True,
         comment="Treatment of the sample (e.g. drug treatment)",
+    )
+
+    original_file_name: Mapped[Optional[str]] = mapped_column(
+        nullable=True, comment="Original file name"
     )
 
     global_sample_id: Mapped[str] = mapped_column(
@@ -462,15 +469,19 @@ class GeoGsmStatus(Base):
         nullable=False, comment="Status of the GEO sample"
     )
     error: Mapped[str] = mapped_column(nullable=True, comment="Error message")
-    genome: Mapped[str] = mapped_column(nullable=True, comment="Genome")
-    gse_status_mapper: Mapped["GeoGseStatus"] = relationship(
-        "GeoGseStatus", back_populates="gsm_status_mapper"
-    )
+
     submission_date: Mapped[datetime.datetime] = mapped_column(
         default=deliver_update_date, onupdate=deliver_update_date
     )
     bed_id: Mapped[str] = mapped_column(
         nullable=True, index=True, comment="Bed identifier"
+    )
+
+    file_size: Mapped[int] = mapped_column(default=0, comment="Size of the file")
+    genome: Mapped[str] = mapped_column(nullable=True, comment="Genome")
+
+    gse_status_mapper: Mapped["GeoGseStatus"] = relationship(
+        "GeoGseStatus", back_populates="gsm_status_mapper"
     )
 
 
