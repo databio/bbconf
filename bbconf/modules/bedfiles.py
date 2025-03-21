@@ -300,9 +300,10 @@ class BedAgentBedFile:
             bed_files = BedFiles()
             for result in bed_object.files:
                 if result.name in BedFiles.model_fields:
+                    name = result.name
                     setattr(
                         bed_files,
-                        result.name,
+                        name,
                         FileModel(
                             **result.__dict__,
                             object_id=f"bed.{identifier}.{result.name}",

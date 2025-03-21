@@ -10,6 +10,7 @@ class FileModel(BaseModel):
     name: str
     title: Optional[str] = None
     path: str
+    file_digest: Optional[str] = None
     path_thumbnail: Optional[Union[str, None]] = Field(None, alias="thumbnail_path")
     description: Optional[str] = None
     size: Optional[int] = None

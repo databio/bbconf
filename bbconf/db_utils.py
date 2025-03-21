@@ -245,6 +245,9 @@ class Files(Base):
     name: Mapped[str] = mapped_column(
         nullable=False, comment="Name of the file, e.g. bed, bigBed"
     )
+    file_digest: Mapped[str] = mapped_column(
+        nullable=True, comment="Digest of the file. Mainly used for bed file."
+    )
     title: Mapped[Optional[str]]
     type: Mapped[str] = mapped_column(
         default="file", comment="Type of the object, e.g. file, plot, ..."
@@ -267,7 +270,9 @@ class Files(Base):
     bedset: Mapped["BedSets"] = relationship("BedSets", back_populates="files")
 
     __table_args__ = (
-        UniqueConstraint("name", "bedfile_id"),
+        UniqueConstraint(
+            "name", "bedfile_id"
+        ),  # TODO: add in the future file_digest here
         UniqueConstraint("name", "bedset_id"),
     )
 
@@ -469,6 +474,10 @@ class GeoGsmStatus(Base):
         nullable=False, comment="Status of the GEO sample"
     )
     error: Mapped[str] = mapped_column(nullable=True, comment="Error message")
+
+    source_submission_date: Mapped[datetime.datetime] = mapped_column(
+        nullable=True, comment="Submission date of the source"
+    )
 
     submission_date: Mapped[datetime.datetime] = mapped_column(
         default=deliver_update_date, onupdate=deliver_update_date
