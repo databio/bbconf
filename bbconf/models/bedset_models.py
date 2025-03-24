@@ -27,6 +27,7 @@ class BedSetMetadata(BaseModel):
     statistics: Union[BedSetStats, None] = None
     plots: Union[BedSetPlots, None] = None
     description: str = None
+    summary: str = None
     bed_ids: List[str] = None
     author: Union[str, None] = None
     source: Union[str, None] = None

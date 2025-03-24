@@ -344,6 +344,7 @@ class BedAgentBedSet:
             id=identifier,
             name=name,
             description=description,
+            summary=annotation.get("summary"),
             bedset_means=stats.mean.model_dump() if stats else None,
             bedset_standard_deviation=stats.sd.model_dump() if stats else None,
             md5sum=compute_md5sum_bedset(bedid_list),

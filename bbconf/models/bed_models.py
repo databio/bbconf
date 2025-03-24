@@ -43,6 +43,8 @@ class BedClassification(BaseModel):
     compliant_columns: int = 3
     non_compliant_columns: int = 0
 
+    header: str = None  # Header of the bed file (if any)
+
     model_config = ConfigDict(extra="ignore")
 
 

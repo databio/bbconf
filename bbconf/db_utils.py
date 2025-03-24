@@ -88,6 +88,10 @@ class Bed(Base):
     compliant_columns: Mapped[int] = mapped_column(default=3)
     non_compliant_columns: Mapped[int] = mapped_column(default=0)
 
+    header: Mapped[Optional[str]] = mapped_column(
+        nullable=True, comment="Header of the bed file, it if was provided."
+    )
+
     indexed: Mapped[bool] = mapped_column(
         default=False, comment="Whether sample was added to qdrant"
     )
@@ -298,6 +302,9 @@ class BedSets(Base):
     name: Mapped[str] = mapped_column(nullable=False, comment="Name of the bedset")
     description: Mapped[Optional[str]] = mapped_column(
         comment="Description of the bedset"
+    )
+    summary: Mapped[Optional[str]] = mapped_column(
+        nullable=True, comment="Summary of the bedset"
     )
     submission_date: Mapped[datetime.datetime] = mapped_column(
         default=deliver_update_date
