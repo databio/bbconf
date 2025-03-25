@@ -191,6 +191,8 @@ class BedAgentBedFile:
             bed_compliance=bed_object.bed_compliance,
             data_format=bed_object.data_format,
             is_universe=bed_object.is_universe,
+            compliant_columns=bed_object.compliant_columns,
+            non_compliant_columns=bed_object.non_compliant_columns,
             license_id=bed_object.license_id or DEFAULT_LICENSE,
             universe_metadata=universe_meta,
             bedsets=bed_bedsets,
@@ -528,13 +530,13 @@ class BedAgentBedFile:
 
         if self.exists(identifier):
             _LOGGER.warning(f"Bed file with id: {identifier} exists in the database.")
-            metadata_standard = StandardMeta(**metadata)
-            self._update_sources(
-                identifier=identifier,
-                global_sample_id=metadata_standard.global_sample_id,
-                global_experiment_id=metadata_standard.global_experiment_id,
-            )
             if not overwrite:
+                metadata_standard = StandardMeta(**metadata)
+                self._update_sources(
+                    identifier=identifier,
+                    global_sample_id=metadata_standard.global_sample_id,
+                    global_experiment_id=metadata_standard.global_experiment_id,
+                )
                 if not nofail:
                     raise BedFIleExistsError(
                         f"Bed file with id: {identifier} already exists in the database."
