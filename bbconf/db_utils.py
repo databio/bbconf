@@ -13,8 +13,9 @@ from sqlalchemy import (
     UniqueConstraint,
     event,
     select,
+    String,
 )
-from sqlalchemy.dialects.postgresql import JSON
+from sqlalchemy.dialects.postgresql import JSON, ARRAY
 from sqlalchemy.engine import URL, Engine, create_engine
 from sqlalchemy.event import listens_for
 from sqlalchemy.exc import IntegrityError, ProgrammingError
@@ -52,6 +53,11 @@ def compile_bigserial_pg(type_, compiler, **kw):
 @compiles(JSON, POSTGRES_DIALECT)
 def compile_jsonb_pg(type_, compiler, **kw):
     return "JSONB"
+
+
+@compiles(ARRAY, POSTGRES_DIALECT)
+def compile_array_pg(type_, compiler, **kw):
+    return "ARRAY"
 
 
 class Base(DeclarativeBase):
@@ -195,11 +201,17 @@ class BedMetadata(Base):
         nullable=True, comment="Original file name"
     )
 
-    global_sample_id: Mapped[str] = mapped_column(
-        default=None, nullable=True, comment="Global sample identifier. e.g. GSM000"
+    global_sample_id: Mapped[list] = mapped_column(
+        ARRAY(String),
+        default=None,
+        nullable=True,
+        comment="Global sample identifier. e.g. GSM000",
     )
-    global_experiment_id: Mapped[str] = mapped_column(
-        default=None, nullable=True, comment="Global experiment identifier. e.g. GSE000"
+    global_experiment_id: Mapped[list] = mapped_column(
+        ARRAY(String),
+        default=None,
+        nullable=True,
+        comment="Global experiment identifier. e.g. GSE000",
     )
 
     id: Mapped[str] = mapped_column(

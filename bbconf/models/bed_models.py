@@ -1,7 +1,7 @@
 import datetime
 from typing import List, Optional, Union
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from bbconf.const import DEFAULT_LICENSE
 
@@ -39,11 +39,11 @@ class BedClassification(BaseModel):
     bed_compliance: str = Field(
         default="bed3", pattern=r"^bed(?:[3-9]|1[0-5])(?:\+|$)[0-9]?+$"
     )
-    data_format: str = None
+    data_format: Union[str, None] = None
     compliant_columns: int = 3
     non_compliant_columns: int = 0
 
-    header: str = None  # Header of the bed file (if any)
+    header: Union[str, None] = None  # Header of the bed file (if any)
 
     model_config = ConfigDict(extra="ignore")
 
@@ -138,10 +138,10 @@ class StandardMeta(BaseModel):
         "", description="Treatment of the sample (e.g. drug treatment)"
     )
 
-    global_sample_id: str = Field(
+    global_sample_id: Union[List[str], None] = Field(
         "", description="Global sample identifier. e.g. GSM000"
     )  # excluded in training
-    global_experiment_id: str = Field(
+    global_experiment_id: Union[List[str], None] = Field(
         "", description="Global experiment identifier. e.g. GSE000"
     )  # excluded in training
 
@@ -151,6 +151,16 @@ class StandardMeta(BaseModel):
         populate_by_name=True,
         extra="ignore",
     )
+
+    @field_validator("global_sample_id", "global_experiment_id", mode="before")
+    def ensure_list(cls, v: Union[str, List[str]]) -> List[str]:
+        if isinstance(v, str):
+            return [v]
+        elif isinstance(v, list):
+            return v
+        elif isinstance(v, type(None)):
+            return []
+        raise ValueError("values must be a string or a list of strings")
 
 
 class BedPEPHubRestrict(BedPEPHub):
