@@ -7,7 +7,7 @@ import numpy as np
 from geniml.bbclient import BBClient
 from geniml.io import RegionSet
 from geniml.search.backends import QdrantBackend
-from gtars.tokenizers import RegionSet as GRegionSet
+from gtars.models import RegionSet as GRegionSet
 from pephubclient.exceptions import ResponseError
 from pydantic import BaseModel
 from qdrant_client.http.models import PointStruct
