@@ -218,6 +218,25 @@ def compreh_stats():
     results
 
 
+def add_extra_files():
+    from bbconf import BedBaseAgent
+
+    agent = BedBaseAgent(config="/home/bnt4me/virginia/repos/bedhost/config.yaml")
+    #
+    # agent.extras.add_extra_file(
+    #     name="test_test",
+    #     title="some_test_file",
+    #     path="/home/bnt4me/Downloads/region_commonality.svg",
+    #     description="This is test for extra file",
+    #     genome="hg38",
+    # )
+    ff = agent.extras.search_files(query="t")
+
+    # f1 = agent.extras.get(name="test_test")
+    # f1
+    # agent.extras.delete(name="test_test")
+
+
 if __name__ == "__main__":
     # zarr_s3()
     # add_s3()
@@ -228,4 +247,6 @@ if __name__ == "__main__":
     # neighbour_beds()
     # sql_search()
     # config_t()
-    compreh_stats()
+    # compreh_stats()
+
+    add_extra_files()

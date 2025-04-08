@@ -266,7 +266,7 @@ class Files(Base):
     )
     title: Mapped[Optional[str]]
     type: Mapped[str] = mapped_column(
-        default="file", comment="Type of the object, e.g. file, plot, ..."
+        default="file", comment="Type of the object, e.g. file, plot, extra, ..."
     )
     path: Mapped[str]
     path_thumbnail: Mapped[str] = mapped_column(
@@ -284,6 +284,16 @@ class Files(Base):
 
     bedfile: Mapped["Bed"] = relationship("Bed", back_populates="files")
     bedset: Mapped["BedSets"] = relationship("BedSets", back_populates="files")
+
+    creation_date: Mapped[datetime.datetime] = mapped_column(
+        default=deliver_update_date,
+    )
+    last_update_date: Mapped[datetime.datetime] = mapped_column(
+        default=deliver_update_date, onupdate=deliver_update_date
+    )
+    genome_alias: Mapped[str] = mapped_column(
+        nullable=True, comment="Genome of the file (If any). Used for extra files."
+    )
 
     __table_args__ = (
         UniqueConstraint(
@@ -565,6 +575,33 @@ class UsageSearch(Base):
 
     date_from: Mapped[datetime.datetime] = mapped_column(comment="Date from")
     date_to: Mapped[datetime.datetime] = mapped_column(comment="Date to")
+
+
+class ExtraFiles(Base):
+    __tablename__ = "extra_files"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    name: Mapped[str] = mapped_column(
+        nullable=False, comment="Name of the file, eg. open_signal_matrix_hg38"
+    )
+    type: Mapped[str] = mapped_column(
+        nullable=True,
+        comment="Type of the object, e.g. open_signal_matrix, reference_genome",
+    )
+    description: Mapped[Optional[str]] = mapped_column(
+        nullable=True, comment="Description of the file"
+    )
+    size: Mapped[Optional[int]] = mapped_column(default=-1, comment="Size of the file")
+    path: Mapped[str] = mapped_column(nullable=False, comment="Path to the file")
+    genome: Mapped[str] = mapped_column(
+        nullable=True, comment="Genome of the file (If any)"
+    )
+    creation_date: Mapped[datetime.datetime] = mapped_column(
+        default=deliver_update_date,
+    )
+    last_update_date: Mapped[datetime.datetime] = mapped_column(
+        default=deliver_update_date, onupdate=deliver_update_date
+    )
 
 
 class BaseEngine:
