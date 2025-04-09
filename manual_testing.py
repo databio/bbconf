@@ -223,13 +223,13 @@ def add_extra_files():
 
     agent = BedBaseAgent(config="/home/bnt4me/virginia/repos/bedhost/config.yaml")
     #
-    # agent.extras.add_extra_file(
-    #     name="test_test",
-    #     title="some_test_file",
-    #     path="/home/bnt4me/Downloads/region_commonality.svg",
-    #     description="This is test for extra file",
-    #     genome="hg38",
-    # )
+    agent.extras.add_extra_file(
+        name="test_test",
+        title="some_test_file",
+        path="/home/bnt4me/Downloads/region_commonality.svg",
+        description="This is test for extra file",
+        genome="hg38",
+    )
     ff = agent.extras.search_files(query="t")
 
     # f1 = agent.extras.get(name="test_test")
