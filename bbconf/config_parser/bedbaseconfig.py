@@ -234,7 +234,7 @@ class BedBaseConfig(object):
             )
         except qdrant_client.http.exceptions.ResponseHandlingException as err:
             _LOGGER.error(
-                f"error in Connection to qdrant! skipping... Error: {err}. Qdrant host: {self._config.qdrant.host}"
+                f"Error in Connection to qdrant! skipping... Error: {err}. Qdrant host: {self._config.qdrant.host}"
             )
             warnings.warn(
                 f"error in Connection to qdrant! skipping... Error: {err}", UserWarning
