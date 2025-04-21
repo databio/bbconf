@@ -25,8 +25,9 @@ def get_bedbase_cfg(cfg: str = None) -> str:
 
     _LOGGER.info(f"Loading configuration file: {cfg}")
     try:
-        selected_cfg = select_config(config_filepath=cfg,
-                                     config_env_vars=CFG_ENV_VARS,
+        selected_cfg = select_config(
+            config_filepath=cfg,
+            config_env_vars=CFG_ENV_VARS,
         )
     except OSError:
         selected_cfg = None
