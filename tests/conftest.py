@@ -79,7 +79,7 @@ def example_dict():
         }
     }
     classification = {
-        "data_format": "narrowpeak",
+        "data_format": "encode_narrowpeak",
         "bed_compliance": "bed6+4",
         "genome_alias": "hg38",
         "genome_digest": "2230c535660fb4774114bfa966a62f823fdb6d21acf138d4",

@@ -90,7 +90,7 @@ class Bed(Base):
     genome_digest: Mapped[Optional[str]]
     description: Mapped[Optional[str]]
     bed_compliance: Mapped[str] = mapped_column(default="bed3+0")
-    data_format: Mapped[str] = mapped_column(default="bed")
+    data_format: Mapped[str] = mapped_column(default="bed_like")
     compliant_columns: Mapped[int] = mapped_column(default=3)
     non_compliant_columns: Mapped[int] = mapped_column(default=0)
 
