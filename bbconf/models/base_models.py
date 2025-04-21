@@ -1,7 +1,7 @@
-from typing import List, Optional, Union, Dict
+from typing import List, Optional, Union, Dict, Iterator, Tuple
 import datetime
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, RootModel
 
 from .drs_models import AccessMethod
 
@@ -16,8 +16,23 @@ class FileModel(BaseModel):
     size: Optional[int] = None
     object_id: Optional[str] = None
     access_methods: List[AccessMethod] = None
+    last_update_date: Optional[Union[datetime.datetime, None]] = None
+    submission_date: Optional[Union[datetime.datetime, None]] = None
+    genome_alias: Optional[Union[str, None]] = None
 
     model_config = ConfigDict(populate_by_name=True, extra="ignore")
+
+
+class FileModelDict(RootModel[Dict[str, FileModel]]):
+
+    def __iter__(self) -> Iterator[Tuple[str, FileModel]]:
+        return iter(self.root.items())
+
+    def __getitem__(self, item):
+        return self.root[item]
+
+    def __getattr__(self, item):
+        return self.root[item]
 
 
 class StatsReturn(BaseModel):

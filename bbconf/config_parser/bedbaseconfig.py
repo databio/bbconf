@@ -2,7 +2,7 @@ import logging
 import os
 import warnings
 from pathlib import Path
-from typing import List, Literal, Union
+from typing import List, Literal, Union, Dict
 
 import boto3
 import qdrant_client
@@ -22,7 +22,9 @@ from bbconf.config_parser.const import (
     S3_BEDSET_PATH_FOLDER,
     S3_FILE_PATH_FOLDER,
     S3_PLOTS_PATH_FOLDER,
+    S3_EXTRA_FILE_PATH_FOLDER,
     TEXT_EMBEDDING_DIMENSION,
+    DB_EXTRAS_TYPE,
 )
 from bbconf.config_parser.models import ConfigFile
 from bbconf.const import PKG_NAME, ZARR_TOKENIZED_FOLDER
@@ -33,7 +35,7 @@ from bbconf.exceptions import (
     BedbaseS3ConnectionError,
 )
 from bbconf.helpers import get_absolute_path, get_bedbase_cfg
-from bbconf.models.base_models import FileModel
+from bbconf.models.base_models import FileModel, FileModelDict
 from bbconf.models.bed_models import BedFiles, BedPlots
 from bbconf.models.bedset_models import BedSetPlots
 from bbconf.models.drs_models import AccessMethod, AccessURL
@@ -374,17 +376,17 @@ class BedBaseConfig(object):
     def upload_files_s3(
         self,
         identifier: str,
-        files: Union[BedFiles, BedPlots, BedSetPlots],
+        files: Union[BedFiles, BedPlots, BedSetPlots, FileModelDict],
         base_path: str,
-        type: Literal["files", "plots", "bedsets"] = "files",
-    ) -> Union[BedFiles, BedPlots, BedSetPlots]:
+        type: Literal["files", "plots", "bedsets", "extra"] = "files",
+    ) -> Union[BedFiles, BedPlots, BedSetPlots, FileModelDict]:
         """
         Upload files to s3.
 
         :param identifier: bed file identifier
         :param files: dictionary with files to upload
         :param base_path: local path to the output files
-        :param type: type of files to upload [files, plots, bedsets]
+        :param type: type of files to upload [files, plots, bedsets, extra]
         :return: None
         """
 
@@ -394,6 +396,8 @@ class BedBaseConfig(object):
             s3_output_base_folder = S3_PLOTS_PATH_FOLDER
         elif type == "bedsets":
             s3_output_base_folder = S3_BEDSET_PATH_FOLDER
+        elif type == DB_EXTRAS_TYPE:
+            s3_output_base_folder = S3_EXTRA_FILE_PATH_FOLDER
         else:
             raise BedBaseConfError(
                 f"Invalid type: {type}. Should be 'files', 'plots', or 'bedsets'"

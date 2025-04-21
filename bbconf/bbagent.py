@@ -20,6 +20,7 @@ from bbconf.models.base_models import StatsReturn, UsageModel, FileStats
 from bbconf.modules.bedfiles import BedAgentBedFile
 from bbconf.modules.bedsets import BedAgentBedSet
 from bbconf.modules.objects import BBObjects
+from bbconf.modules.extras import BBExtras
 
 from .const import PKG_NAME
 
@@ -45,6 +46,7 @@ class BedBaseAgent(object):
         self._bed = BedAgentBedFile(self.config, self)
         self._bedset = BedAgentBedSet(self.config)
         self._objects = BBObjects(self.config)
+        self._extras = BBExtras(self.config)
 
     @property
     def bed(self) -> BedAgentBedFile:
@@ -57,6 +59,13 @@ class BedBaseAgent(object):
     @property
     def objects(self) -> BBObjects:
         return self._objects
+
+    @property
+    def extras(self) -> BBExtras:
+        """
+        Get extra files methods
+        """
+        return self._extras
 
     def __repr__(self) -> str:
         repr = f"BedBaseAgent(config={self.config})"

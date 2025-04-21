@@ -266,7 +266,7 @@ class Files(Base):
     )
     title: Mapped[Optional[str]]
     type: Mapped[str] = mapped_column(
-        default="file", comment="Type of the object, e.g. file, plot, ..."
+        default="file", comment="Type of the object, e.g. file, plot, extra, ..."
     )
     path: Mapped[str]
     path_thumbnail: Mapped[str] = mapped_column(
@@ -284,6 +284,16 @@ class Files(Base):
 
     bedfile: Mapped["Bed"] = relationship("Bed", back_populates="files")
     bedset: Mapped["BedSets"] = relationship("BedSets", back_populates="files")
+
+    creation_date: Mapped[datetime.datetime] = mapped_column(
+        default=deliver_update_date,
+    )
+    last_update_date: Mapped[datetime.datetime] = mapped_column(
+        default=deliver_update_date, onupdate=deliver_update_date
+    )
+    genome_alias: Mapped[str] = mapped_column(
+        nullable=True, comment="Genome of the file (If any). Used for extra files."
+    )
 
     __table_args__ = (
         UniqueConstraint(
