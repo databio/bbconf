@@ -577,33 +577,6 @@ class UsageSearch(Base):
     date_to: Mapped[datetime.datetime] = mapped_column(comment="Date to")
 
 
-class ExtraFiles(Base):
-    __tablename__ = "extra_files"
-
-    id: Mapped[int] = mapped_column(primary_key=True, index=True)
-    name: Mapped[str] = mapped_column(
-        nullable=False, comment="Name of the file, eg. open_signal_matrix_hg38"
-    )
-    type: Mapped[str] = mapped_column(
-        nullable=True,
-        comment="Type of the object, e.g. open_signal_matrix, reference_genome",
-    )
-    description: Mapped[Optional[str]] = mapped_column(
-        nullable=True, comment="Description of the file"
-    )
-    size: Mapped[Optional[int]] = mapped_column(default=-1, comment="Size of the file")
-    path: Mapped[str] = mapped_column(nullable=False, comment="Path to the file")
-    genome: Mapped[str] = mapped_column(
-        nullable=True, comment="Genome of the file (If any)"
-    )
-    creation_date: Mapped[datetime.datetime] = mapped_column(
-        default=deliver_update_date,
-    )
-    last_update_date: Mapped[datetime.datetime] = mapped_column(
-        default=deliver_update_date, onupdate=deliver_update_date
-    )
-
-
 class BaseEngine:
     """
     A class with base methods, that are used in several classes.
