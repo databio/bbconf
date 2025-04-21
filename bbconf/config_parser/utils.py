@@ -17,7 +17,7 @@ def config_analyzer(config_path: str) -> bool:
     """
     config_path = get_bedbase_cfg(config_path)
 
-    print("Analyzing the configuration file {config_path}...")
+    print(f"Analyzing the configuration file {config_path}...")
 
     _config = yacman.YAMLConfigManager(filepath=config_path).exp
 
