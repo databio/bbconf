@@ -2,7 +2,8 @@ import os
 
 import s3fs
 import zarr
-from dotenv import load_dotenv
+
+# from dotenv import load_dotenv
 from geniml.io import RegionSet
 from gtars.tokenizers import TreeTokenizer
 from gtars.utils import read_tokens_from_gtok
@@ -10,7 +11,7 @@ from gtars.utils import read_tokens_from_gtok
 # from gtars.tokenizers import RegionSet
 
 
-load_dotenv()
+# load_dotenv()
 
 data = [1, 2, 4, 6, 7, 9, 3214]
 
@@ -213,7 +214,7 @@ def compreh_stats():
     from bbconf import BedBaseAgent
 
     agent = BedBaseAgent(config="/home/bnt4me/virginia/repos/bedhost/config.yaml")
-    results = agent.get_file_stats()
+    results = agent.get_detailed_stats()
     results
 
 

@@ -90,20 +90,23 @@ class BedBaseAgent(object):
         Get comprehensive statistics for all bed files
 
         """
+
+        _LOGGER.info("Getting detailed statistics for all bed files")
+
         with Session(self.config.db_engine.engine) as session:
             file_types = {
                 f[0]: f[1]
                 for f in session.execute(
-                    select(Bed.bed_type, func.count(Bed.bed_type)).group_by(
-                        Bed.bed_type
+                    select(Bed.bed_compliance, func.count(Bed.bed_compliance)).group_by(
+                        Bed.bed_compliance
                     )
                 ).all()
             }
             file_formats = {
                 f[0]: f[1]
                 for f in session.execute(
-                    select(Bed.bed_format, func.count(Bed.bed_format)).group_by(
-                        Bed.bed_format
+                    select(Bed.data_format, func.count(Bed.data_format)).group_by(
+                        Bed.data_format
                     )
                 ).all()
             }

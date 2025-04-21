@@ -13,8 +13,9 @@ from sqlalchemy import (
     UniqueConstraint,
     event,
     select,
+    String,
 )
-from sqlalchemy.dialects.postgresql import JSON
+from sqlalchemy.dialects.postgresql import JSON, ARRAY
 from sqlalchemy.engine import URL, Engine, create_engine
 from sqlalchemy.event import listens_for
 from sqlalchemy.exc import IntegrityError, ProgrammingError
@@ -54,6 +55,11 @@ def compile_jsonb_pg(type_, compiler, **kw):
     return "JSONB"
 
 
+@compiles(ARRAY, POSTGRES_DIALECT)
+def compile_array_pg(type_, compiler, **kw):
+    return "ARRAY"
+
+
 class Base(DeclarativeBase):
     type_annotation_map = {datetime.datetime: TIMESTAMP(timezone=True)}
 
@@ -83,8 +89,15 @@ class Bed(Base):
     genome_alias: Mapped[Optional[str]]
     genome_digest: Mapped[Optional[str]]
     description: Mapped[Optional[str]]
-    bed_type: Mapped[str] = mapped_column(default="bed3")
-    bed_format: Mapped[str] = mapped_column(default="bed")
+    bed_compliance: Mapped[str] = mapped_column(default="bed3+0")
+    data_format: Mapped[str] = mapped_column(default="bed")
+    compliant_columns: Mapped[int] = mapped_column(default=3)
+    non_compliant_columns: Mapped[int] = mapped_column(default=0)
+
+    header: Mapped[Optional[str]] = mapped_column(
+        nullable=True, comment="Header of the bed file, it if was provided."
+    )
+
     indexed: Mapped[bool] = mapped_column(
         default=False, comment="Whether sample was added to qdrant"
     )
@@ -184,11 +197,21 @@ class BedMetadata(Base):
         comment="Treatment of the sample (e.g. drug treatment)",
     )
 
-    global_sample_id: Mapped[str] = mapped_column(
-        default=None, nullable=True, comment="Global sample identifier. e.g. GSM000"
+    original_file_name: Mapped[Optional[str]] = mapped_column(
+        nullable=True, comment="Original file name"
     )
-    global_experiment_id: Mapped[str] = mapped_column(
-        default=None, nullable=True, comment="Global experiment identifier. e.g. GSE000"
+
+    global_sample_id: Mapped[list] = mapped_column(
+        ARRAY(String),
+        default=None,
+        nullable=True,
+        comment="Global sample identifier. e.g. GSM000",
+    )
+    global_experiment_id: Mapped[list] = mapped_column(
+        ARRAY(String),
+        default=None,
+        nullable=True,
+        comment="Global experiment identifier. e.g. GSE000",
     )
 
     id: Mapped[str] = mapped_column(
@@ -238,6 +261,9 @@ class Files(Base):
     name: Mapped[str] = mapped_column(
         nullable=False, comment="Name of the file, e.g. bed, bigBed"
     )
+    file_digest: Mapped[str] = mapped_column(
+        nullable=True, comment="Digest of the file. Mainly used for bed file."
+    )
     title: Mapped[Optional[str]]
     type: Mapped[str] = mapped_column(
         default="file", comment="Type of the object, e.g. file, plot, ..."
@@ -260,7 +286,9 @@ class Files(Base):
     bedset: Mapped["BedSets"] = relationship("BedSets", back_populates="files")
 
     __table_args__ = (
-        UniqueConstraint("name", "bedfile_id"),
+        UniqueConstraint(
+            "name", "bedfile_id"
+        ),  # TODO: add in the future file_digest here
         UniqueConstraint("name", "bedset_id"),
     )
 
@@ -286,6 +314,9 @@ class BedSets(Base):
     name: Mapped[str] = mapped_column(nullable=False, comment="Name of the bedset")
     description: Mapped[Optional[str]] = mapped_column(
         comment="Description of the bedset"
+    )
+    summary: Mapped[Optional[str]] = mapped_column(
+        nullable=True, comment="Summary of the bedset"
     )
     submission_date: Mapped[datetime.datetime] = mapped_column(
         default=deliver_update_date
@@ -462,15 +493,23 @@ class GeoGsmStatus(Base):
         nullable=False, comment="Status of the GEO sample"
     )
     error: Mapped[str] = mapped_column(nullable=True, comment="Error message")
-    genome: Mapped[str] = mapped_column(nullable=True, comment="Genome")
-    gse_status_mapper: Mapped["GeoGseStatus"] = relationship(
-        "GeoGseStatus", back_populates="gsm_status_mapper"
+
+    source_submission_date: Mapped[datetime.datetime] = mapped_column(
+        nullable=True, comment="Submission date of the source"
     )
+
     submission_date: Mapped[datetime.datetime] = mapped_column(
         default=deliver_update_date, onupdate=deliver_update_date
     )
     bed_id: Mapped[str] = mapped_column(
         nullable=True, index=True, comment="Bed identifier"
+    )
+
+    file_size: Mapped[int] = mapped_column(default=0, comment="Size of the file")
+    genome: Mapped[str] = mapped_column(nullable=True, comment="Genome")
+
+    gse_status_mapper: Mapped["GeoGseStatus"] = relationship(
+        "GeoGseStatus", back_populates="gsm_status_mapper"
     )
 
 

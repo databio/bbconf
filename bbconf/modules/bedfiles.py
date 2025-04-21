@@ -7,7 +7,7 @@ import numpy as np
 from geniml.bbclient import BBClient
 from geniml.io import RegionSet
 from geniml.search.backends import QdrantBackend
-from gtars.tokenizers import RegionSet as GRegionSet
+from gtars.models import RegionSet as GRegionSet
 from pephubclient.exceptions import ResponseError
 from pydantic import BaseModel
 from qdrant_client.http.models import PointStruct
@@ -15,6 +15,7 @@ from qdrant_client.models import Distance, PointIdsList, VectorParams
 from sqlalchemy import and_, delete, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, aliased
+from sqlalchemy.orm.attributes import flag_modified
 from tqdm import tqdm
 
 from bbconf.config_parser.bedbaseconfig import BedBaseConfig
@@ -187,12 +188,13 @@ class BedAgentBedFile:
             raw_metadata=bed_metadata,
             genome_alias=bed_object.genome_alias,
             genome_digest=bed_object.genome_digest,
-            bed_type=bed_object.bed_type,
-            bed_format=bed_object.bed_format,
+            bed_compliance=bed_object.bed_compliance,
+            data_format=bed_object.data_format,
             is_universe=bed_object.is_universe,
+            compliant_columns=bed_object.compliant_columns,
+            non_compliant_columns=bed_object.non_compliant_columns,
             license_id=bed_object.license_id or DEFAULT_LICENSE,
             universe_metadata=universe_meta,
-            full_response=full,
             bedsets=bed_bedsets,
             annotation=StandardMeta(
                 **bed_object.annotations.__dict__ if bed_object.annotations else {}
@@ -301,9 +303,10 @@ class BedAgentBedFile:
             bed_files = BedFiles()
             for result in bed_object.files:
                 if result.name in BedFiles.model_fields:
+                    name = result.name
                     setattr(
                         bed_files,
-                        result.name,
+                        name,
                         FileModel(
                             **result.__dict__,
                             object_id=f"bed.{identifier}.{result.name}",
@@ -397,7 +400,7 @@ class BedAgentBedFile:
         limit: int = 100,
         offset: int = 0,
         genome: str = None,
-        bed_type: str = None,
+        bed_compliance: str = None,
     ) -> BedListResult:
         """
         Get list of bed file identifiers.
@@ -405,7 +408,7 @@ class BedAgentBedFile:
         :param limit: number of results to return
         :param offset: offset to start from
         :param genome: filter by genome
-        :param bed_type: filter by bed type. e.g. 'bed6+4'
+        :param bed_compliance: filter by bed type. e.g. 'bed6+4'
 
         :return: list of bed file identifiers
         """
@@ -417,9 +420,11 @@ class BedAgentBedFile:
             statement = statement.where(and_(Bed.genome_alias == genome))
             count_statement = count_statement.where(and_(Bed.genome_alias == genome))
 
-        if bed_type:
-            statement = statement.where(and_(Bed.bed_type == bed_type))
-            count_statement = count_statement.where(and_(Bed.bed_type == bed_type))
+        if bed_compliance:
+            statement = statement.where(and_(Bed.bed_compliance == bed_compliance))
+            count_statement = count_statement.where(
+                and_(Bed.bed_compliance == bed_compliance)
+            )
 
         statement = statement.limit(limit).offset(offset)
 
@@ -526,6 +531,12 @@ class BedAgentBedFile:
         if self.exists(identifier):
             _LOGGER.warning(f"Bed file with id: {identifier} exists in the database.")
             if not overwrite:
+                metadata_standard = StandardMeta(**metadata)
+                self._update_sources(
+                    identifier=identifier,
+                    global_sample_id=metadata_standard.global_sample_id,
+                    global_experiment_id=metadata_standard.global_experiment_id,
+                )
                 if not nofail:
                     raise BedFIleExistsError(
                         f"Bed file with id: {identifier} already exists in the database."
@@ -823,9 +834,8 @@ class BedAgentBedFile:
 
         sa_session.commit()
 
-    @staticmethod
     def _update_metadata(
-        sa_session: Session, bed_object: Bed, bed_metadata: StandardMeta
+        self, sa_session: Session, bed_object: Bed, bed_metadata: StandardMeta
     ) -> None:
         """
         Update bed file metadata
@@ -836,6 +846,15 @@ class BedAgentBedFile:
 
         :return: None
         """
+
+        self._update_sources(
+            identifier=bed_object.id,
+            global_sample_id=bed_metadata.global_sample_id,
+            global_experiment_id=bed_metadata.global_experiment_id,
+        )
+
+        bed_metadata.global_experiment_id = None
+        bed_metadata.global_sample_id = None
 
         metadata_dict = bed_metadata.model_dump(
             exclude_defaults=True, exclude_none=True, exclude_unset=True
@@ -1734,8 +1753,8 @@ class BedAgentBedFile:
                         name=bed_object.name,
                         genome_alias=bed_object.genome_alias,
                         genome_digest=bed_object.genome_digest,
-                        bed_type=bed_object.bed_type,
-                        bed_format=bed_object.bed_format,
+                        bed_compliance=bed_object.bed_compliance,
+                        data_format=bed_object.data_format,
                         description=bed_object.description,
                         annotation=StandardMeta(
                             **(
@@ -1757,3 +1776,45 @@ class BedAgentBedFile:
             offset=offset,
             results=results,
         )
+
+    def _update_sources(
+        self,
+        identifier,
+        global_sample_id: List[str] = None,
+        global_experiment_id: List[str] = None,
+    ) -> None:
+        """
+        Add global sample and experiment ids to the bed file if they are missing
+
+        :param identifier: bed file identifier
+        :param global_sample_id: list of global sample ids
+        :param global_experiment_id: list of global experiment ids
+
+        :return: None
+        """
+        _LOGGER.info(f"Updating sources for bed file: {identifier}")
+
+        with Session(self._sa_engine) as session:
+            bed_statement = select(BedMetadata).where(
+                and_(BedMetadata.id == identifier)
+            )
+
+            bedmetadata_object = session.scalar(bed_statement)
+
+            if (
+                global_sample_id
+                and global_sample_id[0] not in bedmetadata_object.global_sample_id
+            ):
+                bedmetadata_object.global_sample_id.append(global_sample_id[0])
+
+                flag_modified(bedmetadata_object, "global_sample_id")
+
+            if (
+                global_experiment_id
+                and global_experiment_id[0]
+                not in bedmetadata_object.global_experiment_id
+            ):
+                bedmetadata_object.global_experiment_id.append(global_experiment_id[0])
+                flag_modified(bedmetadata_object, "global_experiment_id")
+
+            session.commit()

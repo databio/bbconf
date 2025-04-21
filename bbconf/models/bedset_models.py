@@ -27,6 +27,7 @@ class BedSetMetadata(BaseModel):
     statistics: Union[BedSetStats, None] = None
     plots: Union[BedSetPlots, None] = None
     description: str = None
+    summary: str = None
     bed_ids: List[str] = None
     author: Union[str, None] = None
     source: Union[str, None] = None
@@ -49,8 +50,8 @@ class BedSetPEP(BaseModel):
     original_name: str
     genome_alias: Union[str, None] = ""
     genome_digest: Union[str, None] = ""
-    bed_type: Union[str, None] = ""
-    bed_format: Union[str, None] = ""
+    bed_compliance: Union[str, None] = ""
+    data_format: Union[str, None] = ""
     description: Union[str, None] = ""
     url: Union[str, None] = ""
 
