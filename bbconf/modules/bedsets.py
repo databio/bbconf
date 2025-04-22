@@ -318,15 +318,17 @@ class BedAgentBedSet:
         else:
             stats = None
         if self.exists(identifier):
-            if not overwrite:
-                raise BedSetExistsError(
-                    f"BEDset already exist in the database: {identifier}"
-                )
             if no_fail and not overwrite:
                 _LOGGER.warning(
                     f"Bedset '{identifier}' already exists. no_fail=True. Skipping updating bedset."
                 )
                 return None
+
+            if not overwrite:
+                raise BedSetExistsError(
+                    f"BEDset already exist in the database: {identifier}"
+                )
+
             self.delete(identifier)
 
         if not isinstance(annotation, dict):
