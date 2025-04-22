@@ -24,7 +24,14 @@ def get_bedbase_cfg(cfg: str = None) -> str:
     """
 
     _LOGGER.info(f"Loading configuration file: {cfg}")
-    selected_cfg = select_config(config_filepath=cfg, config_env_vars=CFG_ENV_VARS)
+    try:
+        selected_cfg = select_config(
+            config_filepath=cfg,
+            config_env_vars=CFG_ENV_VARS,
+        )
+    except OSError:
+        selected_cfg = None
+
     if not selected_cfg:
         raise BedBaseConnectionError(
             f"You must provide a config file or set the "

@@ -34,8 +34,8 @@ stats = {
 def get_example_dict() -> dict:
     value = {
         "id": BED_TEST_ID,
-        "bed_format": "narrowpeak",
-        "bed_type": "bed6+4",
+        "data_format": "encode_narrowpeak",
+        "bed_compliance": "bed6+4",
         "genome_alias": "hg38",
         "genome_digest": "2230c535660fb4774114bfa966a62f823fdb6d21acf138d4",
         "name": "random_name",

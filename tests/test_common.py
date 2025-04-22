@@ -1,9 +1,12 @@
 import pytest
 
 from bbconf.const import DEFAULT_LICENSE
+from bbconf.models.base_models import UsageModel
+from bbconf.exceptions import BedBaseConfError
+import datetime
 
 from .conftest import SERVICE_UNAVAILABLE
-from .utils import ContextManagerDBTesting
+from .utils import ContextManagerDBTesting, BED_TEST_ID, BEDSET_TEST_ID
 
 
 @pytest.mark.skipif(SERVICE_UNAVAILABLE, reason="Database is not available")
@@ -23,3 +26,22 @@ def test_get_licenses(bbagent_obj):
 
     assert return_result
     assert DEFAULT_LICENSE in return_result
+
+
+@pytest.mark.skipif(SERVICE_UNAVAILABLE, reason="Database is not available")
+class TestAddUsage:
+    def test_add_usages(self, bbagent_obj):
+        usage = UsageModel(
+            bed_meta={BED_TEST_ID: 3},
+            bedset_meta={BEDSET_TEST_ID: 4},
+            bed_search={"ff": 2},
+            bedset_search={"ase": 1},
+            files={"bin.bed.gz": 432},
+            date_from=datetime.datetime.now(),
+            date_to=datetime.datetime.now(),
+        )
+
+        with ContextManagerDBTesting(
+            config=bbagent_obj.config, add_data=True, bedset=True
+        ):
+            bbagent_obj.add_usage(usage)

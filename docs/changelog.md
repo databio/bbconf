@@ -2,6 +2,17 @@
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) and [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) format.
 
+## [0.11.0] - 2025-04-21
+##  Added: 
+- Added usage tracking and statistics
+- Added platform comprehensive statistics
+- Updated database to a new database schema
+- Added new items for bed compliance
+- Added head of bed file as a new column in bed table
+- Added file digest column to the file table 
+- Changed global sample and project source to be an array instead of string
+
+
 ## [0.10.4] - 2025-01-21
 
 ### Fixed:

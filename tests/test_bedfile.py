@@ -120,7 +120,7 @@ class Test_BedFile_Agent:
             return_result = bbagent_obj.bed.get_classification(BED_TEST_ID)
 
         assert return_result is not None
-        assert return_result.bed_type == "bed6+4"
+        assert return_result.bed_compliance == "bed6+4"
 
     def test_get_list(self, bbagent_obj):
         with ContextManagerDBTesting(config=bbagent_obj.config, add_data=True):
@@ -153,10 +153,10 @@ class Test_BedFile_Agent:
         assert len(return_result.results) == 0
         assert return_result.count == 0
 
-    def test_get_list_bed_type_true(self, bbagent_obj):
+    def test_get_list_bed_compliance_true(self, bbagent_obj):
         with ContextManagerDBTesting(config=bbagent_obj.config, add_data=True):
             return_result = bbagent_obj.bed.get_ids_list(
-                limit=100, offset=0, bed_type="bed6+4"
+                limit=100, offset=0, bed_compliance="bed6+4"
             )
 
         assert len(return_result.results) == 1
@@ -165,10 +165,10 @@ class Test_BedFile_Agent:
         assert return_result.limit == 100
         assert return_result.offset == 0
 
-    def test_get_list_bed_type_false(self, bbagent_obj):
+    def test_get_list_bed_compliance_false(self, bbagent_obj):
         with ContextManagerDBTesting(config=bbagent_obj.config, add_data=True):
             return_result = bbagent_obj.bed.get_ids_list(
-                limit=100, offset=0, bed_type="bed6+5"
+                limit=100, offset=0, bed_compliance="bed6+5"
             )
 
         assert len(return_result.results) == 0
