@@ -531,12 +531,23 @@ class BedAgentBedFile:
         if self.exists(identifier):
             _LOGGER.warning(f"Bed file with id: {identifier} exists in the database.")
             if not overwrite:
-                metadata_standard = StandardMeta(**metadata)
-                self._update_sources(
-                    identifier=identifier,
-                    global_sample_id=metadata_standard.global_sample_id,
-                    global_experiment_id=metadata_standard.global_experiment_id,
-                )
+                bed_metadata = StandardMeta(**metadata)
+
+                ## OLD:
+                # self._update_sources(
+                #     identifier=identifier,
+                #     global_sample_id=metadata_standard.global_sample_id,
+                #     global_experiment_id=metadata_standard.global_experiment_id,
+                # )
+
+                with Session(self._sa_engine) as session:
+                    statement = select(Bed).where(Bed.id == identifier)
+                    bed_object = session.scalar(statement)
+                    self._update_metadata(
+                        sa_session=session,
+                        bed_object=bed_object,
+                        bed_metadata=bed_metadata,
+                    )
                 if not nofail:
                     raise BedFIleExistsError(
                         f"Bed file with id: {identifier} already exists in the database."

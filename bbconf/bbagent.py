@@ -9,6 +9,7 @@ from sqlalchemy.sql import distinct, func, select
 from bbconf.config_parser.bedbaseconfig import BedBaseConfig
 from bbconf.db_utils import (
     Bed,
+    BedMetadata,
     BedSets,
     License,
     UsageBedSetMeta,
@@ -118,11 +119,22 @@ class BedBaseAgent(object):
                     )
                 ).all()
             }
+            file_organism = {
+                f[0]: f[1]
+                for f in session.execute(
+                    select(
+                        BedMetadata.species_name, func.count(BedMetadata.species_name)
+                    )
+                    .group_by(BedMetadata.species_name)
+                    .order_by(func.count(BedMetadata.species_name).desc())
+                ).all()
+            }
 
         return FileStats(
             file_type=file_types,
             file_format=file_formats,
             file_genome=file_genomes,
+            file_organism=file_organism,
         )
 
     def get_list_genomes(self) -> List[str]:

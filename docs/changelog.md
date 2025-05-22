@@ -2,8 +2,17 @@
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) and [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) format.
 
+### [0.12.2] - 2025-06-22
+### Added:
+- Statistics about bed files grouped by organism
+
+### [0.12.1] - 2025-05-22
+### Fixed:
+- Bedbuncher bug
+
+
 ## [0.11.0] - 2025-04-21
-##  Added: 
+###  Added: 
 - Added usage tracking and statistics
 - Added platform comprehensive statistics
 - Updated database to a new database schema
