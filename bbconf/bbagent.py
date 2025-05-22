@@ -122,9 +122,11 @@ class BedBaseAgent(object):
             file_organism = {
                 f[0]: f[1]
                 for f in session.execute(
-                    select(BedMetadata.species_name, func.count(BedMetadata.species_name)).group_by(
-                        BedMetadata.species_name
-                    ).order_by(func.count(BedMetadata.species_name).desc())
+                    select(
+                        BedMetadata.species_name, func.count(BedMetadata.species_name)
+                    )
+                    .group_by(BedMetadata.species_name)
+                    .order_by(func.count(BedMetadata.species_name).desc())
                 ).all()
             }
 
