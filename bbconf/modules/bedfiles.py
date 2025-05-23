@@ -196,6 +196,7 @@ class BedAgentBedFile:
             license_id=bed_object.license_id or DEFAULT_LICENSE,
             universe_metadata=universe_meta,
             bedsets=bed_bedsets,
+            processed=bed_object.processed,
             annotation=StandardMeta(
                 **bed_object.annotations.__dict__ if bed_object.annotations else {}
             ),

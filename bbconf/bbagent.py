@@ -95,7 +95,7 @@ class BedBaseAgent(object):
         _LOGGER.info("Getting detailed statistics for all bed files")
 
         with Session(self.config.db_engine.engine) as session:
-            file_types = {
+            bed_compliance = {
                 f[0]: f[1]
                 for f in session.execute(
                     select(Bed.bed_compliance, func.count(Bed.bed_compliance)).group_by(
@@ -103,7 +103,7 @@ class BedBaseAgent(object):
                     )
                 ).all()
             }
-            file_formats = {
+            data_format = {
                 f[0]: f[1]
                 for f in session.execute(
                     select(Bed.data_format, func.count(Bed.data_format)).group_by(
@@ -131,8 +131,8 @@ class BedBaseAgent(object):
             }
 
         return FileStats(
-            file_type=file_types,
-            file_format=file_formats,
+            data_format=data_format,
+            bed_compliance=bed_compliance,
             file_genome=file_genomes,
             file_organism=file_organism,
         )
