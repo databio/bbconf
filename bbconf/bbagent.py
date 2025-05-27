@@ -163,51 +163,114 @@ class BedBaseAgent(object):
     def add_usage(self, stats: UsageModel) -> None:
 
         with Session(self.config.db_engine.engine) as session:
+
+            # FILES USAGE
+            reported_items_files = session.scalars(
+                select(UsageFiles).where(UsageFiles.date_to > func.now())
+            )
+            reported_dict_files = {
+                item.file_path: item for item in reported_items_files
+            }
+
             for key, value in stats.files.items():
-                new_stats = UsageFiles(
-                    file_path=key,
-                    count=value,
-                    date_from=stats.date_from,
-                    date_to=stats.date_to,
-                )
-                session.add(new_stats)
+                if key in reported_dict_files:
+                    reported_dict_files[key].count += value
+                else:
+                    new_stats = UsageFiles(
+                        file_path=key,
+                        count=value,
+                        date_from=stats.date_from,
+                        date_to=stats.date_to,
+                    )
+                    session.add(new_stats)
+
+            # METADATA USAGE
+            reported_items_metadata = session.scalars(
+                select(UsageBedMeta).where(UsageBedMeta.date_to > func.now())
+            )
+
+            reported_dict_metadata = {
+                item.bed_id: item for item in reported_items_metadata
+            }
 
             for key, value in stats.bed_meta.items():
-                new_stats = UsageBedMeta(
-                    bed_id=key,
-                    count=value,
-                    date_from=stats.date_from,
-                    date_to=stats.date_to,
-                )
-                session.add(new_stats)
+                if key in reported_dict_metadata:
+                    reported_dict_metadata[key].count += value
+                else:
+                    new_stats = UsageBedMeta(
+                        bed_id=key,
+                        count=value,
+                        date_from=stats.date_from,
+                        date_to=stats.date_to,
+                    )
+                    session.add(new_stats)
+
+            # BEDSET METADATA USAGE
+            reported_items_bedset_metadata = session.scalars(
+                select(UsageBedSetMeta).where(UsageBedSetMeta.date_to > func.now())
+            )
+
+            reported_dict_bedset_metadata = {
+                item.bedset_id: item for item in reported_items_bedset_metadata
+            }
 
             for key, value in stats.bedset_meta.items():
-                new_stats = UsageBedSetMeta(
-                    bedset_id=key,
-                    count=value,
-                    date_from=stats.date_from,
-                    date_to=stats.date_to,
+                if key in reported_dict_bedset_metadata:
+                    reported_dict_bedset_metadata[key].count += value
+                else:
+                    new_stats = UsageBedSetMeta(
+                        bedset_id=key,
+                        count=value,
+                        date_from=stats.date_from,
+                        date_to=stats.date_to,
+                    )
+                    session.add(new_stats)
+
+            # SEARCH USAGE
+
+            reporeted_items_bed_search = session.scalars(
+                select(UsageSearch).where(
+                    UsageSearch.type == "bed", UsageSearch.date_to > func.now()
                 )
-                session.add(new_stats)
+            )
+            reported_dict_bed_search = {
+                item.query: item for item in reporeted_items_bed_search
+            }
 
             for key, value in stats.bed_search.items():
-                new_stats = UsageSearch(
-                    query=key,
-                    count=value,
-                    type="bed",
-                    date_from=stats.date_from,
-                    date_to=stats.date_to,
+                if key in reported_dict_bed_search:
+                    reported_dict_bed_search[key].count += value
+                else:
+                    new_stats = UsageSearch(
+                        query=key,
+                        count=value,
+                        type="bed",
+                        date_from=stats.date_from,
+                        date_to=stats.date_to,
+                    )
+                    session.add(new_stats)
+
+            # SEARCH BEDSET USAGE
+            reporeted_items_bedset_search = session.scalars(
+                select(UsageSearch).where(
+                    UsageSearch.type == "bedset", UsageSearch.date_to > func.now()
                 )
-                session.add(new_stats)
+            )
+            reported_dict_bedset_search = {
+                item.query: item for item in reporeted_items_bedset_search
+            }
 
             for key, value in stats.bedset_search.items():
-                new_stats = UsageSearch(
-                    query=key,
-                    count=value,
-                    type="bedset",
-                    date_from=stats.date_from,
-                    date_to=stats.date_to,
-                )
-                session.add(new_stats)
+                if key in reported_dict_bedset_search:
+                    reported_dict_bedset_search[key].count += value
+                else:
+                    new_stats = UsageSearch(
+                        query=key,
+                        count=value,
+                        type="bedset",
+                        date_from=stats.date_from,
+                        date_to=stats.date_to,
+                    )
+                    session.add(new_stats)
 
             session.commit()
