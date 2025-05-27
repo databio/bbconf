@@ -86,10 +86,12 @@ class BedBaseAgent(object):
             genomes_number=number_of_genomes,
         )
 
-    def get_detailed_stats(self) -> FileStats:
+    def get_detailed_stats(self, concise: bool = False) -> FileStats:
         """
         Get comprehensive statistics for all bed files
 
+        :param concise: if True, return only top 20 items for each category
+        :return: FileStats object containing detailed statistics
         """
 
         _LOGGER.info("Getting detailed statistics for all bed files")
@@ -98,25 +100,25 @@ class BedBaseAgent(object):
             bed_compliance = {
                 f[0]: f[1]
                 for f in session.execute(
-                    select(Bed.bed_compliance, func.count(Bed.bed_compliance)).group_by(
-                        Bed.bed_compliance
-                    )
+                    select(Bed.bed_compliance, func.count(Bed.bed_compliance))
+                    .group_by(Bed.bed_compliance)
+                    .order_by(func.count(Bed.bed_compliance).desc())
                 ).all()
             }
             data_format = {
                 f[0]: f[1]
                 for f in session.execute(
-                    select(Bed.data_format, func.count(Bed.data_format)).group_by(
-                        Bed.data_format
-                    )
+                    select(Bed.data_format, func.count(Bed.data_format))
+                    .group_by(Bed.data_format)
+                    .order_by(func.count(Bed.data_format).desc())
                 ).all()
             }
             file_genomes = {
                 f[0]: f[1]
                 for f in session.execute(
-                    select(Bed.genome_alias, func.count(Bed.genome_alias)).group_by(
-                        Bed.genome_alias
-                    )
+                    select(Bed.genome_alias, func.count(Bed.genome_alias))
+                    .group_by(Bed.genome_alias)
+                    .order_by(func.count(Bed.genome_alias).desc())
                 ).all()
             }
             file_organism = {
@@ -129,6 +131,31 @@ class BedBaseAgent(object):
                     .order_by(func.count(BedMetadata.species_name).desc())
                 ).all()
             }
+
+        slice_value = 20
+
+        if concise:
+            bed_compliance_concise = dict(list(bed_compliance.items())[0:slice_value])
+            bed_compliance_concise["other"] = sum(
+                list(bed_compliance.values())[slice_value:]
+            )
+
+            file_genomes_concise = dict(list(file_genomes.items())[0:slice_value])
+            file_genomes_concise["other"] = sum(
+                list(file_genomes.values())[slice_value:]
+            ) + file_genomes.get("other", 0)
+
+            file_organism_concise = dict(list(file_organism.items())[0:slice_value])
+            file_organism_concise["other"] = sum(
+                list(file_organism.values())[20:]
+            ) + file_organism.get("other", 0)
+
+            return FileStats(
+                data_format=data_format,
+                bed_compliance=bed_compliance_concise,
+                file_genome=file_genomes_concise,
+                file_organism=file_organism_concise,
+            )
 
         return FileStats(
             data_format=data_format,
