@@ -34,7 +34,7 @@ class FileStats(BaseModel):
 
 
 class UsageStats(BaseModel):
-    # file_downloads: Dict[str, int]
+    # file_downloads: Dict[str, int]   # Placeholder for tracking file download statistics in the future.
     bed_metadata: Dict[str, int]
     bedset_metadata: Dict[str, int]
     bed_search_terms: Dict[str, int]

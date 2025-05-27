@@ -147,7 +147,7 @@ class BedBaseAgent(object):
 
             file_organism_concise = dict(list(file_organism.items())[0:slice_value])
             file_organism_concise["other"] = sum(
-                list(file_organism.values())[20:]
+                list(file_organism.values())[slice_value:]
             ) + file_organism.get("other", 0)
 
             return FileStats(
@@ -314,13 +314,13 @@ class BedBaseAgent(object):
 
             # SEARCH USAGE
 
-            reporeted_items_bed_search = session.scalars(
+            reported_items_bed_search = session.scalars(
                 select(UsageSearch).where(
                     UsageSearch.type == "bed", UsageSearch.date_to > func.now()
                 )
             )
             reported_dict_bed_search = {
-                item.query: item for item in reporeted_items_bed_search
+                item.query: item for item in reported_items_bed_search
             }
 
             for key, value in stats.bed_search.items():
