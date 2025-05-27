@@ -218,6 +218,14 @@ def compreh_stats():
     print(results)
 
 
+def get_unprocessed_files():
+    from bbconf import BedBaseAgent
+
+    agent = BedBaseAgent(config="/home/bnt4me/virginia/repos/bedhost/config.yaml")
+    results = agent.bed.get_unprocessed()
+    print(results)
+
+
 if __name__ == "__main__":
     # zarr_s3()
     # add_s3()
@@ -228,4 +236,5 @@ if __name__ == "__main__":
     # neighbour_beds()
     # sql_search()
     # config_t()
-    compreh_stats()
+    # compreh_stats()
+    get_unprocessed_files()
