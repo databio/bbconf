@@ -33,6 +33,14 @@ class FileStats(BaseModel):
     file_organism: Dict[str, int]
 
 
+class UsageStats(BaseModel):
+    # file_downloads: Dict[str, int]
+    bed_metadata: Dict[str, int]
+    bedset_metadata: Dict[str, int]
+    bed_search_terms: Dict[str, int]
+    bedset_search_terms: Dict[str, int]
+
+
 class UsageModel(BaseModel):
     """
     Usage model. Used to track usage of the bedbase.

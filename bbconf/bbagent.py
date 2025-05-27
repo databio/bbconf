@@ -17,7 +17,7 @@ from bbconf.db_utils import (
     UsageFiles,
     UsageSearch,
 )
-from bbconf.models.base_models import StatsReturn, UsageModel, FileStats
+from bbconf.models.base_models import StatsReturn, UsageModel, FileStats, UsageStats
 from bbconf.modules.bedfiles import BedAgentBedFile
 from bbconf.modules.bedsets import BedAgentBedSet
 from bbconf.modules.objects import BBObjects
@@ -162,6 +162,65 @@ class BedBaseAgent(object):
             bed_compliance=bed_compliance,
             file_genome=file_genomes,
             file_organism=file_organism,
+        )
+
+    def get_detailed_usage(self) -> UsageStats:
+        """
+        Get detailed usage statistics for the bedbase platform.
+        This method will only return top 20 items for each category.
+
+        :return: UsageStats object containing detailed usage statistics
+        """
+
+        _LOGGER.info("Getting detailed usage statistics.")
+
+        with Session(self.config.db_engine.engine) as session:
+            bed_metadata = {
+                f[0]: f[1]
+                for f in session.execute(
+                    select(UsageBedMeta.bed_id, func.sum(UsageBedMeta.count))
+                    .group_by(UsageBedMeta.bed_id)
+                    .order_by(func.sum(UsageBedMeta.count).desc())
+                    .limit(20)
+                ).all()
+            }
+            bedset_metadata = {
+                f[0]: f[1]
+                for f in session.execute(
+                    select(UsageBedSetMeta.bedset_id, func.sum(UsageBedSetMeta.count))
+                    .group_by(UsageBedSetMeta.bedset_id)
+                    .order_by(func.sum(UsageBedSetMeta.count).desc())
+                    .limit(20)
+                ).all()
+            }
+
+            bed_search_terms = {
+                f[0]: f[1]
+                for f in session.execute(
+                    select(UsageSearch.query, func.sum(UsageSearch.count))
+                    .where(UsageSearch.type == "bed")
+                    .group_by(UsageSearch.query)
+                    .order_by(func.sum(UsageSearch.count).desc())
+                    .limit(20)
+                ).all()
+            }
+
+            bedset_search_terms = {
+                f[0]: f[1]
+                for f in session.execute(
+                    select(UsageSearch.query, func.sum(UsageSearch.count))
+                    .where(UsageSearch.type == "bedset")
+                    .group_by(UsageSearch.query)
+                    .order_by(func.sum(UsageSearch.count).desc())
+                    .limit(20)
+                ).all()
+            }
+
+        return UsageStats(
+            bed_metadata=bed_metadata,
+            bedset_metadata=bedset_metadata,
+            bed_search_terms=bed_search_terms,
+            bedset_search_terms=bedset_search_terms,
         )
 
     def get_list_genomes(self) -> List[str]:

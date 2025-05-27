@@ -214,7 +214,8 @@ def compreh_stats():
 
     agent = BedBaseAgent(config="/home/bnt4me/virginia/repos/bedhost/config.yaml")
     results = agent.get_detailed_stats()
-    results
+    results = agent.get_detailed_usage()
+    print(results)
 
 
 if __name__ == "__main__":
