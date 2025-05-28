@@ -196,6 +196,7 @@ class BedAgentBedFile:
             license_id=bed_object.license_id or DEFAULT_LICENSE,
             universe_metadata=universe_meta,
             bedsets=bed_bedsets,
+            processed=bed_object.processed,
             annotation=StandardMeta(
                 **bed_object.annotations.__dict__ if bed_object.annotations else {}
             ),
@@ -1737,20 +1738,33 @@ class BedAgentBedFile:
 
         return results
 
-    def get_unprocessed(self, limit: int = 1000, offset: int = 0) -> BedListResult:
+    def get_unprocessed(
+        self, limit: int = 1000, offset: int = 0, genome: Union[str, list, None] = None
+    ) -> BedListResult:
         """
         Get bed files that are not processed.
 
         :param limit: number of results to return
         :param offset: offset to start from
+        :param genome: genome alias or list of genome aliases to filter by. e.g. "hg38" or ["hg38", "mm10"]. by default None, which means no filtering by genome.
 
         :return: list of bed file identifiers
         """
+
+        if isinstance(genome, str):
+            genome = [genome]
+
         with Session(self._sa_engine) as session:
-            query = (
-                select(Bed).where(Bed.processed.is_(False)).limit(limit).offset(offset)
-            )
+            query = select(Bed).where(Bed.processed.is_(False))
+
             count_query = select(func.count()).where(Bed.processed.is_(False))
+
+            if genome:
+                or_statement = or_(*[Bed.genome_alias == k for k in genome])
+                query = query.where(or_statement)
+                count_query = count_query.where(or_statement)
+
+            query = query.limit(limit).offset(offset)
 
             count = session.execute(count_query).one()[0]
 

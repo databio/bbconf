@@ -27,10 +27,18 @@ class StatsReturn(BaseModel):
 
 
 class FileStats(BaseModel):
-    file_type: Dict[str, int]
-    file_format: Dict[str, int]
+    bed_compliance: Dict[str, int]
+    data_format: Dict[str, int]
     file_genome: Dict[str, int]
     file_organism: Dict[str, int]
+
+
+class UsageStats(BaseModel):
+    # file_downloads: Dict[str, int]   # Placeholder for tracking file download statistics in the future.
+    bed_metadata: Dict[str, int]
+    bedset_metadata: Dict[str, int]
+    bed_search_terms: Dict[str, int]
+    bedset_search_terms: Dict[str, int]
 
 
 class UsageModel(BaseModel):

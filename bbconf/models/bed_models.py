@@ -150,6 +150,7 @@ class StandardMeta(BaseModel):
     model_config = ConfigDict(
         populate_by_name=True,
         extra="ignore",
+        alias_generator=None,
     )
 
     @field_validator("global_sample_id", "global_experiment_id", mode="before")
@@ -177,6 +178,7 @@ class BedMetadataBasic(BedClassification):
     is_universe: Optional[bool] = False
     license_id: Optional[str] = DEFAULT_LICENSE
     annotation: Optional[StandardMeta] = None
+    processed: Optional[bool] = True
 
 
 class UniverseMetadata(BaseModel):
