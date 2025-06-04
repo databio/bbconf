@@ -197,7 +197,7 @@ def sql_search():
     from bbconf import BedBaseAgent
 
     agent = BedBaseAgent(config="/home/bnt4me/virginia/repos/bedhost/config.yaml")
-    results = agent.bed.sql_search("K562", limit=100)
+    results = agent.bed.sql_search("bone", limit=100)
     results
 
 
@@ -225,6 +225,14 @@ def get_unprocessed_files():
     results = agent.bed.get_unprocessed()
     print(results)
 
+def get_genomes():
+
+    from bbconf import BedBaseAgent
+
+    agent = BedBaseAgent(config="/home/bnt4me/virginia/repos/bedhost/config.yaml")
+    results = agent.get_list_genomes()
+    print(results)
+
 
 if __name__ == "__main__":
     # zarr_s3()
@@ -237,4 +245,5 @@ if __name__ == "__main__":
     # sql_search()
     # config_t()
     # compreh_stats()
-    get_unprocessed_files()
+    # get_unprocessed_files()
+    get_genomes()
