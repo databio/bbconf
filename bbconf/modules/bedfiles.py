@@ -1183,7 +1183,7 @@ class BedAgentBedFile:
             if result_meta:
                 results_list.append(QdrantSearchResult(**result, metadata=result_meta))
         return BedListSearchResult(
-            count=self.bb_agent.get_stats().bedfiles_number,
+            count=self.bb_agent.get_detailed_stats().file_genome.get("hg38", 0),
             limit=limit,
             offset=offset,
             results=results_list,
@@ -1218,13 +1218,18 @@ class BedAgentBedFile:
         )
 
     def sql_search(
-        self, query: str, limit: int = 10, offset: int = 0
+        self,
+        query: str,
+        genome: str = None,
+        limit: int = 10,
+        offset: int = 0,
     ) -> BedListSearchResult:
         """
         Search for bed files by using sql exact search.
         This search will search files by id, name, and description
 
         :param query: text query
+        :param genome: genome alias to filter results
         :param limit: number of results to return
         :param offset: offset to start from
 
@@ -1232,20 +1237,30 @@ class BedAgentBedFile:
         """
         _LOGGER.debug(f"Looking for: {query}")
 
+        statement = select(Bed).join(BedMetadata)
+
         sql_search_str = f"%{query}%"
+        or_statement = or_(
+            Bed.id.ilike(sql_search_str),
+            Bed.name.ilike(sql_search_str),
+            Bed.description.ilike(sql_search_str),
+            BedMetadata.cell_line.ilike(sql_search_str),
+            BedMetadata.tissue.ilike(sql_search_str),
+            BedMetadata.cell_type.ilike(sql_search_str),
+        )
+
+        if genome_alias := genome:
+            _LOGGER.debug(f"Filtering by genome: {genome_alias}")
+
+            condition_statement = and_(Bed.genome_alias == genome_alias, or_statement)
+
+        else:
+            condition_statement = or_statement
+
+        statement = statement.where(condition_statement)
+
         with Session(self._sa_engine) as session:
-            statement = (
-                select(Bed)
-                .where(
-                    or_(
-                        Bed.id.ilike(sql_search_str),
-                        Bed.name.ilike(sql_search_str),
-                        Bed.description.ilike(sql_search_str),
-                    )
-                )
-                .limit(limit)
-                .offset(offset)
-            )
+            statement = statement.limit(limit).offset(offset)
             bed_objects = session.scalars(statement)
             results = [
                 BedMetadataBasic(
@@ -1266,32 +1281,27 @@ class BedAgentBedFile:
             ]
 
         return BedListSearchResult(
-            count=self._sql_search_count(query),
+            count=self._sql_search_count(condition_statement),
             limit=limit,
             offset=offset,
             results=result_list,
         )
 
-    def _sql_search_count(self, query: str) -> int:
+    def _sql_search_count(self, condition_statement) -> int:
         """
         Get number of total found files in the database.
 
-        :param query: text query
+        :param condition_statement: sql alchemy condition statement to filter results
 
         :return: number of found files
         """
-        sql_search_str = f"%{query}%"
+
         with Session(self._sa_engine) as session:
             statement = (
                 select(func.count())
                 .select_from(Bed)
-                .where(
-                    or_(
-                        Bed.id.ilike(sql_search_str),
-                        Bed.name.ilike(sql_search_str),
-                        Bed.description.ilike(sql_search_str),
-                    )
-                )
+                .join(BedMetadata)
+                .where(condition_statement)
             )
             count = session.execute(statement).one()
         return count[0]
