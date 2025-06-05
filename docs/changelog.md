@@ -2,7 +2,12 @@
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) and [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) format.
 
-### [0.11.3] - 2025-06-27
+### [0.11.4] - 2025-06-01
+### Fixed:
+- SQL search
+
+
+### [0.11.3] - 2025-05-27
 ### Fixed:
 - Usage tracker
 - Order of comprehensive stats
