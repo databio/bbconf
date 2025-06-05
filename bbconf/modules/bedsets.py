@@ -482,6 +482,7 @@ class BedAgentBedSet:
         statement = select(BedSets.id)
         count_statement = select(func.count(BedSets.id))
         if query:
+            query = query.strip()
             sql_search_str = f"%{query}%"
             statement = statement.where(
                 or_(

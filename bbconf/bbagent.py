@@ -229,7 +229,11 @@ class BedBaseAgent(object):
 
         :return: list of genomes
         """
-        statement = select(Bed.genome_alias).group_by(Bed.genome_alias).order_by(func.count(Bed.genome_alias).desc())
+        statement = (
+            select(Bed.genome_alias)
+            .group_by(Bed.genome_alias)
+            .order_by(func.count(Bed.genome_alias).desc())
+        )
         with Session(self.config.db_engine.engine) as session:
             genomes = session.execute(statement).all()
         return [result[0] for result in genomes if result[0]]
