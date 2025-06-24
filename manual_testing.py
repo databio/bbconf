@@ -211,11 +211,20 @@ def config_t():
 
 def compreh_stats():
     from bbconf import BedBaseAgent
+    import time
 
     agent = BedBaseAgent(config="/home/bnt4me/virginia/repos/bedhost/config.yaml")
-    results = agent.get_detailed_stats()
-    results = agent.get_detailed_usage()
-    print(results)
+
+    time1 = time.time()
+
+    results = agent.bed_files_info()
+
+    time2 = time.time()
+    print(time2 - time1)
+
+    # results = agent.get_detailed_stats()
+    # results = agent.get_detailed_usage()
+    # print(results)
 
 
 def get_unprocessed_files():
@@ -243,8 +252,8 @@ if __name__ == "__main__":
     # get_pep()
     # get_id_plots_missing()
     # neighbour_beds()
-    sql_search()
+    # sql_search()
     # config_t()
-    # compreh_stats()
+    compreh_stats()
     # get_unprocessed_files()
     # get_genomes()

@@ -31,6 +31,8 @@ class FileStats(BaseModel):
     data_format: Dict[str, int]
     file_genome: Dict[str, int]
     file_organism: Dict[str, int]
+    geo_status: Dict[str, int]
+    bed_comments: Dict[str, int]
 
 
 class UsageStats(BaseModel):
@@ -55,3 +57,26 @@ class UsageModel(BaseModel):
 
     date_from: datetime.datetime
     date_to: Union[datetime.datetime, None] = None
+
+
+class FileInfo(BaseModel):
+    """
+    Main information about a file used for BEDbase verse statistics.
+    """
+
+    id: str
+    bed_compliance: str
+    data_format: str
+    mean_region_width: float
+    file_size: int
+    number_of_regions: int
+
+
+class AllFilesInfo(BaseModel):
+    """
+    Information about all files. e.g. file sizes, mean region width, etc.
+
+    """
+
+    total: int
+    files: List[FileInfo]

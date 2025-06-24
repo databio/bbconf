@@ -1,10 +1,11 @@
 import logging
 from functools import cached_property
 from pathlib import Path
-from typing import List, Union
+from typing import List, Union, Dict
+import numpy as np
 
 from sqlalchemy.orm import Session
-from sqlalchemy.sql import distinct, func, select
+from sqlalchemy.sql import distinct, func, select, and_, or_
 
 from bbconf.config_parser.bedbaseconfig import BedBaseConfig
 from bbconf.db_utils import (
@@ -16,8 +17,18 @@ from bbconf.db_utils import (
     UsageBedMeta,
     UsageFiles,
     UsageSearch,
+    GeoGsmStatus,
+    BedStats,
+    Files,
 )
-from bbconf.models.base_models import StatsReturn, UsageModel, FileStats, UsageStats
+from bbconf.models.base_models import (
+    StatsReturn,
+    UsageModel,
+    FileStats,
+    UsageStats,
+    AllFilesInfo,
+    FileInfo,
+)
 from bbconf.modules.bedfiles import BedAgentBedFile
 from bbconf.modules.bedsets import BedAgentBedSet
 from bbconf.modules.objects import BBObjects
@@ -134,27 +145,47 @@ class BedBaseAgent(object):
 
         slice_value = 20
 
+        bed_comments = self._stats_comments(session)
+        geo_status = self._stats_geo_status(session)
+
         if concise:
             bed_compliance_concise = dict(list(bed_compliance.items())[0:slice_value])
             bed_compliance_concise["other"] = sum(
                 list(bed_compliance.values())[slice_value:]
             )
+            if "" in bed_compliance_concise:
+                bed_compliance_concise["other"] = (
+                    bed_compliance_concise["other"] + bed_compliance_concise[""]
+                )
+                bed_compliance_concise.pop("")
 
             file_genomes_concise = dict(list(file_genomes.items())[0:slice_value])
             file_genomes_concise["other"] = sum(
                 list(file_genomes.values())[slice_value:]
             ) + file_genomes.get("other", 0)
+            if "" in file_genomes_concise:
+                file_genomes_concise["other"] = (
+                    file_genomes_concise["other"] + file_genomes_concise[""]
+                )
+                file_genomes_concise.pop("")
 
             file_organism_concise = dict(list(file_organism.items())[0:slice_value])
             file_organism_concise["other"] = sum(
                 list(file_organism.values())[slice_value:]
             ) + file_organism.get("other", 0)
+            if "" in file_organism_concise:
+                file_organism_concise["other"] = (
+                    file_organism_concise["other"] + file_organism_concise[""]
+                )
+                file_organism_concise.pop("")
 
             return FileStats(
                 data_format=data_format,
                 bed_compliance=bed_compliance_concise,
                 file_genome=file_genomes_concise,
                 file_organism=file_organism_concise,
+                bed_comments=bed_comments,
+                geo_status=geo_status,
             )
 
         return FileStats(
@@ -162,6 +193,8 @@ class BedBaseAgent(object):
             bed_compliance=bed_compliance,
             file_genome=file_genomes,
             file_organism=file_organism,
+            bed_comments=bed_comments,
+            geo_status=geo_status,
         )
 
     def get_detailed_usage(self) -> UsageStats:
@@ -364,3 +397,167 @@ class BedBaseAgent(object):
                     session.add(new_stats)
 
             session.commit()
+
+    def _stats_comments(self, sa_session: Session) -> Dict[str, int]:
+        """
+        Get statistics about comments that are present in bed files.
+
+        :param sa_session: SQLAlchemy session
+
+        :return: Dict[str, int]
+        """
+        _LOGGER.info("Analyzing bed table for comments in bed files...")
+
+        total_statement = select(func.count(Bed.id)).where(Bed.header.is_not(None))
+        correct_statement = select(func.count(Bed.id)).where(Bed.header.like("#%"))
+        track_name_statement = select(func.count(Bed.id)).where(
+            Bed.header.like("track name%")
+        )
+        track_type_statement = select(func.count(Bed.id)).where(
+            Bed.header.like("track type%")
+        )
+        browser_statement = select(func.count(Bed.id)).where(
+            Bed.header.like("browser%")
+        )
+
+        total_bed_comments = (
+            sa_session.execute(total_statement).one_or_none() or (0,)
+        )[0]
+        correct_bed_comments = (
+            sa_session.execute(correct_statement).one_or_none() or (0,)
+        )[0]
+        track_name_comments = (
+            sa_session.execute(track_name_statement).one_or_none() or (0,)
+        )[0]
+        track_type_comments = (
+            sa_session.execute(track_type_statement).one_or_none() or (0,)
+        )[0]
+        browser_comments = (
+            sa_session.execute(browser_statement).one_or_none() or (0,)
+        )[0]
+
+        header_comments = (
+            total_bed_comments
+            - correct_bed_comments
+            - track_name_comments
+            - track_type_comments
+            - browser_comments
+        )
+
+        return {
+            "correct_bed_comments": correct_bed_comments,
+            "track_name_comments": track_name_comments,
+            "track_type_comments": track_type_comments,
+            "browser_comments": browser_comments,
+            "header_comments": header_comments,
+        }
+
+    def _stats_geo_status(self, sa_session: Session) -> Dict[str, int]:
+        """
+        Get statistics about status of GEO bed file processing.
+
+        :param sa_session: SQLAlchemy session
+        :return Dict[str, int]
+        """
+
+        success_statement = select(
+            func.count(distinct(GeoGsmStatus.sample_name))
+        ).where(GeoGsmStatus.status == "SUCCESS")
+
+        failed_count_statement = select(
+            func.count(distinct(GeoGsmStatus.sample_name))
+        ).where(and_(GeoGsmStatus.status == "FAIL"))
+        mean_region_width_statement = select(
+            func.count(distinct(GeoGsmStatus.sample_name))
+        ).where(
+            or_(
+                GeoGsmStatus.error.like("%Initial QC failed for%"),
+                GeoGsmStatus.error.like("%Quality control failed%"),
+            )
+        )
+        size_greater_then_statement = select(
+            func.count(distinct(GeoGsmStatus.sample_name))
+        ).where(GeoGsmStatus.error.like("%File size is too big.%"))
+
+        success_count = (sa_session.execute(success_statement).one_or_none() or (0,))[0]
+        failed_count = (
+            sa_session.execute(failed_count_statement).one_or_none() or (0,)
+        )[0]
+
+        mean_region_width_count = (
+            sa_session.execute(mean_region_width_statement).one_or_none() or (0,)
+        )[0]
+        size_greater_than_count = (
+            sa_session.execute(size_greater_then_statement).one_or_none() or (0,)
+        )[0]
+        corrupted_file_count = (
+            failed_count - mean_region_width_count - size_greater_than_count
+        )
+
+        return {
+            "success": success_count,
+            "mean_region_width_lower_10": mean_region_width_count,
+            "size_greater_20": size_greater_than_count,
+            "corrupted_files": corrupted_file_count,
+        }
+
+    def bed_files_info(self) -> AllFilesInfo:
+        """
+        Get information about all bed files in bedbase.
+        :param sa_session: SQLAlchemy session
+        :return AllFilesInfo:
+            {
+            "total": int,"
+            "files": [
+                {   id: str
+                    bed_compliance: str
+                    data_format: str
+                    mean_region_width: float
+                    file_size: int
+                    number_of_regions: int
+                },
+                ... ]
+            }
+        """
+
+        all_files_statement = (
+            select(
+                Bed.id,
+                Bed.bed_compliance,
+                Bed.data_format,
+                BedStats.mean_region_width,
+                Files.size,
+                BedStats.number_of_regions,
+            )
+            .join(BedStats, BedStats.id == Bed.id)  # Explicit join condition
+            .join(Files, Files.bedfile_id == Bed.id)  # Explicit join condition
+            .where(Files.name == "bed_file")
+        )
+
+        results = []
+        error_list = []
+        with Session(self.config.db_engine.engine) as session:
+            sql_result = session.execute(all_files_statement).all()
+
+            for single_bed in sql_result:
+                try:
+                    results.append(
+                        FileInfo(
+                            id=single_bed[0],
+                            bed_compliance=single_bed[1],
+                            data_format=single_bed[2],
+                            mean_region_width=single_bed[3],
+                            file_size=single_bed[4],
+                            number_of_regions=single_bed[5],
+                        )
+                    )
+                except Exception:
+                    error_list.append(single_bed[0])
+
+        _LOGGER.info(
+            f"Number of bed records with unknown regions and region width {len(error_list)}"
+        )
+        return AllFilesInfo(
+            total=len(results),
+            files=results,
+        )
