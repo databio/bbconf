@@ -3,6 +3,7 @@ from functools import cached_property
 from pathlib import Path
 from typing import List, Union, Dict
 import numpy as np
+import statistics
 
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import distinct, func, select, and_, or_
@@ -28,6 +29,7 @@ from bbconf.models.base_models import (
     UsageStats,
     AllFilesInfo,
     FileInfo,
+    BinValues,
 )
 from bbconf.modules.bedfiles import BedAgentBedFile
 from bbconf.modules.bedsets import BedAgentBedSet
@@ -148,6 +150,16 @@ class BedBaseAgent(object):
         bed_comments = self._stats_comments(session)
         geo_status = self._stats_geo_status(session)
 
+        bedfiles_info = self.bed_files_info()
+
+        number_of_regions = [bed.number_of_regions for bed in bedfiles_info.files]
+        list_mean_width = [bed.mean_region_width for bed in bedfiles_info.files]
+        list_file_size = [bed.file_size for bed in bedfiles_info.files]
+
+        number_of_regions_bins = self._bin_number_of_regions(number_of_regions)
+        list_mean_width_bins = self._bin_mean_region_width(list_mean_width)
+        list_file_size_bins = self._bin_file_size(list_file_size)
+
         if concise:
             bed_compliance_concise = dict(list(bed_compliance.items())[0:slice_value])
             bed_compliance_concise["other"] = sum(
@@ -186,6 +198,9 @@ class BedBaseAgent(object):
                 file_organism=file_organism_concise,
                 bed_comments=bed_comments,
                 geo_status=geo_status,
+                mean_region_width=list_mean_width_bins,
+                file_size=list_file_size_bins,
+                number_of_regions=number_of_regions_bins,
             )
 
         return FileStats(
@@ -195,6 +210,9 @@ class BedBaseAgent(object):
             file_organism=file_organism,
             bed_comments=bed_comments,
             geo_status=geo_status,
+            mean_region_width=list_mean_width_bins,
+            file_size=list_file_size_bins,
+            number_of_regions=number_of_regions_bins,
         )
 
     def get_detailed_usage(self) -> UsageStats:
@@ -504,6 +522,7 @@ class BedBaseAgent(object):
     def bed_files_info(self) -> AllFilesInfo:
         """
         Get information about all bed files in bedbase.
+
         :param sa_session: SQLAlchemy session
         :return AllFilesInfo:
             {
@@ -560,4 +579,86 @@ class BedBaseAgent(object):
         return AllFilesInfo(
             total=len(results),
             files=results,
+        )
+
+    def _bin_number_of_regions(self, number_of_regions: list) -> BinValues:
+        """
+        Create bins for number of regions in bed files
+
+        :param number_of_regions: list of number of regions in bed files
+        :return: BinValues object containing bins and values
+        """
+
+        max_value_threshold = 400_000  # set a threshold for maximum value to avoid outliers in the histogram
+
+        filtered_number_of_regions = [
+            x if x <= max_value_threshold else max_value_threshold + 1
+            for x in number_of_regions
+        ]
+
+        n_region_counts, n_region_bin_edges = np.histogram(
+            filtered_number_of_regions, bins=100
+        )
+        n_region_counts = n_region_counts.astype(int).tolist()
+        n_region_bin_edges = n_region_bin_edges.astype(int).tolist()
+
+        return BinValues(
+            bins=n_region_bin_edges,
+            counts=n_region_counts,
+            mean=statistics.mean(number_of_regions),
+            meadian=statistics.median(number_of_regions),
+        )
+
+    def _bin_mean_region_width(self, mean_region_widths: list) -> BinValues:
+        """
+        Create bins for number of regions in bed files
+
+        :param mean_region_widths: list of mean region widths in bed files
+        :return: BinValues object containing bins and values
+        """
+
+        max_value_threshold = 5_000  # set a threshold for maximum value to avoid outliers in the histogram
+
+        filtered_mean_region_widths = [
+            x if x <= max_value_threshold else max_value_threshold + 1
+            for x in mean_region_widths
+        ]
+
+        mean_reg_width_counts, mean_reg_width_bin_edges = np.histogram(
+            filtered_mean_region_widths, bins=100
+        )
+        mean_reg_width_counts = mean_reg_width_counts.tolist()
+        mean_reg_width_bin_edges = mean_reg_width_bin_edges.tolist()
+
+        return BinValues(
+            bins=mean_reg_width_bin_edges,
+            counts=mean_reg_width_counts,
+            mean=statistics.mean(mean_region_widths),
+            meadian=statistics.median(mean_region_widths),
+        )
+
+    def _bin_file_size(self, list_file_size: list) -> BinValues:
+        """
+        Create bins for number of regions in bed files
+
+        :param list_file_size: list of bed file sizes in bytes
+        :return: BinValues object containing bins and values
+        """
+        max_value_threshold = 10_000_000
+
+        filtered_list_file_size = [
+            x for x in list_file_size if x <= max_value_threshold
+        ]
+
+        file_size_counts, file_size_bin_edges = np.histogram(
+            filtered_list_file_size, bins=100
+        )
+        file_size_counts = file_size_counts.astype(int).tolist()
+        file_size_bin_edges = file_size_bin_edges.astype(int).tolist()
+
+        return BinValues(
+            bins=file_size_bin_edges,
+            counts=file_size_counts,
+            mean=statistics.mean(filtered_list_file_size),
+            meadian=statistics.median(filtered_list_file_size),
         )

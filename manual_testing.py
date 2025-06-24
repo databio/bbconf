@@ -6,6 +6,8 @@ import zarr
 # from dotenv import load_dotenv
 from geniml.io import RegionSet
 from gtars.utils import read_tokens_from_gtok
+import matplotlib.pyplot as plt
+import numpy as np
 
 # from gtars.tokenizers import RegionSet
 
@@ -217,14 +219,89 @@ def compreh_stats():
 
     time1 = time.time()
 
-    results = agent.bed_files_info()
+    results = agent.get_detailed_stats()
 
     time2 = time.time()
     print(time2 - time1)
 
     # results = agent.get_detailed_stats()
     # results = agent.get_detailed_usage()
-    # print(results)
+
+    def plot_file_sizes(file_size_counts, file_size_bin_edges):
+
+        # Plot the histogram
+        plt.figure(figsize=(10, 6))
+        plt.bar(
+            file_size_bin_edges[:-1],
+            file_size_counts,
+            width=np.diff(file_size_bin_edges),
+            edgecolor="black",
+            align="edge",
+        )
+
+        # Add labels and title
+        plt.xlabel("File Size Bin Edges (bytes)")
+        plt.ylabel("Counts")
+        plt.title("Histogram of File Sizes")
+        plt.grid(axis="y", linestyle="--", alpha=0.7)
+
+        # Show the plot
+        plt.show()
+
+    def plot_region_width(mean_reg_width_counts, mean_reg_width_bin_edges):
+
+        # Plot the histogram
+        plt.figure(figsize=(10, 6))
+        plt.bar(
+            mean_reg_width_bin_edges[:-1],
+            mean_reg_width_counts,
+            width=np.diff(mean_reg_width_bin_edges),
+            edgecolor="black",
+            align="edge",
+        )
+
+        # Add labels and title
+        plt.xlabel("Mean Region Width Bin Edges")
+        plt.ylabel("Counts")
+        plt.title("Histogram of Mean Region Widths")
+        plt.grid(axis="y", linestyle="--", alpha=0.7)
+
+        # Show the plot
+        plt.show()
+
+    def plot_number_of_regions(n_region_counts, n_region_bin_edges):
+
+        # Plot the histogram
+        plt.figure(figsize=(10, 6))
+        plt.bar(
+            n_region_bin_edges[:-1],
+            n_region_counts,
+            width=np.diff(n_region_bin_edges),
+            edgecolor="black",
+            align="edge",
+        )
+
+        # Add labels and title
+        plt.xlabel("Region Bin Edges")
+        plt.ylabel("Counts")
+        plt.title("Histogram of Number of Regions")
+        plt.grid(axis="y", linestyle="--", alpha=0.7)
+
+        # Show the plot
+        plt.show()
+
+    plot_file_sizes(
+        results.file_size.counts,
+        results.file_size.bins,
+    )
+    plot_region_width(
+        results.mean_region_width.counts,
+        results.mean_region_width.bins,
+    )
+    plot_number_of_regions(
+        results.number_of_regions.counts,
+        results.number_of_regions.bins,
+    )
 
 
 def get_unprocessed_files():

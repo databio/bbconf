@@ -26,6 +26,13 @@ class StatsReturn(BaseModel):
     genomes_number: int = 0
 
 
+class BinValues(BaseModel):
+    bins: List[Union[int, float, str]]
+    counts: List[int]
+    mean: Optional[float]
+    meadian: Optional[float]
+
+
 class FileStats(BaseModel):
     bed_compliance: Dict[str, int]
     data_format: Dict[str, int]
@@ -33,6 +40,9 @@ class FileStats(BaseModel):
     file_organism: Dict[str, int]
     geo_status: Dict[str, int]
     bed_comments: Dict[str, int]
+    mean_region_width: BinValues
+    file_size: BinValues
+    number_of_regions: BinValues
 
 
 class UsageStats(BaseModel):
