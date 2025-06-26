@@ -6,6 +6,7 @@ from typing import List, Literal, Union
 
 import boto3
 import qdrant_client
+from qdrant_client import QdrantClient, models
 import s3fs
 import yacman
 import zarr
@@ -16,6 +17,7 @@ from geniml.search.backends import BiVectorBackend, QdrantBackend
 from geniml.search.interfaces import BiVectorSearchInterface
 from geniml.search.query2vec import BED2Vec
 from pephubclient import PEPHubClient
+from qdrant_client.http.models import VectorsConfig
 from zarr import Group as Z_GROUP
 
 from bbconf.config_parser.const import (
@@ -60,6 +62,7 @@ class BedBaseConfig(object):
 
         self._qdrant_engine = self._init_qdrant_backend()
         self._qdrant_text_engine = self._init_qdrant_text_backend()
+        self._qdrant_advanced_engine = self._init_qdrant_advanced_backend()
 
         if init_ml:
             self._b2bsi = self._init_b2bsi_object()
@@ -263,6 +266,59 @@ class BedBaseConfig(object):
                 "Error in Connection to qdrant text! skipping...", UserWarning
             )
             return None
+
+    def _init_qdrant_advanced_backend(self) -> QdrantClient:
+        """
+        Create qdrant client text embedding object using credentials provided in config file
+
+        :return: QdrantClient
+        """
+
+        COLLECTION_NAME = "bedbase_query_search"
+        # DIMENTIONS = 1024 # normal: 384
+        DIMENTIONS = 384  # normal: 384
+
+        _LOGGER.info(f"Initializing qdrant text advanced engine...")
+
+        qdrant_cl = QdrantClient(
+            url=self.config.qdrant.host,
+            # port=self.port,
+            api_key=self.config.qdrant.api_key,
+        )
+
+        if not qdrant_cl.collection_exists(COLLECTION_NAME):
+            _LOGGER.info(
+                f"Collection 'bedbase_query_search' does not exist, creating it."
+            )
+            qdrant_cl.create_collection(
+                collection_name=COLLECTION_NAME,
+                vectors_config=models.VectorParams(
+                    size=DIMENTIONS, distance=models.Distance.COSINE
+                ),
+                quantization_config=models.ScalarQuantization(
+                    scalar=models.ScalarQuantizationConfig(
+                        type=models.ScalarType.INT8,
+                        quantile=0.99,
+                        always_ram=True,
+                    ),
+                ),
+            )
+
+        return qdrant_cl
+
+        # # Create collection only if it does not exist
+        # try:
+        #     collection_info = self.qd_client.get_collection(collection_name=self.collection)
+        #     _LOGGER.info(
+        #         f"Using collection {self.collection} with {collection_info.points_count} points."
+        #     )
+        # except Exception:  # qdrant_client.http.exceptions.UnexpectedResponse
+        #     _LOGGER.info(f"Collection {self.collection} does not exist, creating it.")
+        #     self.qd_client.recreate_collection(
+        #         collection_name=self.collection,
+        #         vectors_config=self.config,
+        #         quantization_config=DEFAULT_QUANTIZATION_CONFIG,
+        #     )
 
     def _init_bivec_object(self) -> Union[BiVectorSearchInterface, None]:
         """

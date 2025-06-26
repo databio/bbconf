@@ -17,6 +17,8 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, aliased
 from sqlalchemy.orm.attributes import flag_modified
 from tqdm import tqdm
+from fastembed import TextEmbedding
+from qdrant_client import models
 
 from bbconf.config_parser.bedbaseconfig import BedBaseConfig
 from bbconf.const import DEFAULT_LICENSE, PKG_NAME, ZARR_TOKENIZED_FOLDER
@@ -59,11 +61,14 @@ from bbconf.models.bed_models import (
     TokenizedBedResponse,
     TokenizedPathResponse,
     UniverseMetadata,
+    VectorMetadata,
 )
 
 _LOGGER = getLogger(PKG_NAME)
 
 QDRANT_GENOME = "hg38"
+
+QDRANT_TEXT_SEARCH_COLLECTION = "bedbase_query_search"
 
 
 class BedAgentBedFile:
@@ -84,6 +89,9 @@ class BedAgentBedFile:
         self._boto3_client = config.boto3_client
         self._config = config
         self.bb_agent = bbagent_obj
+
+        self._embedding_model = TextEmbedding(config.config.path.text2vec)
+        # self._embedding_model = TextEmbedding("BAAI/bge-large-en-v1.5")
 
     def get(self, identifier: str, full: bool = False) -> BedMetadataAll:
         """
@@ -1221,6 +1229,7 @@ class BedAgentBedFile:
         self,
         query: str,
         genome: str = None,
+        assay: str = None,
         limit: int = 10,
         offset: int = 0,
     ) -> BedListSearchResult:
@@ -1249,13 +1258,19 @@ class BedAgentBedFile:
             BedMetadata.cell_type.ilike(sql_search_str),
         )
 
+        condition_statement = or_statement
+
         if genome_alias := genome:
             _LOGGER.debug(f"Filtering by genome: {genome_alias}")
 
-            condition_statement = and_(Bed.genome_alias == genome_alias, or_statement)
+            condition_statement = and_(
+                Bed.genome_alias == genome_alias, condition_statement
+            )
 
-        else:
-            condition_statement = or_statement
+        if assay:
+            _LOGGER.debug(f"Filtering by assay: {assay}")
+
+            condition_statement = and_(BedMetadata.assay == assay, condition_statement)
 
         statement = statement.where(condition_statement)
 
@@ -1286,6 +1301,37 @@ class BedAgentBedFile:
             offset=offset,
             results=result_list,
         )
+
+    # def comprehensive_sql_search(
+    #     self,
+    #     query: str,
+    #     genome: str = None,
+    #     assay: str = None,
+    #     bed_compliance: str = None,
+    #     limit: int = 10,
+    #     offset: int = 0,
+    # ) -> BedListSearchResult:
+    #     """
+    #     Comprehensive SQL search for bed files with multiple filters.
+    #
+    #     :param query: text query -looking at: name, description, cell_type, cell_line, tissue, target, treatment.
+    #
+    #     :param genome: genome alias to filter results. Default is None, which means no filtering by genome.
+    #     :param assay: filter by assay type. Default is None, which means no filtering by assay.
+    #     :param bed_compliance: filter by bed compliance type. Default is None, which means no filtering by bed compliance.
+    #     :param limit: number of results to return. Default is 10.
+    #     :param offset: offset to start from
+    #
+    #     :return:
+    #     """
+    #
+    #     query = f"%{query.strip()}%"
+    #     query_search = or_(Bed.name.ilike(query),
+    #                        Bed.description.ilike(query),
+    #                        BedMetadata.cell_type.ilike(query),
+    #                        BedMetadata.cell_line.ilike(query),
+    #                        BedMetadata.tissue.ilike(query),
+    #                        BedMetadata)
 
     def _sql_search_count(self, condition_statement) -> int:
         """
@@ -1853,3 +1899,127 @@ class BedAgentBedFile:
                 flag_modified(bedmetadata_object, "global_experiment_id")
 
             session.commit()
+
+    def _get_search_metadata(self, batch: int = 1000) -> None:
+        """
+        Get metadata for vector database.
+
+        :param batch: number of files to upload in one batch
+
+        :return: metadata for vector database
+        """
+
+        statement = (
+            select(Bed).join(BedMetadata, Bed.id == BedMetadata.id).limit(150000)
+        )
+
+        with Session(self._sa_engine) as session:
+            results = session.scalars(statement)
+
+            points = []
+            results = [result for result in results]
+
+            with tqdm(total=len(results), position=0, leave=True) as pbar:
+                processed_number = 0
+                for result in results:
+                    text = f"{result.name}. {result.description}. {result.annotations.cell_line}. {result.annotations.cell_type}. {result.annotations.tissue}. {result.annotations.target}. {result.annotations.treatment}. {result.annotations.assay}. {result.annotations.species_name}."
+                    embeddings_list = list(self._embedding_model.embed(text))
+                    # result_list.append(
+                    data = VectorMetadata(
+                        id=result.id,
+                        name=result.name,
+                        description=result.description,
+                        genome_alias=result.genome_alias,
+                        genome_digest=result.genome_digest,
+                        cell_line=result.annotations.cell_line,
+                        cell_type=result.annotations.cell_type,
+                        tissue=result.annotations.tissue,
+                        target=result.annotations.target,
+                        treatment=result.annotations.treatment,
+                        assay=result.annotations.assay,
+                        species_name=result.annotations.species_name,
+                    )
+
+                    points.append(
+                        PointStruct(
+                            id=result.id,
+                            vector=list(embeddings_list[0]),
+                            payload=data.model_dump(),
+                        )
+                    )
+
+                    if processed_number % batch == 0:
+                        pbar.set_description(
+                            f"Uploading points to qdrant using batch..."
+                        )
+                        operation_info = self._config._qdrant_advanced_engine.upsert(
+                            collection_name=QDRANT_TEXT_SEARCH_COLLECTION,
+                            points=points,
+                        )
+                        pbar.write("Uploaded batch to qdrant.")
+                        points = []
+                        assert operation_info.status == "completed"
+
+                    pbar.write(f"File: {result.id} successfully indexed.")
+                    pbar.update(1)
+
+        return None
+
+    def comp_search(
+        self,
+        query: str = "liver",
+        genome_alias: str = "",
+        assay: str = "",
+        limit: int = 100,
+        offset: int = 0,
+    ) -> BedListSearchResult:
+        """ """
+
+        should_statement = []
+
+        if genome_alias:
+            should_statement.append(
+                models.FieldCondition(
+                    key="genome_alias",
+                    match=models.MatchValue(value=genome_alias),
+                )
+            )
+        if assay:
+            should_statement.append(
+                models.FieldCondition(
+                    key="assay",
+                    match=models.MatchValue(value=assay),
+                )
+            )
+
+        embeddings_list = list(self._embedding_model.embed(query))[0]
+
+        results = self._config._qdrant_advanced_engine.search(
+            collection_name=QDRANT_TEXT_SEARCH_COLLECTION,
+            query_vector=list(embeddings_list),
+            limit=limit,
+            offset=offset,
+            search_params=models.SearchParams(
+                exact=True,
+            ),
+            query_filter=models.Filter(should=should_statement),
+            with_payload=True,
+            with_vectors=True,
+        )
+        result_list = []
+        for result in results:
+            result_id = result.id.replace("-", "")
+            result_list.append(
+                QdrantSearchResult(
+                    id=result_id,
+                    payload=result.payload,
+                    score=result.score,
+                    metadata=self.get(result_id, full=False),
+                )
+            )
+        return BedListSearchResult(
+            count=self.bb_agent.get_stats().bedfiles_number,
+            limit=limit,
+            offset=offset,
+            results=result_list,
+        )

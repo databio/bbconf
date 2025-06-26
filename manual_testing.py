@@ -8,6 +8,7 @@ from geniml.io import RegionSet
 from gtars.utils import read_tokens_from_gtok
 import matplotlib.pyplot as plt
 import numpy as np
+import time
 
 # from gtars.tokenizers import RegionSet
 
@@ -213,7 +214,6 @@ def config_t():
 
 def compreh_stats():
     from bbconf import BedBaseAgent
-    import time
 
     agent = BedBaseAgent(config="/home/bnt4me/virginia/repos/bedhost/config.yaml")
 
@@ -321,6 +321,19 @@ def get_genomes():
     print(results)
 
 
+def new_search():
+    from bbconf import BedBaseAgent
+
+    agent = BedBaseAgent(config="/home/bnt4me/virginia/repos/bedhost/config.yaml")
+    time1 = time.time()
+
+    results = agent.bed._get_search_metadata()
+    # results = agent.bed.comp_search()
+    time2 = time.time()
+
+    print(f"Time taken: {time2 - time1} seconds")
+
+
 if __name__ == "__main__":
     # zarr_s3()
     # add_s3()
@@ -331,6 +344,7 @@ if __name__ == "__main__":
     # neighbour_beds()
     # sql_search()
     # config_t()
-    compreh_stats()
+    # compreh_stats()
     # get_unprocessed_files()
     # get_genomes()
+    new_search()

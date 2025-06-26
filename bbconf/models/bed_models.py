@@ -257,3 +257,20 @@ class RefGenValidReturnModel(BaseModel):
     id: str
     provided_genome: Union[str, None] = None
     compared_genome: List[RefGenValidModel]
+
+
+class VectorMetadata(BaseModel):
+    id: str
+    name: str
+    description: str
+    cell_line: str
+    cell_type: str
+    tissue: str
+    target: str
+    treatment: str
+    assay: str
+    genome_alias: str
+    genome_digest: Union[str, None] = None
+    species_name: str
+
+    # embedding: List[float]
