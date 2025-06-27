@@ -289,6 +289,22 @@ class BedBaseAgent(object):
             genomes = session.execute(statement).all()
         return [result[0] for result in genomes if result[0]]
 
+    def get_list_assays(self):
+        """
+        Get list of genomes from the database
+
+        :return: list of genomes
+        """
+
+        with Session(self.config.db_engine.engine) as session:
+            statement = (
+                select(BedMetadata.assay)
+                .group_by(BedMetadata.assay)
+                .order_by(func.count(BedMetadata.assay).desc())
+            )
+            results = session.execute(statement).all()
+        return [result[0] for result in results if result[0]]
+
     @cached_property
     def list_of_licenses(self) -> List[str]:
         """

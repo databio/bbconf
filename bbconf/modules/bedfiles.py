@@ -2002,7 +2002,10 @@ class BedAgentBedFile:
             search_params=models.SearchParams(
                 exact=True,
             ),
-            query_filter=models.Filter(should=should_statement),
+            # query_filter=models.Filter(should=should_statement) if should_statement else None,
+            query_filter=(
+                models.Filter(must=should_statement) if should_statement else None
+            ),
             with_payload=True,
             with_vectors=True,
         )

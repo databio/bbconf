@@ -334,6 +334,14 @@ def new_search():
     print(f"Time taken: {time2 - time1} seconds")
 
 
+def get_assay_list():
+    from bbconf import BedBaseAgent
+
+    agent = BedBaseAgent(config="/home/bnt4me/virginia/repos/bedhost/config.yaml")
+    results = agent.get_list_assays()
+    print(results)
+
+
 if __name__ == "__main__":
     # zarr_s3()
     # add_s3()
@@ -347,4 +355,6 @@ if __name__ == "__main__":
     # compreh_stats()
     # get_unprocessed_files()
     # get_genomes()
-    new_search()
+    # new_search()
+
+    get_assay_list()
