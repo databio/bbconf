@@ -85,7 +85,7 @@ class BedPEPHub(BaseModel):
     species_id: str = ""
     cell_type: str = ""
     cell_line: str = ""
-    exp_protocol: str = Field("", description="Experimental protocol (e.g. ChIP-seq)")
+    assay: str = Field("", description="Experimental protocol (e.g. ChIP-seq)")
     library_source: str = Field(
         "", description="Library source (e.g. genomic, transcriptomic)"
     )
@@ -130,7 +130,8 @@ class StandardMeta(BaseModel):
         "", description="Library source (e.g. genomic, transcriptomic)"
     )
     assay: str = Field(
-        "", description="Experimental protocol (e.g. ChIP-seq)", alias="exp_protocol"
+        "",
+        description="Experimental protocol (e.g. ChIP-seq)",
     )
     antibody: str = Field("", description="Antibody used in the assay")
     target: str = Field("", description="Target of the assay (e.g. H3K4me3)")

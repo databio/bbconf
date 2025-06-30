@@ -30,6 +30,7 @@ from bbconf.models.base_models import (
     AllFilesInfo,
     FileInfo,
     BinValues,
+    GEOStatistics,
 )
 from bbconf.modules.bedfiles import BedAgentBedFile
 from bbconf.modules.bedsets import BedAgentBedSet
@@ -110,6 +111,7 @@ class BedBaseAgent(object):
         _LOGGER.info("Getting detailed statistics for all bed files")
 
         with Session(self.config.db_engine.engine) as session:
+
             bed_compliance = {
                 f[0]: f[1]
                 for f in session.execute(
@@ -160,6 +162,8 @@ class BedBaseAgent(object):
         list_mean_width_bins = self._bin_mean_region_width(list_mean_width)
         list_file_size_bins = self._bin_file_size(list_file_size)
 
+        geo_stats = self._get_geo_stats(session)
+
         if concise:
             bed_compliance_concise = dict(list(bed_compliance.items())[0:slice_value])
             bed_compliance_concise["other"] = sum(
@@ -201,6 +205,7 @@ class BedBaseAgent(object):
                 mean_region_width=list_mean_width_bins,
                 file_size=list_file_size_bins,
                 number_of_regions=number_of_regions_bins,
+                geo=geo_stats,
             )
 
         return FileStats(
@@ -213,6 +218,7 @@ class BedBaseAgent(object):
             mean_region_width=list_mean_width_bins,
             file_size=list_file_size_bins,
             number_of_regions=number_of_regions_bins,
+            geo=geo_stats,
         )
 
     def get_detailed_usage(self) -> UsageStats:
@@ -254,6 +260,7 @@ class BedBaseAgent(object):
                     .order_by(func.sum(UsageSearch.count).desc())
                     .limit(20)
                 ).all()
+                if f[0]
             }
 
             bedset_search_terms = {
@@ -265,6 +272,17 @@ class BedBaseAgent(object):
                     .order_by(func.sum(UsageSearch.count).desc())
                     .limit(20)
                 ).all()
+                if f[0]
+            }
+
+            bed_downloads = {
+                f[0].split("/")[-1].split(".")[0]: f[1]
+                for f in session.execute(
+                    select(UsageFiles.file_path, func.sum(UsageFiles.count))
+                    .group_by(UsageFiles.file_path)
+                    .order_by(func.sum(UsageFiles.count).desc())
+                    .limit(20)
+                ).all()
             }
 
         return UsageStats(
@@ -272,6 +290,7 @@ class BedBaseAgent(object):
             bedset_metadata=bedset_metadata,
             bed_search_terms=bed_search_terms,
             bedset_search_terms=bedset_search_terms,
+            bed_downloads=bed_downloads,
         )
 
     def get_list_genomes(self) -> List[str]:
@@ -621,8 +640,8 @@ class BedBaseAgent(object):
         return BinValues(
             bins=n_region_bin_edges,
             counts=n_region_counts,
-            mean=statistics.mean(number_of_regions),
-            meadian=statistics.median(number_of_regions),
+            mean=round(statistics.mean(number_of_regions), 2),
+            median=round(statistics.median(number_of_regions), 2),
         )
 
     def _bin_mean_region_width(self, mean_region_widths: list) -> BinValues:
@@ -649,8 +668,8 @@ class BedBaseAgent(object):
         return BinValues(
             bins=mean_reg_width_bin_edges,
             counts=mean_reg_width_counts,
-            mean=statistics.mean(mean_region_widths),
-            meadian=statistics.median(mean_region_widths),
+            mean=round(statistics.mean(mean_region_widths), 2),
+            median=round(statistics.median(mean_region_widths), 2),
         )
 
     def _bin_file_size(self, list_file_size: list) -> BinValues:
@@ -660,21 +679,78 @@ class BedBaseAgent(object):
         :param list_file_size: list of bed file sizes in bytes
         :return: BinValues object containing bins and values
         """
-        max_value_threshold = 10_000_000
+
+        max_value_threshold = 10 * 1024 * 1024
 
         filtered_list_file_size = [
             x for x in list_file_size if x <= max_value_threshold
         ]
 
+        filtered_list_file_size = [x / (1024 * 1024) for x in filtered_list_file_size]
+
         file_size_counts, file_size_bin_edges = np.histogram(
             filtered_list_file_size, bins=100
         )
         file_size_counts = file_size_counts.astype(int).tolist()
-        file_size_bin_edges = file_size_bin_edges.astype(int).tolist()
+        file_size_bin_edges = file_size_bin_edges.astype(float).tolist()
 
         return BinValues(
             bins=file_size_bin_edges,
             counts=file_size_counts,
-            mean=statistics.mean(filtered_list_file_size),
-            meadian=statistics.median(filtered_list_file_size),
+            mean=round(statistics.mean(filtered_list_file_size), 2),
+            median=round(statistics.median(filtered_list_file_size), 2),
+        )
+
+    def _get_geo_stats(self, sa_session: Session) -> GEOStatistics:
+        """
+        Get GEO statistics for the bedbase platform.
+
+        :return: GEOStatistics
+        """
+
+        _LOGGER.info("Getting GEO statistics.")
+
+        statement = select(
+            GeoGsmStatus.bed_id,
+            GeoGsmStatus.source_submission_date,
+            GeoGsmStatus.file_size,
+        ).distinct(GeoGsmStatus.sample_name)
+
+        results = sa_session.execute(statement).all()
+
+        years = []
+        file_sizes = []
+
+        for result in results:
+            if result[1]:
+                years.append(result[1].year)
+            if result[2]:
+                file_sizes.append(result[2])
+
+        years_array = np.array([y for y in years if y is not None])
+        unique_years, counts = np.unique(years_array, return_counts=True)
+
+        cumulative_counts = np.cumsum(counts)
+        unique_years = unique_years.astype(str).tolist()
+
+        years_cumulative = dict(zip(unique_years, cumulative_counts))
+        years_numbers = dict(zip(unique_years, counts))
+
+        MAX_FILE_SIZE = 50 * 1024 * 1024  # 50 MB
+        file_size_filter = [
+            x if x <= MAX_FILE_SIZE else MAX_FILE_SIZE + 1 for x in file_sizes
+        ]
+
+        file_size_filter = [x / (1024 * 1024) for x in file_size_filter]
+        file_size_counts, file_size_bin_edges = np.histogram(file_size_filter, bins=100)
+
+        return GEOStatistics(
+            number_of_files=years_numbers,
+            cumulative_number_of_files=years_cumulative,
+            file_sizes=BinValues(
+                bins=list(file_size_bin_edges),
+                counts=file_size_counts.astype(int).tolist(),
+                mean=round(statistics.mean(file_sizes), 2),
+                median=round(statistics.median(file_sizes), 2),
+            ),
         )
