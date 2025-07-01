@@ -273,5 +273,7 @@ class VectorMetadata(BaseModel):
     genome_alias: str
     genome_digest: Union[str, None] = None
     species_name: str
-
+    # summary: str
+    # global_sample_id: str
+    # original_file_name: str
     # embedding: List[float]

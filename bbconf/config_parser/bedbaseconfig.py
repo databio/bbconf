@@ -274,15 +274,14 @@ class BedBaseConfig(object):
         :return: QdrantClient
         """
 
-        COLLECTION_NAME = "bedbase_query_search"
-        # DIMENTIONS = 1024 # normal: 384
-        DIMENTIONS = 384  # normal: 384
+        COLLECTION_NAME = self.config.qdrant.search_collection
+        DIMENTIONS = 384
 
         _LOGGER.info(f"Initializing qdrant text advanced engine...")
 
         qdrant_cl = QdrantClient(
             url=self.config.qdrant.host,
-            # port=self.port,
+            port=self.config.qdrant.port,
             api_key=self.config.qdrant.api_key,
         )
 
@@ -302,6 +301,17 @@ class BedBaseConfig(object):
                         always_ram=True,
                     ),
                 ),
+            )
+
+            qdrant_cl.create_payload_index(
+                collection_name=COLLECTION_NAME,
+                field_name="assay",
+                field_schema="keyword",
+            )
+            qdrant_cl.create_payload_index(
+                collection_name=COLLECTION_NAME,
+                field_name="genome_alias",
+                field_schema="keyword",
             )
 
         return qdrant_cl

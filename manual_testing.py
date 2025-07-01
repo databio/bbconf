@@ -329,7 +329,7 @@ def new_search():
     agent = BedBaseAgent(config="/home/bnt4me/virginia/repos/bedhost/config.yaml")
     time1 = time.time()
 
-    results = agent.bed._get_search_metadata()
+    results = agent.bed.reindex_semantic_search()
     # results = agent.bed.comp_search()
     time2 = time.time()
 
@@ -344,6 +344,15 @@ def get_assay_list():
     print(results)
 
 
+def external_search():
+    from bbconf import BedBaseAgent
+
+    agent = BedBaseAgent(config="/home/bnt4me/virginia/repos/bedhost/config.yaml")
+
+    result = agent.bed.search_external_file("geo", "gsm1399546")
+    result
+
+
 if __name__ == "__main__":
     # zarr_s3()
     # add_s3()
@@ -354,9 +363,10 @@ if __name__ == "__main__":
     # neighbour_beds()
     # sql_search()
     # config_t()
-    compreh_stats()
+    # compreh_stats()
     # get_unprocessed_files()
     # get_genomes()
     # new_search()
 
+    external_search()
     # get_assay_list()
