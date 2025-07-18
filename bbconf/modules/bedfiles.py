@@ -804,6 +804,8 @@ class BedAgentBedFile:
             bed_object.processed = processed
             bed_object.indexed = upload_qdrant
             bed_object.last_update_date = datetime.datetime.now(datetime.timezone.utc)
+            if bed_metadata.description:
+                bed_object.description = bed_metadata.description
 
             session.commit()
 
