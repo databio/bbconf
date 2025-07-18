@@ -1206,6 +1206,12 @@ class BedAgentBedFile:
         limit: int = 10,
         offset: int = 0,
     ) -> BedListSearchResult:
+        """
+        Search for bed files by using region set in qdrant database.
+
+
+
+        """
         results = self._config.b2bsi.query_search(
             region_set, limit=limit, offset=offset
         )
@@ -1242,6 +1248,7 @@ class BedAgentBedFile:
 
         :param query: text query
         :param genome: genome alias to filter results
+        :param assay: filter by assay type
         :param limit: number of results to return
         :param offset: offset to start from
 
@@ -1603,6 +1610,7 @@ class BedAgentBedFile:
 
         :return: zarr path
         """
+
         if not self.exist_tokenized(bed_id, universe_id):
             raise TokenizeFileNotExistError("Tokenized file not found in the database.")
         univers_group = self._config.zarr_root.require_group(universe_id)
@@ -1910,7 +1918,7 @@ class BedAgentBedFile:
         :param batch: number of files to upload in one batch
         :param purge: resets indexed in database for all files to False
 
-        :return: metadata for vector database
+        :return: None
         """
 
         # Add column that will indicate if this file is indexed or not
@@ -2114,6 +2122,7 @@ class BedAgentBedFile:
     #
     #     return None
 
+    # TODO: should be renamed
     def comp_search(
         self,
         query: str = "liver",
@@ -2122,7 +2131,18 @@ class BedAgentBedFile:
         limit: int = 100,
         offset: int = 0,
     ) -> BedListSearchResult:
-        """ """
+        """
+        Run semantic search for bed files using qdrant.
+        This is not bivec search, but ususal qdrant search with embeddings.
+
+        :param query: text query to search for
+        :param genome_alias: genome alias to filter results
+        :param assay: filter by assay type
+        :param limit: number of results to return
+        :param offset: offset to start from
+
+        :return: list of bed file metadata
+        """
 
         should_statement = []
 
@@ -2177,7 +2197,15 @@ class BedAgentBedFile:
         )
 
     def search_external_file(self, source: str, accession: str) -> BedListSearchResult:
-        """ """
+        """
+        Search for bed files by external source and accession number.
+        e.g. source='geo', accession='GSE12345'
+
+        :param source: external source, e.g. 'geo' or 'encode'
+        :param accession: accession number, e.g. 'GSE12345' or 'ENCSR12345'
+
+        :return: list of bed file metadata
+        """
         if source not in ["geo", "encode"]:
             raise BedBaseConfError(
                 f"Source {source} is not supported. Supported sources are: 'geo', 'encode'."
