@@ -1949,9 +1949,9 @@ class BedAgentBedFile:
                 processed_number = 0
                 for result in results:
                     text = (
-                        f"{result.name}. {result.description}. {result.annotations.cell_line}. {result.annotations.cell_type}."
+                        f"{result.description}. {result.annotations.cell_line}. {result.annotations.cell_type}."
                         f" {result.annotations.tissue}. {result.annotations.target}. {result.annotations.treatment}. "
-                        f"{result.annotations.assay}. {result.annotations.species_name}."
+                        f"{result.annotations.assay}. {result.name}."
                     )
                     embeddings_list = list(self._embedding_model.embed(text))
                     # result_list.append(
