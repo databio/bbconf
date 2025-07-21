@@ -741,7 +741,7 @@ class BedAgentBedFile:
         bed_metadata = StandardMeta(**metadata if metadata else {})
         classification = BedClassification(**classification if classification else {})
 
-        if upload_pephub:
+        if upload_pephub and metadata:
             metadata = BedPEPHub(**metadata)
             try:
                 self.update_pephub(identifier, metadata.model_dump(), overwrite)
@@ -1171,6 +1171,7 @@ class BedAgentBedFile:
     ) -> BedListSearchResult:
         """
         Search for bed files by text query in qdrant database
+        This is bivec_search
 
         :param query: text query
         :param limit: number of results to return
@@ -1254,6 +1255,7 @@ class BedAgentBedFile:
 
         :return: list of bed file metadata
         """
+
         _LOGGER.debug(f"Looking for: {query}")
 
         statement = select(Bed).join(BedMetadata)
@@ -1949,12 +1951,14 @@ class BedAgentBedFile:
                 processed_number = 0
                 for result in results:
                     text = (
-                        f"{result.description}. {result.annotations.cell_line}. {result.annotations.cell_type}."
-                        f" {result.annotations.tissue}. {result.annotations.target}. {result.annotations.treatment}. "
-                        f"{result.annotations.assay}. {result.name}."
+                        f"biosample is {result.annotations.cell_line} / {result.annotations.cell_type} / "
+                        f"{result.annotations.tissue} with target {result.annotations.target} "
+                        f"assay {result.annotations.assay}."
+                        f"File name {result.name} with summary {result.description}"
                     )
+
                     embeddings_list = list(self._embedding_model.embed(text))
-                    # result_list.append(
+
                     data = VectorMetadata(
                         id=result.id,
                         name=result.name,
