@@ -1136,9 +1136,9 @@ class BedAgentBedFile:
 
     def _embed_file(self, bed_file: Union[str, RegionSet]) -> np.ndarray:
         """
-        Create embeding for bed file
+        Create embedding for bed file
 
-        :param bed_file: bed file path or regionset
+        :param bed_file: bed file path or regionet
         :param bed_file: path to the bed file, or RegionSet object
 
         :return np array of embeddings
@@ -2024,132 +2024,7 @@ class BedAgentBedFile:
 
                 return None
 
-    ###### More metadata
-    # def reindex_semantic_search(self, batch: int = 1000, purge: bool = False) -> None:
-    #     """
-    #     Reindex all bed files for semantic database
-    #
-    #     :param batch: number of files to upload in one batch
-    #     :param purge: resets indexed in database for all files to False
-    #
-    #     :return: metadata for vector database
-    #     """
-    #
-    #     # Add column that will indicate if this file is indexed or not
-    #
-    #     statement = (
-    #         select(
-    #             Bed
-    #                #  Bed.id,
-    #                # Bed.name,
-    #                # Bed.description,
-    #                # Bed.genome_alias,
-    #                # Bed.genome_digest,
-    #                # BedMetadata.assay,
-    #                # BedMetadata.cell_line,
-    #                # BedMetadata.species_name,
-    #                # BedMetadata.cell_type,
-    #                # BedMetadata.antibody,
-    #                # BedMetadata.tissue,
-    #                # BedMetadata.target,
-    #                # BedMetadata.treatment,
-    #                # BedMetadata.original_file_name,
-    #                # BedMetadata.global_sample_id,
-    #                # BedSets.summary,
-    #                 )
-    #         .join(BedMetadata, Bed.id == BedMetadata.id)
-    #         .outerjoin(
-    #             BedFileBedSetRelation, Bed.id == BedFileBedSetRelation.bedfile_id
-    #         )
-    #         .outerjoin(
-    #             BedSets,
-    #             BedSets.id == BedFileBedSetRelation.bedset_id
-    #         ).where(
-    #             and_(
-    #                 BedFileBedSetRelation.bedset_id == BedSets.id,
-    #                 or_(
-    #                     BedSets.summary == None,
-    #                     ~BedSets.summary.ilike("This SuperSeries%"),
-    #                 ),
-    #                 Bed.indexed == False,
-    #             ),
-    #         )
-    #                  .limit(150000)
-    #     )
-    #
-    #     with Session(self._sa_engine) as session:
-    #
-    #         if purge:
-    #             session.query(Bed).update({Bed.indexed: False})
-    #             session.commit()
-    #
-    #         _LOGGER.info("Fetching data from the database ...")
-    #         results = session.scalars(statement)
-    #
-    #         _LOGGER.info("Fetch data successfully!")
-    #
-    #         points = []
-    #         results = [result for result in results]
-    #
-    #         with tqdm(total=len(results), position=0, leave=True) as pbar:
-    #             processed_number = 0
-    #             for result in results:
-    #
-    #                 data = VectorMetadata(
-    #                     id=result.id,
-    #                     name=result.name,
-    #                     description=result.description,
-    #                     genome_alias=result.genome_alias,
-    #                     genome_digest=result.genome_digest,
-    #                     cell_line=result.annotations.cell_line,
-    #                     cell_type=result.annotations.cell_type,
-    #                     tissue=result.annotations.tissue,
-    #                     target=result.annotations.target,
-    #                     treatment=result.annotations.treatment,
-    #                     assay=result.annotations.assay,
-    #                     species_name=result.annotations.species_name,
-    #                     summary=result.bedsets[0].bedset.summary or "" if result.bedsets else "",
-    #                     global_sample_id="; ".join(result.annotations.global_sample_id).replace("geo:", "").replace("encode:", ""),
-    #                     original_file_name=result.annotations.original_file_name,
-    #                     )
-    #
-    # text = (f"{data.id}. {data.description}. {data.name}. {data.cell_line}. {data.cell_type}. "
-    #         f"{data.tissue}. {data.target}. {data.treatment}. {data.assay}. {data.global_sample_id}. "
-    #         f"{data.summary}. {data.original_file_name}")
-    #                 embeddings_list = list(self._embedding_model.embed(text))
-    #
-    #
-    #                 points.append(
-    #                     PointStruct(
-    #                         id=result.id,
-    #                         vector=list(embeddings_list[0]),
-    #                         payload=data.model_dump(exclude={"summary"}),
-    #                     )
-    #                 )
-    #                 processed_number += 1
-    #
-    #                 result.indexed = True
-    #
-    #                 if processed_number % batch == 0:
-    #                     pbar.set_description(
-    #                         f"Uploading points to qdrant using batch..."
-    #                     )
-    #                     operation_info = self._config._qdrant_advanced_engine.upsert(
-    #                         collection_name=self._config.config.qdrant.search_collection,
-    #                         points=points,
-    #                     )
-    #                     session.commit()
-    #                     pbar.write("Uploaded batch to qdrant.")
-    #                     points = []
-    #                     assert operation_info.status == "completed"
-    #
-    #                 pbar.write(f"File: {result.id} successfully indexed.")
-    #                 pbar.update(1)
-    #
-    #     return None
-
-    # TODO: should be renamed
-    def comp_search(
+    def semantic_search(
         self,
         query: str = "liver",
         genome_alias: str = "",
@@ -2160,7 +2035,7 @@ class BedAgentBedFile:
     ) -> BedListSearchResult:
         """
         Run semantic search for bed files using qdrant.
-        This is not bivec search, but ususal qdrant search with embeddings.
+        This is not bivec search, but usual qdrant search with embeddings.
 
         :param query: text query to search for
         :param genome_alias: genome alias to filter results
