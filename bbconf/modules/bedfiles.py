@@ -1167,7 +1167,11 @@ class BedAgentBedFile:
         return bed_embedding.reshape(1, vec_dim)
 
     def text_to_bed_search(
-        self, query: str, limit: int = 10, offset: int = 0
+        self,
+        query: str,
+        limit: int = 10,
+        offset: int = 0,
+        with_metadata: bool = True,
     ) -> BedListSearchResult:
         """
         Search for bed files by text query in qdrant database
@@ -1176,6 +1180,7 @@ class BedAgentBedFile:
         :param query: text query
         :param limit: number of results to return
         :param offset: offset to start from
+        :param with_metadata: if True, will return metadata for each result
 
         :return: list of bed file metadata
         """
@@ -1186,7 +1191,10 @@ class BedAgentBedFile:
         for result in results:
             result_id = result["id"].replace("-", "")
             try:
-                result_meta = self.get(result_id)
+                if with_metadata:
+                    result_meta = self.get(result_id)
+                else:
+                    result_meta = None
             except BEDFileNotFoundError as e:
                 _LOGGER.warning(
                     f"Could not retrieve metadata for bed file: {result_id}. Error: {e}"
@@ -1194,8 +1202,13 @@ class BedAgentBedFile:
                 continue
             if result_meta:
                 results_list.append(QdrantSearchResult(**result, metadata=result_meta))
+
+        if with_metadata:
+            count = self.bb_agent.get_detailed_stats().file_genome.get("hg38", 0)
+        else:
+            count = 0
         return BedListSearchResult(
-            count=self.bb_agent.get_detailed_stats().file_genome.get("hg38", 0),
+            count=count,
             limit=limit,
             offset=offset,
             results=results_list,
@@ -1210,8 +1223,11 @@ class BedAgentBedFile:
         """
         Search for bed files by using region set in qdrant database.
 
+        :param region_set: RegionSet object to search for (bed file)
+        :param limit: number of results to return
+        :param offset: offset to start from
 
-
+        :return: BedListSetResults
         """
         results = self._config.b2bsi.query_search(
             region_set, limit=limit, offset=offset
@@ -1950,6 +1966,12 @@ class BedAgentBedFile:
             with tqdm(total=len(results), position=0, leave=True) as pbar:
                 processed_number = 0
                 for result in results:
+                    # text = (
+                    #     f"{result.description}. {result.annotations.cell_line}. {result.annotations.cell_type}."
+                    #     f" {result.annotations.tissue}. {result.annotations.target}."
+                    #     f"{result.annotations.assay}. {result.name}."
+                    # )
+
                     text = (
                         f"biosample is {result.annotations.cell_line} / {result.annotations.cell_type} / "
                         f"{result.annotations.tissue} with target {result.annotations.target} "
@@ -1958,7 +1980,7 @@ class BedAgentBedFile:
                     )
 
                     embeddings_list = list(self._embedding_model.embed(text))
-
+                    # result_list.append(
                     data = VectorMetadata(
                         id=result.id,
                         name=result.name,
@@ -2134,6 +2156,7 @@ class BedAgentBedFile:
         assay: str = "",
         limit: int = 100,
         offset: int = 0,
+        with_metadata: bool = True,
     ) -> BedListSearchResult:
         """
         Run semantic search for bed files using qdrant.
@@ -2144,6 +2167,7 @@ class BedAgentBedFile:
         :param assay: filter by assay type
         :param limit: number of results to return
         :param offset: offset to start from
+        :param with_metadata: if True, metadata will be returned in the results. Default is True.
 
         :return: list of bed file metadata
         """
@@ -2182,19 +2206,32 @@ class BedAgentBedFile:
             with_payload=True,
             with_vectors=True,
         )
+
         result_list = []
         for result in results:
             result_id = result.id.replace("-", "")
+
+            if with_metadata:
+                metadata = self.get(result_id, full=False)
+            else:
+                metadata = None
+
             result_list.append(
                 QdrantSearchResult(
                     id=result_id,
                     payload=result.payload,
                     score=result.score,
-                    metadata=self.get(result_id, full=False),
+                    metadata=metadata,
                 )
             )
+
+        if with_metadata:
+            count = self.bb_agent.get_stats().bedfiles_number
+        else:
+            count = 0
+
         return BedListSearchResult(
-            count=self.bb_agent.get_stats().bedfiles_number,
+            count=count,
             limit=limit,
             offset=offset,
             results=result_list,
