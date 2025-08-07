@@ -2022,7 +2022,14 @@ class BedAgentBedFile:
                     pbar.write(f"File: {result.id} successfully indexed.")
                     pbar.update(1)
 
-                return None
+            operation_info = self._config._qdrant_advanced_engine.upsert(
+                collection_name=self._config.config.qdrant.search_collection,
+                points=points,
+            )
+            assert operation_info.status == "completed"
+            session.commit()
+
+        return None
 
     def semantic_search(
         self,
