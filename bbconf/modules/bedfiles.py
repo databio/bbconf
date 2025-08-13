@@ -1009,6 +1009,9 @@ class BedAgentBedFile:
 
         _LOGGER.info("Updating reference validation data..")
 
+        for exiting_ref_validation in bed_object.ref_classifier:
+            sa_session.delete(exiting_ref_validation)
+
         for ref_gen_check, data in ref_validation.items():
             new_gen_ref = GenomeRefStats(
                 **RefGenValidModel(
@@ -1200,10 +1203,14 @@ class BedAgentBedFile:
                     f"Could not retrieve metadata for bed file: {result_id}. Error: {e}"
                 )
                 continue
-            results_list.append(QdrantSearchResult(**result, metadata=result_meta if with_metadata else None))
+            results_list.append(
+                QdrantSearchResult(
+                    **result, metadata=result_meta if with_metadata else None
+                )
+            )
 
         if with_metadata:
-            count = 21000 #TODO: This is a placeholder, we need to find a way to get the actual count
+            count = 21000  # TODO: This is a placeholder, we need to find a way to get the actual count
         else:
             count = 0
         return BedListSearchResult(

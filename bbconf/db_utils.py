@@ -141,7 +141,7 @@ class Bed(Base):
     )
     license_mapping: Mapped["License"] = relationship("License", back_populates="bed")
 
-    ref_classifier: Mapped["GenomeRefStats"] = relationship(
+    ref_classifier: Mapped[List["GenomeRefStats"]] = relationship(
         "GenomeRefStats", back_populates="bed", cascade="all, delete-orphan"
     )
     processed: Mapped[bool] = mapped_column(

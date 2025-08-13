@@ -375,6 +375,7 @@ class BedBaseConfig(object):
 
         :return: PephubClient
         """
+
         try:
             _LOGGER.info(f"Initializing PEPHub client...")
             return PEPHubClient()
