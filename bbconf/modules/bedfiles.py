@@ -1200,11 +1200,10 @@ class BedAgentBedFile:
                     f"Could not retrieve metadata for bed file: {result_id}. Error: {e}"
                 )
                 continue
-            if result_meta:
-                results_list.append(QdrantSearchResult(**result, metadata=result_meta))
+            results_list.append(QdrantSearchResult(**result, metadata=result_meta if with_metadata else None))
 
         if with_metadata:
-            count = self.bb_agent.get_detailed_stats().file_genome.get("hg38", 0)
+            count = 21000 #TODO: This is a placeholder, we need to find a way to get the actual count
         else:
             count = 0
         return BedListSearchResult(
