@@ -353,6 +353,13 @@ def external_search():
     result
 
 
+def reindex_files():
+    from bbconf import BedBaseAgent
+
+    agent = BedBaseAgent(config="/home/bnt4me/virginia/repos/bedhost/config.yaml")
+    agent.bed.reindex_qdrant(purge=True, batch=10)
+
+
 if __name__ == "__main__":
     # zarr_s3()
     # add_s3()
@@ -368,5 +375,7 @@ if __name__ == "__main__":
     # get_genomes()
     # new_search()
 
-    external_search()
+    # external_search()
     # get_assay_list()
+
+    reindex_files()

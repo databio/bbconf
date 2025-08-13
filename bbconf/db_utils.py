@@ -101,6 +101,10 @@ class Bed(Base):
     indexed: Mapped[bool] = mapped_column(
         default=False, comment="Whether sample was added to qdrant"
     )
+    file_indexed: Mapped[bool] = mapped_column(
+        default=False,
+        comment="Whether file was tokenized and added to the vector database",
+    )
     pephub: Mapped[bool] = mapped_column(
         default=False, comment="Whether sample was added to pephub"
     )

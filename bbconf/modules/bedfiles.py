@@ -1386,7 +1386,7 @@ class BedAgentBedFile:
             count = session.execute(statement).one()
         return count[0]
 
-    def reindex_qdrant(self, batch: int = 100) -> None:
+    def reindex_qdrant(self, batch: int = 100, purge: bool = False) -> None:
         """
         Re-upload all files to quadrant.
         !Warning: only hg38 genome can be added to qdrant!
@@ -1399,57 +1399,92 @@ class BedAgentBedFile:
         """
         bb_client = BBClient()
 
-        annotation_result = self.get_ids_list(
-            limit=100000, genome=QDRANT_GENOME, offset=0
-        )
+        with Session(self._sa_engine) as session:
+            if purge:
+                _LOGGER.info("Purging indexed files in the database ...")
+                session.query(Bed).update({Bed.file_indexed: False})
+                session.commit()
+                _LOGGER.info("Purged indexed files in the database successfully!")
 
-        if not annotation_result.results:
-            _LOGGER.error("No bed files found.")
-            return None
-        results = annotation_result.results
-
-        with tqdm(total=len(results), position=0, leave=True) as pbar:
-            points_list = []
-            processed_number = 0
-            for record in results:
-                try:
-                    bed_region_set_obj = GRegionSet(bb_client.seek(record.id))
-                except FileNotFoundError:
-                    bed_region_set_obj = bb_client.load_bed(record.id)
-
-                pbar.set_description(f"Processing file: {record.id}")
-
-                file_embedding = self._embed_file(bed_region_set_obj)
-                points_list.append(
-                    PointStruct(
-                        id=record.id,
-                        vector=file_embedding.tolist()[0],
-                        payload=(
-                            record.annotation.model_dump() if record.annotation else {}
-                        ),
-                    )
+            statement = (
+                select(Bed)
+                .join(BedMetadata, Bed.id == BedMetadata.id)
+                .where(
+                    and_(Bed.file_indexed == False, Bed.genome_alias == QDRANT_GENOME)
                 )
-                processed_number += 1
-                if processed_number % batch == 0:
-                    pbar.set_description(f"Uploading points to qdrant using batch...")
-                    operation_info = self._config.qdrant_engine.qd_client.upsert(
-                        collection_name=self._config.config.qdrant.file_collection,
-                        points=points_list,
+                .limit(150000)
+            )
+
+            annotation_results = session.scalars(statement)
+
+            results: List[Bed] = [result for result in annotation_results]
+            if not results:
+                _LOGGER.info("No files to reindex in qdrant.")
+                return None
+
+            with tqdm(total=len(results), position=0, leave=True) as pbar:
+                points_list = []
+                processed_number = 0
+                for record in results:
+                    try:
+                        bed_region_set_obj = GRegionSet(bb_client.seek(record.id))
+                    except FileNotFoundError:
+                        bed_region_set_obj = bb_client.load_bed(record.id)
+
+                    pbar.set_description(f"Processing file: {record.id}")
+
+                    file_embedding = self._embed_file(bed_region_set_obj)
+
+                    bed_metadata = VectorMetadata(
+                        id=record.id,
+                        name=record.name,
+                        description=record.description,
+                        genome_alias=record.genome_alias,
+                        genome_digest=record.genome_digest,
+                        cell_line=record.annotations.cell_line,
+                        cell_type=record.annotations.cell_type,
+                        tissue=record.annotations.tissue,
+                        target=record.annotations.target,
+                        treatment=record.annotations.treatment,
+                        assay=record.annotations.assay,
+                        species_name=record.annotations.species_name,
                     )
-                    pbar.write("Uploaded batch to qdrant.")
-                    points_list = []
-                    assert operation_info.status == "completed"
 
-                pbar.write(f"File: {record.id} successfully indexed.")
-                pbar.update(1)
+                    record.file_indexed = True
 
-        _LOGGER.info(f"Uploading points to qdrant using batches...")
-        operation_info = self._config.qdrant_engine.qd_client.upsert(
-            collection_name=self._config.config.qdrant.file_collection,
-            points=points_list,
-        )
-        assert operation_info.status == "completed"
-        return None
+                    points_list.append(
+                        PointStruct(
+                            id=record.id,
+                            vector=file_embedding.tolist()[0],
+                            payload=(bed_metadata.model_dump()),
+                        )
+                    )
+                    processed_number += 1
+
+                    if processed_number % batch == 0:
+                        pbar.set_description(
+                            f"Uploading points to qdrant using batch..."
+                        )
+                        operation_info = self._config.qdrant_engine.qd_client.upsert(
+                            collection_name=self._config.config.qdrant.file_collection,
+                            points=points_list,
+                        )
+                        pbar.write("Uploaded batch to qdrant.")
+                        points_list = []
+                        assert operation_info.status == "completed"
+
+                        session.commit()
+
+                    pbar.write(f"File: {record.id} successfully indexed.")
+                    pbar.update(1)
+
+            _LOGGER.info(f"Uploading points to qdrant using batches...")
+            operation_info = self._config.qdrant_engine.qd_client.upsert(
+                collection_name=self._config.config.qdrant.file_collection,
+                points=points_list,
+            )
+            assert operation_info.status == "completed"
+            return None
 
     def delete_qdrant_point(self, identifier: str) -> None:
         """
