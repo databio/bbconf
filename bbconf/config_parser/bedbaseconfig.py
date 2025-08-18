@@ -285,6 +285,38 @@ class BedBaseConfig(object):
                 port=self.config.qdrant.port,
                 api_key=self.config.qdrant.api_key,
             )
+
+            if not qdrant_cl.collection_exists(COLLECTION_NAME):
+                _LOGGER.info(
+                    f"Collection 'bedbase_query_search' does not exist, creating it."
+                )
+                qdrant_cl.create_collection(
+                    collection_name=COLLECTION_NAME,
+                    vectors_config=models.VectorParams(
+                        size=DIMENTIONS, distance=models.Distance.COSINE
+                    ),
+                    quantization_config=models.ScalarQuantization(
+                        scalar=models.ScalarQuantizationConfig(
+                            type=models.ScalarType.INT8,
+                            quantile=0.99,
+                            always_ram=True,
+                        ),
+                    ),
+                )
+
+                qdrant_cl.create_payload_index(
+                    collection_name=COLLECTION_NAME,
+                    field_name="assay",
+                    field_schema="keyword",
+                )
+                qdrant_cl.create_payload_index(
+                    collection_name=COLLECTION_NAME,
+                    field_name="genome_alias",
+                    field_schema="keyword",
+                )
+
+            return qdrant_cl
+
         except qdrant_client.http.exceptions.ResponseHandlingException as err:
             _LOGGER.error(
                 f"Error in Connection to qdrant! skipping... Error: {err}. Qdrant host: {self._config.qdrant.host}"
@@ -293,51 +325,6 @@ class BedBaseConfig(object):
                 f"error in Connection to qdrant! skipping... Error: {err}", UserWarning
             )
             return None
-
-        if not qdrant_cl.collection_exists(COLLECTION_NAME):
-            _LOGGER.info(
-                f"Collection 'bedbase_query_search' does not exist, creating it."
-            )
-            qdrant_cl.create_collection(
-                collection_name=COLLECTION_NAME,
-                vectors_config=models.VectorParams(
-                    size=DIMENTIONS, distance=models.Distance.COSINE
-                ),
-                quantization_config=models.ScalarQuantization(
-                    scalar=models.ScalarQuantizationConfig(
-                        type=models.ScalarType.INT8,
-                        quantile=0.99,
-                        always_ram=True,
-                    ),
-                ),
-            )
-
-            qdrant_cl.create_payload_index(
-                collection_name=COLLECTION_NAME,
-                field_name="assay",
-                field_schema="keyword",
-            )
-            qdrant_cl.create_payload_index(
-                collection_name=COLLECTION_NAME,
-                field_name="genome_alias",
-                field_schema="keyword",
-            )
-
-        return qdrant_cl
-
-        # # Create collection only if it does not exist
-        # try:
-        #     collection_info = self.qd_client.get_collection(collection_name=self.collection)
-        #     _LOGGER.info(
-        #         f"Using collection {self.collection} with {collection_info.points_count} points."
-        #     )
-        # except Exception:  # qdrant_client.http.exceptions.UnexpectedResponse
-        #     _LOGGER.info(f"Collection {self.collection} does not exist, creating it.")
-        #     self.qd_client.recreate_collection(
-        #         collection_name=self.collection,
-        #         vectors_config=self.config,
-        #         quantization_config=DEFAULT_QUANTIZATION_CONFIG,
-        #     )
 
     def _init_bivec_object(self) -> Union[BiVectorSearchInterface, None]:
         """
