@@ -267,7 +267,7 @@ class BedBaseConfig(object):
             )
             return None
 
-    def _init_qdrant_advanced_backend(self) -> QdrantClient:
+    def _init_qdrant_advanced_backend(self) -> Union[QdrantClient, None]:
         """
         Create qdrant client text embedding object using credentials provided in config file
 
@@ -279,11 +279,20 @@ class BedBaseConfig(object):
 
         _LOGGER.info(f"Initializing qdrant text advanced engine...")
 
-        qdrant_cl = QdrantClient(
-            url=self.config.qdrant.host,
-            port=self.config.qdrant.port,
-            api_key=self.config.qdrant.api_key,
-        )
+        try:
+            qdrant_cl = QdrantClient(
+                url=self.config.qdrant.host,
+                port=self.config.qdrant.port,
+                api_key=self.config.qdrant.api_key,
+            )
+        except qdrant_client.http.exceptions.ResponseHandlingException as err:
+            _LOGGER.error(
+                f"Error in Connection to qdrant! skipping... Error: {err}. Qdrant host: {self._config.qdrant.host}"
+            )
+            warnings.warn(
+                f"error in Connection to qdrant! skipping... Error: {err}", UserWarning
+            )
+            return None
 
         if not qdrant_cl.collection_exists(COLLECTION_NAME):
             _LOGGER.info(
