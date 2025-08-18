@@ -417,6 +417,23 @@ class License(Base):
     bed: Mapped[List["Bed"]] = relationship("Bed", back_populates="license_mapping")
 
 
+#
+#
+# class ReferenceGenome(Base):
+#     __tablename__ = "reference_genomes"
+#
+#     digest: Mapped[str] = mapped_column(primary_key=True, index=True)
+#     alias: Mapped[str] = mapped_column(
+#         nullable=False, comment="Name of the reference genome"
+#     )
+#
+#     bed_reference: Mapped[List["GenomeRefStats"]] = relationship(
+#         "GenomeRefStats",
+#         back_populates="genome_object",
+#         cascade="all, delete-orphan",
+#     )
+
+
 class GenomeRefStats(Base):
     __tablename__ = "genome_ref_stats"
 
@@ -431,6 +448,9 @@ class GenomeRefStats(Base):
     compared_genome: Mapped[str] = mapped_column(
         nullable=False, comment="Compared Genome"
     )
+    # genome_digest: Mapped[str] = mapped_column(
+    #     ForeignKey("reference_genomes.digest", ondelete="CASCADE"),
+    # )
 
     xs: Mapped[float] = mapped_column(nullable=True, default=None)
     oobr: Mapped[float] = mapped_column(nullable=True, default=None)
@@ -439,6 +459,11 @@ class GenomeRefStats(Base):
     tier_ranking: Mapped[int] = mapped_column(nullable=False)
 
     bed: Mapped["Bed"] = relationship("Bed", back_populates="ref_classifier")
+
+    # genome_object: Mapped["ReferenceGenome"] = relationship(
+    #     "ReferenceGenome",
+    #     back_populates="bed_ref_stats",
+    # )
 
     __table_args__ = (UniqueConstraint("bed_id", "compared_genome"),)
 

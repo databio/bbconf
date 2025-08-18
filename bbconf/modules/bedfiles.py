@@ -478,6 +478,15 @@ class BedAgentBedFile:
 
             result_list = []
 
+            results = [item for item in results]
+
+            if not results:
+                return RefGenValidReturnModel(
+                    id=identifier,
+                    provided_genome=None,
+                    compared_genome=[],
+                )
+
             for result in results:
                 result_list.append(
                     RefGenValidModel(
@@ -1012,6 +1021,8 @@ class BedAgentBedFile:
         for exiting_ref_validation in bed_object.ref_classifier:
             sa_session.delete(exiting_ref_validation)
 
+        sa_session.commit()
+
         for ref_gen_check, data in ref_validation.items():
             new_gen_ref = GenomeRefStats(
                 **RefGenValidModel(
@@ -1021,15 +1032,9 @@ class BedAgentBedFile:
                 ).model_dump(),
                 bed_id=bed_object.id,
             )
-            try:
-                sa_session.add(new_gen_ref)
-                sa_session.commit()
-            except IntegrityError as _:
-                sa_session.rollback()
-                _LOGGER.info(
-                    f"Reference validation exists for BED id: {bed_object.id} and ref_gen_check."
-                )
+            sa_session.add(new_gen_ref)
 
+        sa_session.commit()
         return None
 
     def delete(self, identifier: str) -> None:
