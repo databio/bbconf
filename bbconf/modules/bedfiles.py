@@ -491,7 +491,10 @@ class BedAgentBedFile:
                 result_list.append(
                     RefGenValidModel(
                         provided_genome=result.provided_genome,
-                        compared_genome=result.compared_genome,
+                        compared_genome=(
+                            result.genome_object.alias if result.genome_object else None
+                        ),
+                        genome_digest=result.genome_digest,
                         xs=result.xs,
                         oobr=result.oobr,
                         sequence_fit=result.sequence_fit,
@@ -545,6 +548,7 @@ class BedAgentBedFile:
         :param processed: true if bedfile was processed and statistics and plots were calculated
         :return: None
         """
+
         _LOGGER.info(f"Adding bed file to database. bed_id: {identifier}")
 
         if self.exists(identifier):
@@ -686,6 +690,7 @@ class BedAgentBedFile:
                             **data.model_dump(),
                             provided_genome=classification.genome_alias,
                             compared_genome=ref_gen_check,
+                            genome_digest=ref_gen_check,
                         ).model_dump(),
                         bed_id=identifier,
                     )
@@ -1029,6 +1034,7 @@ class BedAgentBedFile:
                     **data.model_dump(),
                     provided_genome=bed_object.genome_alias,
                     compared_genome=ref_gen_check,
+                    genome_digest=ref_gen_check,
                 ).model_dump(),
                 bed_id=bed_object.id,
             )

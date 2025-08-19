@@ -244,7 +244,8 @@ class TokenizedPathResponse(BaseModel):
 
 class RefGenValidModel(BaseModel):
     provided_genome: str
-    compared_genome: str
+    compared_genome: Union[str, None]
+    genome_digest: Union[str, None]
     xs: float = 0.0
     oobr: Union[float, None] = None
     sequence_fit: Union[float, None] = None
