@@ -1421,7 +1421,9 @@ class BedAgentBedFile:
                 select(Bed)
                 .join(BedMetadata, Bed.id == BedMetadata.id)
                 .where(
-                    and_(Bed.file_indexed == False, Bed.genome_alias == QDRANT_GENOME)
+                    and_(Bed.file_indexed == False, Bed.genome_alias == QDRANT_GENOME,
+                         BedMetadata.global_experiment_id.contains(['encode'] #TODO: delete this line of code
+                                                                   ))
                 )
                 .limit(150000)
             )
