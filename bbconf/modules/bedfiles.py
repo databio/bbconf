@@ -1150,7 +1150,7 @@ class BedAgentBedFile:
         """
         Create embedding for bed file
 
-        :param bed_file: bed file path or regionet
+        :param bed_file: bed file path or region set
         :param bed_file: path to the bed file, or RegionSet object
 
         :return np array of embeddings
@@ -1219,7 +1219,9 @@ class BedAgentBedFile:
             )
 
         if with_metadata:
-            count = 21000  # TODO: This is a placeholder, we need to find a way to get the actual count
+            count = self._config._qdrant_advanced_engine.get_collection(
+                collection_name=self._config.config.qdrant.file_collection
+            ).points_count
         else:
             count = 0
         return BedListSearchResult(
@@ -1989,12 +1991,6 @@ class BedAgentBedFile:
             with tqdm(total=len(results), position=0, leave=True) as pbar:
                 processed_number = 0
                 for result in results:
-                    # text = (
-                    #     f"{result.description}. {result.annotations.cell_line}. {result.annotations.cell_type}."
-                    #     f" {result.annotations.tissue}. {result.annotations.target}."
-                    #     f"{result.annotations.assay}. {result.name}."
-                    # )
-
                     text = (
                         f"biosample is {result.annotations.cell_line} / {result.annotations.cell_type} / "
                         f"{result.annotations.tissue} with target {result.annotations.target} "
