@@ -27,12 +27,10 @@ from bbconf.db_utils import (
     Bed,
     BedMetadata,
     BedStats,
-    BedSets,
     Files,
     GenomeRefStats,
     TokenizedBed,
     Universes,
-    BedFileBedSetRelation,
 )
 from bbconf.exceptions import (
     BedBaseConfError,
@@ -1347,37 +1345,6 @@ class BedAgentBedFile:
             results=result_list,
         )
 
-    # def comprehensive_sql_search(
-    #     self,
-    #     query: str,
-    #     genome: str = None,
-    #     assay: str = None,
-    #     bed_compliance: str = None,
-    #     limit: int = 10,
-    #     offset: int = 0,
-    # ) -> BedListSearchResult:
-    #     """
-    #     Comprehensive SQL search for bed files with multiple filters.
-    #
-    #     :param query: text query -looking at: name, description, cell_type, cell_line, tissue, target, treatment.
-    #
-    #     :param genome: genome alias to filter results. Default is None, which means no filtering by genome.
-    #     :param assay: filter by assay type. Default is None, which means no filtering by assay.
-    #     :param bed_compliance: filter by bed compliance type. Default is None, which means no filtering by bed compliance.
-    #     :param limit: number of results to return. Default is 10.
-    #     :param offset: offset to start from
-    #
-    #     :return:
-    #     """
-    #
-    #     query = f"%{query.strip()}%"
-    #     query_search = or_(Bed.name.ilike(query),
-    #                        Bed.description.ilike(query),
-    #                        BedMetadata.cell_type.ilike(query),
-    #                        BedMetadata.cell_line.ilike(query),
-    #                        BedMetadata.tissue.ilike(query),
-    #                        BedMetadata)
-
     def _sql_search_count(self, condition_statement) -> int:
         """
         Get number of total found files in the database.
@@ -1421,9 +1388,11 @@ class BedAgentBedFile:
                 select(Bed)
                 .join(BedMetadata, Bed.id == BedMetadata.id)
                 .where(
-                    and_(Bed.file_indexed == False, Bed.genome_alias == QDRANT_GENOME,
-                         BedMetadata.global_experiment_id.contains(['encode'] #TODO: delete this line of code
-                                                                   ))
+                    and_(
+                        Bed.file_indexed == False,
+                        Bed.genome_alias == QDRANT_GENOME,
+                        # BedMetadata.global_experiment_id.contains(['encode']) # If we want only encode data
+                    )
                 )
                 .limit(150000)
             )
@@ -1476,7 +1445,7 @@ class BedAgentBedFile:
 
                     if processed_number % batch == 0:
                         pbar.set_description(
-                            f"Uploading points to qdrant using batch..."
+                            "Uploading points to qdrant using batch..."
                         )
                         operation_info = self._config.qdrant_engine.qd_client.upsert(
                             collection_name=self._config.config.qdrant.file_collection,
@@ -1491,7 +1460,7 @@ class BedAgentBedFile:
                     pbar.write(f"File: {record.id} successfully indexed.")
                     pbar.update(1)
 
-            _LOGGER.info(f"Uploading points to qdrant using batches...")
+            _LOGGER.info("Uploading points to qdrant using batches...")
             operation_info = self._config.qdrant_engine.qd_client.upsert(
                 collection_name=self._config.config.qdrant.file_collection,
                 points=points_list,
@@ -2062,7 +2031,7 @@ class BedAgentBedFile:
 
                     if processed_number % batch == 0:
                         pbar.set_description(
-                            f"Uploading points to qdrant using batch..."
+                            "Uploading points to qdrant using batch..."
                         )
                         operation_info = self._config._qdrant_advanced_engine.upsert(
                             collection_name=self._config.config.qdrant.search_collection,

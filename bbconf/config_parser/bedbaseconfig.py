@@ -17,7 +17,6 @@ from geniml.search.backends import BiVectorBackend, QdrantBackend
 from geniml.search.interfaces import BiVectorSearchInterface
 from geniml.search.query2vec import BED2Vec
 from pephubclient import PEPHubClient
-from qdrant_client.http.models import VectorsConfig
 from zarr import Group as Z_GROUP
 
 from bbconf.config_parser.const import (
@@ -70,7 +69,7 @@ class BedBaseConfig(object):
             self._bivec = self._init_bivec_object()
         else:
             _LOGGER.info(
-                f"Skipping initialization of ML models, init_ml parameter set to False."
+                "Skipping initialization of ML models, init_ml parameter set to False."
             )
 
             self._b2bsi = None
@@ -210,7 +209,7 @@ class BedBaseConfig(object):
         Create database engine object using credentials provided in config file
         """
 
-        _LOGGER.info(f"Initializing database engine...")
+        _LOGGER.info("Initializing database engine...")
         return BaseEngine(
             host=self._config.database.host,
             port=self._config.database.port,
@@ -227,7 +226,7 @@ class BedBaseConfig(object):
         :return: QdrantClient
         """
 
-        _LOGGER.info(f"Initializing qdrant engine...")
+        _LOGGER.info("Initializing qdrant engine...")
         try:
             return QdrantBackend(
                 collection=self._config.qdrant.file_collection,
@@ -250,7 +249,7 @@ class BedBaseConfig(object):
         :return: QdrantClient
         """
 
-        _LOGGER.info(f"Initializing qdrant text engine...")
+        _LOGGER.info("Initializing qdrant text engine...")
         try:
             return QdrantBackend(
                 dim=TEXT_EMBEDDING_DIMENSION,
@@ -277,7 +276,7 @@ class BedBaseConfig(object):
         COLLECTION_NAME = self.config.qdrant.search_collection
         DIMENTIONS = 384
 
-        _LOGGER.info(f"Initializing qdrant text advanced engine...")
+        _LOGGER.info("Initializing qdrant text advanced engine...")
 
         try:
             qdrant_cl = QdrantClient(
@@ -288,7 +287,7 @@ class BedBaseConfig(object):
 
             if not qdrant_cl.collection_exists(COLLECTION_NAME):
                 _LOGGER.info(
-                    f"Collection 'bedbase_query_search' does not exist, creating it."
+                    "Collection 'bedbase_query_search' does not exist, creating it."
                 )
                 qdrant_cl.create_collection(
                     collection_name=COLLECTION_NAME,
@@ -333,11 +332,11 @@ class BedBaseConfig(object):
         :return: BiVectorSearchInterface
         """
 
-        _LOGGER.info(f"Initializing BiVectorBackend...")
+        _LOGGER.info("Initializing BiVectorBackend...")
         search_backend = BiVectorBackend(
             metadata_backend=self._qdrant_text_engine, bed_backend=self._qdrant_engine
         )
-        _LOGGER.info(f"Initializing BiVectorSearchInterface...")
+        _LOGGER.info("Initializing BiVectorSearchInterface...")
         search_interface = BiVectorSearchInterface(
             backend=search_backend,
             query2vec=self.config.path.text2vec,
@@ -351,7 +350,7 @@ class BedBaseConfig(object):
         :return: Bed2BEDSearchInterface object
         """
         try:
-            _LOGGER.info(f"Initializing search interfaces...")
+            _LOGGER.info("Initializing search interfaces...")
             return BED2BEDSearchInterface(
                 backend=self.qdrant_engine,
                 query2vec=BED2Vec(model=self._config.path.region2vec),
@@ -373,7 +372,7 @@ class BedBaseConfig(object):
         """
 
         try:
-            _LOGGER.info(f"Initializing PEPHub client...")
+            _LOGGER.info("Initializing PEPHub client...")
             return PEPHubClient()
         except Exception as e:
             _LOGGER.error(f"Error in creating PephubClient object: {e}")
@@ -405,7 +404,7 @@ class BedBaseConfig(object):
         Create Region2VecExModel object using credentials provided in config file
         """
         try:
-            _LOGGER.info(f"Initializing R2V object...")
+            _LOGGER.info("Initializing R2V object...")
             return Region2VecExModel(self.config.path.region2vec)
         except Exception as e:
             _LOGGER.error(f"Error in creating Region2VecExModel object: {e}")
