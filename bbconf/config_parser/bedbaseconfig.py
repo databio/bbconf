@@ -274,7 +274,7 @@ class BedBaseConfig(object):
         """
 
         COLLECTION_NAME = self.config.qdrant.search_collection
-        DIMENTIONS = 384
+        DIMENSIONS = 384
 
         _LOGGER.info("Initializing qdrant text advanced engine...")
 
@@ -292,7 +292,7 @@ class BedBaseConfig(object):
                 qdrant_cl.create_collection(
                     collection_name=COLLECTION_NAME,
                     vectors_config=models.VectorParams(
-                        size=DIMENTIONS, distance=models.Distance.COSINE
+                        size=DIMENSIONS, distance=models.Distance.COSINE
                     ),
                     quantization_config=models.ScalarQuantization(
                         scalar=models.ScalarQuantizationConfig(
