@@ -371,13 +371,14 @@ class BedBaseConfig(object):
         :return: PephubClient
         """
 
-        try:
-            _LOGGER.info("Initializing PEPHub client...")
-            return PEPHubClient()
-        except Exception as e:
-            _LOGGER.error(f"Error in creating PephubClient object: {e}")
-            warnings.warn(f"Error in creating PephubClient object: {e}", UserWarning)
-            return None
+        # try:
+        #     _LOGGER.info("Initializing PEPHub client...")
+        #     return PEPHubClient()
+        # except Exception as e:
+        #     _LOGGER.error(f"Error in creating PephubClient object: {e}")
+        #     warnings.warn(f"Error in creating PephubClient object: {e}", UserWarning)
+        #     return None
+        return None
 
     def _init_boto3_client(
         self,

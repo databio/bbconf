@@ -682,17 +682,25 @@ class BedAgentBedFile:
             session.add(new_metadata)
 
             if ref_validation:
-                for ref_gen_check, data in ref_validation.items():
-                    new_gen_ref = GenomeRefStats(
-                        **RefGenValidModel(
-                            **data.model_dump(),
-                            provided_genome=classification.genome_alias,
-                            compared_genome=ref_gen_check,
-                            genome_digest=ref_gen_check,
-                        ).model_dump(),
-                        bed_id=identifier,
-                    )
-                    session.add(new_gen_ref)
+
+                new_gen_refs = self._create_ref_validation_models(
+                    ref_validation=ref_validation,
+                    bed_id=identifier,
+                    provided_genome=classification.genome_alias,
+                )
+                session.add_all(new_gen_refs)
+
+                # for ref_gen_check, data in ref_validation.items():
+                #     new_gen_ref = GenomeRefStats(
+                #         **RefGenValidModel(
+                #             **data.model_dump(),
+                #             provided_genome=classification.genome_alias,
+                #             compared_genome=ref_gen_check,
+                #             genome_digest=ref_gen_check,
+                #         ).model_dump(),
+                #         bed_id=identifier,
+                #     )
+                #     session.add(new_gen_ref)
             session.commit()
 
         return None
@@ -707,13 +715,13 @@ class BedAgentBedFile:
         classification: Union[dict, None] = None,
         ref_validation: Union[Dict[str, BaseModel], None] = None,
         license_id: str = DEFAULT_LICENSE,
-        upload_qdrant: bool = True,
-        upload_pephub: bool = True,
+        upload_qdrant: bool = False,
+        upload_pephub: bool = False,
         upload_s3: bool = True,
         local_path: str = None,
         overwrite: bool = False,
         nofail: bool = False,
-        processed: bool = True,
+        processed: bool = False,
     ) -> None:
         """
         Update bed file to the database.
@@ -810,7 +818,10 @@ class BedAgentBedFile:
                 )
 
             self._update_ref_validation(
-                sa_session=session, bed_object=bed_object, ref_validation=ref_validation
+                sa_session=session,
+                bed_id=identifier,
+                ref_validation=ref_validation,
+                provided_genome=bed_object.genome_alias or "",
             )
 
             bed_object.processed = processed
@@ -1002,9 +1013,12 @@ class BedAgentBedFile:
                         f"File with name: {v.name} already exists. Updating.."
                     )
 
-    @staticmethod
     def _update_ref_validation(
-        sa_session: Session, bed_object: Bed, ref_validation: Dict[str, BaseModel]
+        self,
+        sa_session: Session,
+        bed_id: str,
+        ref_validation: Dict[str, BaseModel],
+        provided_genome: str = "",
     ) -> None:
         """
         Update reference validation data
@@ -1012,34 +1026,57 @@ class BedAgentBedFile:
         ! This function won't update the reference validation data, if it exists, it will skip it.
 
         :param sa_session: sqlalchemy session
-        :param bed_object: bed sqlalchemy object
+        :param bed_id: bed sqlalchemy object
         :param ref_validation: bed file metadata
+        :param provided_genome: genome reference that was provided by user
         """
 
         if not ref_validation:
             return None
 
-        _LOGGER.info("Updating reference validation data..")
+        sa_session.execute(
+            delete(GenomeRefStats).where(GenomeRefStats.bed_id == bed_id)
+        )
 
-        for exiting_ref_validation in bed_object.ref_classifier:
-            sa_session.delete(exiting_ref_validation)
+        new_gen_refs = self._create_ref_validation_models(
+            ref_validation=ref_validation,
+            bed_id=bed_id,
+            provided_genome=provided_genome,
+        )
+        sa_session.add_all(new_gen_refs)
 
+        # One commit for both deletes and inserts
         sa_session.commit()
 
-        for ref_gen_check, data in ref_validation.items():
-            new_gen_ref = GenomeRefStats(
+        return None
+
+    def _create_ref_validation_models(
+        self,
+        ref_validation: Dict[str, BaseModel],
+        bed_id: str,
+        provided_genome: str = None,
+    ) -> list[GenomeRefStats]:
+
+        compatibility = {}
+
+        for k, v in ref_validation.items():
+            if v.tier_ranking < 4:
+                compatibility[k] = v
+
+        # Add all new GenomeRefStats objects in one go
+        new_gen_refs: list[GenomeRefStats] = [
+            GenomeRefStats(
                 **RefGenValidModel(
                     **data.model_dump(),
-                    provided_genome=bed_object.genome_alias,
+                    provided_genome=provided_genome,
                     compared_genome=ref_gen_check,
                     genome_digest=ref_gen_check,
                 ).model_dump(),
-                bed_id=bed_object.id,
+                bed_id=bed_id,
             )
-            sa_session.add(new_gen_ref)
-
-        sa_session.commit()
-        return None
+            for ref_gen_check, data in compatibility.items()
+        ]
+        return new_gen_refs
 
     def delete(self, identifier: str) -> None:
         """
