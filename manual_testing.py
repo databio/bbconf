@@ -219,9 +219,9 @@ def compreh_stats():
 
     time1 = time.time()
 
-    # results = agent.get_detailed_stats()
+    results = agent.get_detailed_stats(concise=True)
 
-    results = agent.get_detailed_usage()
+    # results = agent.get_detailed_usage()
 
     time2 = time.time()
     print(time2 - time1)
@@ -370,7 +370,7 @@ if __name__ == "__main__":
     # neighbour_beds()
     # sql_search()
     # config_t()
-    # compreh_stats()
+    compreh_stats()
     # get_unprocessed_files()
     # get_genomes()
     # new_search()
@@ -378,4 +378,4 @@ if __name__ == "__main__":
     # external_search()
     # get_assay_list()
 
-    reindex_files()
+    # reindex_files()

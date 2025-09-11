@@ -146,6 +146,14 @@ class BedBaseAgent(object):
                     .order_by(func.count(BedMetadata.species_name).desc())
                 ).all()
             }
+            file_assay = {
+                f[0]: f[1]
+                for f in session.execute(
+                    select(BedMetadata.assay, func.count(BedMetadata.assay))
+                    .group_by(BedMetadata.assay)
+                    .order_by(func.count(BedMetadata.assay).desc())
+                ).all()
+            }
 
         slice_value = 20
 
@@ -194,12 +202,27 @@ class BedBaseAgent(object):
                     file_organism_concise["other"] + file_organism_concise[""]
                 )
                 file_organism_concise.pop("")
+            file_assay_concise = dict(list(file_assay.items())[0:slice_value])
+            file_assay_concise["other"] = sum(
+                list(file_assay.values())[slice_value:]
+            ) + file_assay.get("other", 0)
+            if "" in file_assay_concise:
+                file_assay_concise["other"] = (
+                    file_assay_concise["other"] + file_assay_concise[""]
+                )
+                file_assay_concise.pop("")
+            if "OTHER" in file_assay_concise:
+                file_assay_concise["other"] = (
+                    file_assay_concise["other"] + file_assay_concise["OTHER"]
+                )
+                file_assay_concise.pop("OTHER")
 
             return FileStats(
                 data_format=data_format,
                 bed_compliance=bed_compliance_concise,
                 file_genome=file_genomes_concise,
                 file_organism=file_organism_concise,
+                file_assay=file_assay_concise,
                 bed_comments=bed_comments,
                 geo_status=geo_status,
                 mean_region_width=list_mean_width_bins,
@@ -213,6 +236,7 @@ class BedBaseAgent(object):
             bed_compliance=bed_compliance,
             file_genome=file_genomes,
             file_organism=file_organism,
+            file_assay=file_assay,
             bed_comments=bed_comments,
             geo_status=geo_status,
             mean_region_width=list_mean_width_bins,
