@@ -6,6 +6,9 @@ import zarr
 # from dotenv import load_dotenv
 from geniml.io import RegionSet
 from gtars.utils import read_tokens_from_gtok
+import matplotlib.pyplot as plt
+import numpy as np
+import time
 
 # from gtars.tokenizers import RegionSet
 
@@ -213,9 +216,94 @@ def compreh_stats():
     from bbconf import BedBaseAgent
 
     agent = BedBaseAgent(config="/home/bnt4me/virginia/repos/bedhost/config.yaml")
-    results = agent.get_detailed_stats()
-    results = agent.get_detailed_usage()
-    print(results)
+
+    time1 = time.time()
+
+    results = agent.get_detailed_stats(concise=True)
+
+    # results = agent.get_detailed_usage()
+
+    time2 = time.time()
+    print(time2 - time1)
+
+    # results = agent.get_detailed_stats()
+    # results = agent.get_detailed_usage()
+
+    def plot_file_sizes(file_size_counts, file_size_bin_edges):
+
+        # Plot the histogram
+        plt.figure(figsize=(10, 6))
+        plt.bar(
+            file_size_bin_edges[:-1],
+            file_size_counts,
+            width=np.diff(file_size_bin_edges),
+            edgecolor="black",
+            align="edge",
+        )
+
+        # Add labels and title
+        plt.xlabel("File Size Bin Edges (bytes)")
+        plt.ylabel("Counts")
+        plt.title("Histogram of File Sizes")
+        plt.grid(axis="y", linestyle="--", alpha=0.7)
+
+        # Show the plot
+        plt.show()
+
+    def plot_region_width(mean_reg_width_counts, mean_reg_width_bin_edges):
+
+        # Plot the histogram
+        plt.figure(figsize=(10, 6))
+        plt.bar(
+            mean_reg_width_bin_edges[:-1],
+            mean_reg_width_counts,
+            width=np.diff(mean_reg_width_bin_edges),
+            edgecolor="black",
+            align="edge",
+        )
+
+        # Add labels and title
+        plt.xlabel("Mean Region Width Bin Edges")
+        plt.ylabel("Counts")
+        plt.title("Histogram of Mean Region Widths")
+        plt.grid(axis="y", linestyle="--", alpha=0.7)
+
+        # Show the plot
+        plt.show()
+
+    def plot_number_of_regions(n_region_counts, n_region_bin_edges):
+
+        # Plot the histogram
+        plt.figure(figsize=(10, 6))
+        plt.bar(
+            n_region_bin_edges[:-1],
+            n_region_counts,
+            width=np.diff(n_region_bin_edges),
+            edgecolor="black",
+            align="edge",
+        )
+
+        # Add labels and title
+        plt.xlabel("Region Bin Edges")
+        plt.ylabel("Counts")
+        plt.title("Histogram of Number of Regions")
+        plt.grid(axis="y", linestyle="--", alpha=0.7)
+
+        # Show the plot
+        plt.show()
+
+    plot_file_sizes(
+        results.file_size.counts,
+        results.file_size.bins,
+    )
+    plot_region_width(
+        results.mean_region_width.counts,
+        results.mean_region_width.bins,
+    )
+    plot_number_of_regions(
+        results.number_of_regions.counts,
+        results.number_of_regions.bins,
+    )
 
 
 def get_unprocessed_files():
@@ -235,6 +323,43 @@ def get_genomes():
     print(results)
 
 
+def new_search():
+    from bbconf import BedBaseAgent
+
+    agent = BedBaseAgent(config="/home/bnt4me/virginia/repos/bedhost/config.yaml")
+    time1 = time.time()
+
+    results = agent.bed.reindex_semantic_search()
+    # results = agent.bed.comp_search()
+    time2 = time.time()
+
+    print(f"Time taken: {time2 - time1} seconds")
+
+
+def get_assay_list():
+    from bbconf import BedBaseAgent
+
+    agent = BedBaseAgent(config="/home/bnt4me/virginia/repos/bedhost/config.yaml")
+    results = agent.get_list_assays()
+    print(results)
+
+
+def external_search():
+    from bbconf import BedBaseAgent
+
+    agent = BedBaseAgent(config="/home/bnt4me/virginia/repos/bedhost/config.yaml")
+
+    result = agent.bed.search_external_file("geo", "gsm1399546")
+    result
+
+
+def reindex_files():
+    from bbconf import BedBaseAgent
+
+    agent = BedBaseAgent(config="/home/bnt4me/virginia/repos/bedhost/config.yaml")
+    agent.bed.reindex_qdrant(purge=True, batch=10)
+
+
 if __name__ == "__main__":
     # zarr_s3()
     # add_s3()
@@ -243,8 +368,14 @@ if __name__ == "__main__":
     # get_pep()
     # get_id_plots_missing()
     # neighbour_beds()
-    sql_search()
+    # sql_search()
     # config_t()
-    # compreh_stats()
+    compreh_stats()
     # get_unprocessed_files()
     # get_genomes()
+    # new_search()
+
+    # external_search()
+    # get_assay_list()
+
+    # reindex_files()

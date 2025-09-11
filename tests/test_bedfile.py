@@ -58,7 +58,9 @@ class Test_BedFile_Agent:
             assert return_result is not None
             assert return_result.files is not None
             assert return_result.plots is not None
-            assert return_result.raw_metadata is not None
+
+            # TODO: PEPhub is disabled
+            # assert return_result.raw_metadata is not None
 
             assert return_result.genome_alias == "hg38"
             assert return_result.stats.number_of_regions == 1
@@ -80,6 +82,9 @@ class Test_BedFile_Agent:
             assert return_result.genome_alias == "hg38"
             assert return_result.id == BED_TEST_ID
 
+    @pytest.mark.skip(
+        "Skipped, because PHC is disabled"
+    )  # TODO: should we disable PHC everywhere?
     def test_get_raw_metadata(self, bbagent_obj, mocked_phc):
         with ContextManagerDBTesting(config=bbagent_obj.config, add_data=True):
             return_result = bbagent_obj.bed.get_raw_metadata(BED_TEST_ID)

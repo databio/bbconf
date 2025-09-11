@@ -85,7 +85,7 @@ class BedPEPHub(BaseModel):
     species_id: str = ""
     cell_type: str = ""
     cell_line: str = ""
-    exp_protocol: str = Field("", description="Experimental protocol (e.g. ChIP-seq)")
+    assay: str = Field("", description="Experimental protocol (e.g. ChIP-seq)")
     library_source: str = Field(
         "", description="Library source (e.g. genomic, transcriptomic)"
     )
@@ -130,7 +130,8 @@ class StandardMeta(BaseModel):
         "", description="Library source (e.g. genomic, transcriptomic)"
     )
     assay: str = Field(
-        "", description="Experimental protocol (e.g. ChIP-seq)", alias="exp_protocol"
+        "",
+        description="Experimental protocol (e.g. ChIP-seq)",
     )
     antibody: str = Field("", description="Antibody used in the assay")
     target: str = Field("", description="Target of the assay (e.g. H3K4me3)")
@@ -243,7 +244,8 @@ class TokenizedPathResponse(BaseModel):
 
 class RefGenValidModel(BaseModel):
     provided_genome: str
-    compared_genome: str
+    compared_genome: Union[str, None]
+    genome_digest: Union[str, None]
     xs: float = 0.0
     oobr: Union[float, None] = None
     sequence_fit: Union[float, None] = None
@@ -257,3 +259,22 @@ class RefGenValidReturnModel(BaseModel):
     id: str
     provided_genome: Union[str, None] = None
     compared_genome: List[RefGenValidModel]
+
+
+class VectorMetadata(BaseModel):
+    id: str
+    name: str
+    description: str
+    cell_line: str
+    cell_type: str
+    tissue: str
+    target: str
+    treatment: str
+    assay: str
+    genome_alias: str
+    genome_digest: Union[str, None] = None
+    species_name: str
+    # summary: str
+    # global_sample_id: str
+    # original_file_name: str
+    # embedding: List[float]

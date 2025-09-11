@@ -26,19 +26,13 @@ class StatsReturn(BaseModel):
     genomes_number: int = 0
 
 
-class FileStats(BaseModel):
-    bed_compliance: Dict[str, int]
-    data_format: Dict[str, int]
-    file_genome: Dict[str, int]
-    file_organism: Dict[str, int]
-
-
 class UsageStats(BaseModel):
     # file_downloads: Dict[str, int]   # Placeholder for tracking file download statistics in the future.
     bed_metadata: Dict[str, int]
     bedset_metadata: Dict[str, int]
     bed_search_terms: Dict[str, int]
     bedset_search_terms: Dict[str, int]
+    bed_downloads: Dict[str, int]
 
 
 class UsageModel(BaseModel):
@@ -55,3 +49,57 @@ class UsageModel(BaseModel):
 
     date_from: datetime.datetime
     date_to: Union[datetime.datetime, None] = None
+
+
+class FileInfo(BaseModel):
+    """
+    Main information about a file used for BEDbase verse statistics.
+    """
+
+    id: str
+    bed_compliance: str
+    data_format: str
+    mean_region_width: float
+    file_size: int
+    number_of_regions: int
+
+
+class AllFilesInfo(BaseModel):
+    """
+    Information about all files. e.g. file sizes, mean region width, etc.
+
+    """
+
+    total: int
+    files: List[FileInfo]
+
+
+class BinValues(BaseModel):
+    bins: List[Union[int, float, str]]
+    counts: List[int]
+    mean: float
+    median: float
+
+
+class GEOStatistics(BaseModel):
+    """
+    GEO statistics for files.
+    """
+
+    number_of_files: Dict[str, int]
+    cumulative_number_of_files: Dict[str, int]
+    file_sizes: BinValues
+
+
+class FileStats(BaseModel):
+    bed_compliance: Dict[str, int]
+    data_format: Dict[str, int]
+    file_genome: Dict[str, int]
+    file_organism: Dict[str, int]
+    file_assay: Dict[str, int]
+    geo_status: Dict[str, int]
+    bed_comments: Dict[str, int]
+    mean_region_width: BinValues
+    file_size: BinValues
+    number_of_regions: BinValues
+    geo: GEOStatistics

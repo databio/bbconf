@@ -21,6 +21,7 @@ from bbconf.config_parser.const import (  # DEFAULT_VEC2VEC_MODEL,
     DEFAULT_SERVER_HOST,
     DEFAULT_SERVER_PORT,
     DEFAULT_TEXT2VEC_MODEL,
+    DEFAULT_QDRANT_SEARCH_COLLECTION_NAME,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -54,6 +55,7 @@ class ConfigQdrant(BaseModel):
     api_key: Optional[str] = None
     file_collection: str = DEFAULT_QDRANT_COLLECTION_NAME
     text_collection: Optional[str] = DEFAULT_QDRANT_TEXT_COLLECTION_NAME
+    search_collection: Optional[str] = DEFAULT_QDRANT_SEARCH_COLLECTION_NAME
 
 
 class ConfigServer(BaseModel):

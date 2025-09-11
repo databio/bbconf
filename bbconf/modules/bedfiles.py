@@ -12,11 +12,14 @@ from pephubclient.exceptions import ResponseError
 from pydantic import BaseModel
 from qdrant_client.http.models import PointStruct
 from qdrant_client.models import Distance, PointIdsList, VectorParams
-from sqlalchemy import and_, delete, func, or_, select
+from sqlalchemy import and_, delete, func, or_, select, cast
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, aliased
 from sqlalchemy.orm.attributes import flag_modified
+from sqlalchemy.dialects import postgresql
 from tqdm import tqdm
+from fastembed import TextEmbedding
+from qdrant_client import models
 
 from bbconf.config_parser.bedbaseconfig import BedBaseConfig
 from bbconf.const import DEFAULT_LICENSE, PKG_NAME, ZARR_TOKENIZED_FOLDER
@@ -59,6 +62,7 @@ from bbconf.models.bed_models import (
     TokenizedBedResponse,
     TokenizedPathResponse,
     UniverseMetadata,
+    VectorMetadata,
 )
 
 _LOGGER = getLogger(PKG_NAME)
@@ -84,6 +88,9 @@ class BedAgentBedFile:
         self._boto3_client = config.boto3_client
         self._config = config
         self.bb_agent = bbagent_obj
+
+        self._embedding_model = TextEmbedding(config.config.path.text2vec)
+        # self._embedding_model = TextEmbedding("BAAI/bge-large-en-v1.5")
 
     def get(self, identifier: str, full: bool = False) -> BedMetadataAll:
         """
@@ -469,11 +476,23 @@ class BedAgentBedFile:
 
             result_list = []
 
+            results = [item for item in results]
+
+            if not results:
+                return RefGenValidReturnModel(
+                    id=identifier,
+                    provided_genome=None,
+                    compared_genome=[],
+                )
+
             for result in results:
                 result_list.append(
                     RefGenValidModel(
                         provided_genome=result.provided_genome,
-                        compared_genome=result.compared_genome,
+                        compared_genome=(
+                            result.genome_object.alias if result.genome_object else None
+                        ),
+                        genome_digest=result.genome_digest,
                         xs=result.xs,
                         oobr=result.oobr,
                         sequence_fit=result.sequence_fit,
@@ -527,6 +546,7 @@ class BedAgentBedFile:
         :param processed: true if bedfile was processed and statistics and plots were calculated
         :return: None
         """
+
         _LOGGER.info(f"Adding bed file to database. bed_id: {identifier}")
 
         if self.exists(identifier):
@@ -662,16 +682,25 @@ class BedAgentBedFile:
             session.add(new_metadata)
 
             if ref_validation:
-                for ref_gen_check, data in ref_validation.items():
-                    new_gen_ref = GenomeRefStats(
-                        **RefGenValidModel(
-                            **data.model_dump(),
-                            provided_genome=classification.genome_alias,
-                            compared_genome=ref_gen_check,
-                        ).model_dump(),
-                        bed_id=identifier,
-                    )
-                    session.add(new_gen_ref)
+
+                new_gen_refs = self._create_ref_validation_models(
+                    ref_validation=ref_validation,
+                    bed_id=identifier,
+                    provided_genome=classification.genome_alias,
+                )
+                session.add_all(new_gen_refs)
+
+                # for ref_gen_check, data in ref_validation.items():
+                #     new_gen_ref = GenomeRefStats(
+                #         **RefGenValidModel(
+                #             **data.model_dump(),
+                #             provided_genome=classification.genome_alias,
+                #             compared_genome=ref_gen_check,
+                #             genome_digest=ref_gen_check,
+                #         ).model_dump(),
+                #         bed_id=identifier,
+                #     )
+                #     session.add(new_gen_ref)
             session.commit()
 
         return None
@@ -686,13 +715,13 @@ class BedAgentBedFile:
         classification: Union[dict, None] = None,
         ref_validation: Union[Dict[str, BaseModel], None] = None,
         license_id: str = DEFAULT_LICENSE,
-        upload_qdrant: bool = True,
-        upload_pephub: bool = True,
+        upload_qdrant: bool = False,
+        upload_pephub: bool = False,
         upload_s3: bool = True,
         local_path: str = None,
         overwrite: bool = False,
         nofail: bool = False,
-        processed: bool = True,
+        processed: bool = False,
     ) -> None:
         """
         Update bed file to the database.
@@ -732,7 +761,7 @@ class BedAgentBedFile:
         bed_metadata = StandardMeta(**metadata if metadata else {})
         classification = BedClassification(**classification if classification else {})
 
-        if upload_pephub:
+        if upload_pephub and metadata:
             metadata = BedPEPHub(**metadata)
             try:
                 self.update_pephub(identifier, metadata.model_dump(), overwrite)
@@ -789,12 +818,17 @@ class BedAgentBedFile:
                 )
 
             self._update_ref_validation(
-                sa_session=session, bed_object=bed_object, ref_validation=ref_validation
+                sa_session=session,
+                bed_id=identifier,
+                ref_validation=ref_validation,
+                provided_genome=bed_object.genome_alias or "",
             )
 
             bed_object.processed = processed
             bed_object.indexed = upload_qdrant
             bed_object.last_update_date = datetime.datetime.now(datetime.timezone.utc)
+            if bed_metadata.description:
+                bed_object.description = bed_metadata.description
 
             session.commit()
 
@@ -979,9 +1013,12 @@ class BedAgentBedFile:
                         f"File with name: {v.name} already exists. Updating.."
                     )
 
-    @staticmethod
     def _update_ref_validation(
-        sa_session: Session, bed_object: Bed, ref_validation: Dict[str, BaseModel]
+        self,
+        sa_session: Session,
+        bed_id: str,
+        ref_validation: Dict[str, BaseModel],
+        provided_genome: str = "",
     ) -> None:
         """
         Update reference validation data
@@ -989,34 +1026,57 @@ class BedAgentBedFile:
         ! This function won't update the reference validation data, if it exists, it will skip it.
 
         :param sa_session: sqlalchemy session
-        :param bed_object: bed sqlalchemy object
+        :param bed_id: bed sqlalchemy object
         :param ref_validation: bed file metadata
+        :param provided_genome: genome reference that was provided by user
         """
 
         if not ref_validation:
             return None
 
-        _LOGGER.info("Updating reference validation data..")
+        sa_session.execute(
+            delete(GenomeRefStats).where(GenomeRefStats.bed_id == bed_id)
+        )
 
-        for ref_gen_check, data in ref_validation.items():
-            new_gen_ref = GenomeRefStats(
-                **RefGenValidModel(
-                    **data.model_dump(),
-                    provided_genome=bed_object.genome_alias,
-                    compared_genome=ref_gen_check,
-                ).model_dump(),
-                bed_id=bed_object.id,
-            )
-            try:
-                sa_session.add(new_gen_ref)
-                sa_session.commit()
-            except IntegrityError as _:
-                sa_session.rollback()
-                _LOGGER.info(
-                    f"Reference validation exists for BED id: {bed_object.id} and ref_gen_check."
-                )
+        new_gen_refs = self._create_ref_validation_models(
+            ref_validation=ref_validation,
+            bed_id=bed_id,
+            provided_genome=provided_genome,
+        )
+        sa_session.add_all(new_gen_refs)
+
+        # One commit for both deletes and inserts
+        sa_session.commit()
 
         return None
+
+    def _create_ref_validation_models(
+        self,
+        ref_validation: Dict[str, BaseModel],
+        bed_id: str,
+        provided_genome: str = None,
+    ) -> list[GenomeRefStats]:
+
+        compatibility = {}
+
+        for k, v in ref_validation.items():
+            if v.tier_ranking < 4:
+                compatibility[k] = v
+
+        # Add all new GenomeRefStats objects in one go
+        new_gen_refs: list[GenomeRefStats] = [
+            GenomeRefStats(
+                **RefGenValidModel(
+                    **data.model_dump(),
+                    provided_genome=provided_genome,
+                    compared_genome=ref_gen_check,
+                    genome_digest=ref_gen_check,
+                ).model_dump(),
+                bed_id=bed_id,
+            )
+            for ref_gen_check, data in compatibility.items()
+        ]
+        return new_gen_refs
 
     def delete(self, identifier: str) -> None:
         """
@@ -1125,9 +1185,9 @@ class BedAgentBedFile:
 
     def _embed_file(self, bed_file: Union[str, RegionSet]) -> np.ndarray:
         """
-        Create embeding for bed file
+        Create embedding for bed file
 
-        :param bed_file: bed file path or regionset
+        :param bed_file: bed file path or region set
         :param bed_file: path to the bed file, or RegionSet object
 
         :return np array of embeddings
@@ -1156,14 +1216,20 @@ class BedAgentBedFile:
         return bed_embedding.reshape(1, vec_dim)
 
     def text_to_bed_search(
-        self, query: str, limit: int = 10, offset: int = 0
+        self,
+        query: str,
+        limit: int = 10,
+        offset: int = 0,
+        with_metadata: bool = True,
     ) -> BedListSearchResult:
         """
         Search for bed files by text query in qdrant database
+        This is bivec_search
 
         :param query: text query
         :param limit: number of results to return
         :param offset: offset to start from
+        :param with_metadata: if True, will return metadata for each result
 
         :return: list of bed file metadata
         """
@@ -1174,16 +1240,29 @@ class BedAgentBedFile:
         for result in results:
             result_id = result["id"].replace("-", "")
             try:
-                result_meta = self.get(result_id)
+                if with_metadata:
+                    result_meta = self.get(result_id)
+                else:
+                    result_meta = None
             except BEDFileNotFoundError as e:
                 _LOGGER.warning(
                     f"Could not retrieve metadata for bed file: {result_id}. Error: {e}"
                 )
                 continue
-            if result_meta:
-                results_list.append(QdrantSearchResult(**result, metadata=result_meta))
+            results_list.append(
+                QdrantSearchResult(
+                    **result, metadata=result_meta if with_metadata else None
+                )
+            )
+
+        if with_metadata:
+            count = self._config._qdrant_advanced_engine.get_collection(
+                collection_name=self._config.config.qdrant.file_collection
+            ).points_count
+        else:
+            count = 0
         return BedListSearchResult(
-            count=self.bb_agent.get_detailed_stats().file_genome.get("hg38", 0),
+            count=count,
             limit=limit,
             offset=offset,
             results=results_list,
@@ -1195,6 +1274,15 @@ class BedAgentBedFile:
         limit: int = 10,
         offset: int = 0,
     ) -> BedListSearchResult:
+        """
+        Search for bed files by using region set in qdrant database.
+
+        :param region_set: RegionSet object to search for (bed file)
+        :param limit: number of results to return
+        :param offset: offset to start from
+
+        :return: BedListSetResults
+        """
         results = self._config.b2bsi.query_search(
             region_set, limit=limit, offset=offset
         )
@@ -1221,6 +1309,7 @@ class BedAgentBedFile:
         self,
         query: str,
         genome: str = None,
+        assay: str = None,
         limit: int = 10,
         offset: int = 0,
     ) -> BedListSearchResult:
@@ -1230,11 +1319,13 @@ class BedAgentBedFile:
 
         :param query: text query
         :param genome: genome alias to filter results
+        :param assay: filter by assay type
         :param limit: number of results to return
         :param offset: offset to start from
 
         :return: list of bed file metadata
         """
+
         _LOGGER.debug(f"Looking for: {query}")
 
         statement = select(Bed).join(BedMetadata)
@@ -1249,13 +1340,19 @@ class BedAgentBedFile:
             BedMetadata.cell_type.ilike(sql_search_str),
         )
 
+        condition_statement = or_statement
+
         if genome_alias := genome:
             _LOGGER.debug(f"Filtering by genome: {genome_alias}")
 
-            condition_statement = and_(Bed.genome_alias == genome_alias, or_statement)
+            condition_statement = and_(
+                Bed.genome_alias == genome_alias, condition_statement
+            )
 
-        else:
-            condition_statement = or_statement
+        if assay:
+            _LOGGER.debug(f"Filtering by assay: {assay}")
+
+            condition_statement = and_(BedMetadata.assay == assay, condition_statement)
 
         statement = statement.where(condition_statement)
 
@@ -1306,7 +1403,7 @@ class BedAgentBedFile:
             count = session.execute(statement).one()
         return count[0]
 
-    def reindex_qdrant(self, batch: int = 100) -> None:
+    def reindex_qdrant(self, batch: int = 100, purge: bool = False) -> None:
         """
         Re-upload all files to quadrant.
         !Warning: only hg38 genome can be added to qdrant!
@@ -1319,57 +1416,96 @@ class BedAgentBedFile:
         """
         bb_client = BBClient()
 
-        annotation_result = self.get_ids_list(
-            limit=100000, genome=QDRANT_GENOME, offset=0
-        )
+        with Session(self._sa_engine) as session:
+            if purge:
+                _LOGGER.info("Purging indexed files in the database ...")
+                session.query(Bed).update({Bed.file_indexed: False})
+                session.commit()
+                _LOGGER.info("Purged indexed files in the database successfully!")
 
-        if not annotation_result.results:
-            _LOGGER.error("No bed files found.")
-            return None
-        results = annotation_result.results
-
-        with tqdm(total=len(results), position=0, leave=True) as pbar:
-            points_list = []
-            processed_number = 0
-            for record in results:
-                try:
-                    bed_region_set_obj = GRegionSet(bb_client.seek(record.id))
-                except FileNotFoundError:
-                    bed_region_set_obj = bb_client.load_bed(record.id)
-
-                pbar.set_description(f"Processing file: {record.id}")
-
-                file_embedding = self._embed_file(bed_region_set_obj)
-                points_list.append(
-                    PointStruct(
-                        id=record.id,
-                        vector=file_embedding.tolist()[0],
-                        payload=(
-                            record.annotation.model_dump() if record.annotation else {}
-                        ),
+            statement = (
+                select(Bed)
+                .join(BedMetadata, Bed.id == BedMetadata.id)
+                .where(
+                    and_(
+                        Bed.file_indexed == False,
+                        Bed.genome_alias == QDRANT_GENOME,
+                        # BedMetadata.global_experiment_id.contains(['encode']) # If we want only encode data
                     )
                 )
-                processed_number += 1
-                if processed_number % batch == 0:
-                    pbar.set_description(f"Uploading points to qdrant using batch...")
-                    operation_info = self._config.qdrant_engine.qd_client.upsert(
-                        collection_name=self._config.config.qdrant.file_collection,
-                        points=points_list,
+                .limit(150000)
+            )
+
+            annotation_results = session.scalars(statement)
+
+            results: List[Bed] = [result for result in annotation_results]
+            if not results:
+                _LOGGER.info("No files to reindex in qdrant.")
+                return None
+
+            with tqdm(total=len(results), position=0, leave=True) as pbar:
+                points_list = []
+                processed_number = 0
+                for record in results:
+                    try:
+                        bed_region_set_obj = GRegionSet(bb_client.seek(record.id))
+                    except FileNotFoundError:
+                        bed_region_set_obj = bb_client.load_bed(record.id)
+
+                    pbar.set_description(f"Processing file: {record.id}")
+
+                    file_embedding = self._embed_file(bed_region_set_obj)
+
+                    bed_metadata = VectorMetadata(
+                        id=record.id,
+                        name=record.name,
+                        description=record.description,
+                        genome_alias=record.genome_alias,
+                        genome_digest=record.genome_digest,
+                        cell_line=record.annotations.cell_line,
+                        cell_type=record.annotations.cell_type,
+                        tissue=record.annotations.tissue,
+                        target=record.annotations.target,
+                        treatment=record.annotations.treatment,
+                        assay=record.annotations.assay,
+                        species_name=record.annotations.species_name,
                     )
-                    pbar.write("Uploaded batch to qdrant.")
-                    points_list = []
-                    assert operation_info.status == "completed"
 
-                pbar.write(f"File: {record.id} successfully indexed.")
-                pbar.update(1)
+                    record.file_indexed = True
 
-        _LOGGER.info(f"Uploading points to qdrant using batches...")
-        operation_info = self._config.qdrant_engine.qd_client.upsert(
-            collection_name=self._config.config.qdrant.file_collection,
-            points=points_list,
-        )
-        assert operation_info.status == "completed"
-        return None
+                    points_list.append(
+                        PointStruct(
+                            id=record.id,
+                            vector=file_embedding.tolist()[0],
+                            payload=(bed_metadata.model_dump()),
+                        )
+                    )
+                    processed_number += 1
+
+                    if processed_number % batch == 0:
+                        pbar.set_description(
+                            "Uploading points to qdrant using batch..."
+                        )
+                        operation_info = self._config.qdrant_engine.qd_client.upsert(
+                            collection_name=self._config.config.qdrant.file_collection,
+                            points=points_list,
+                        )
+                        pbar.write("Uploaded batch to qdrant.")
+                        points_list = []
+                        assert operation_info.status == "completed"
+
+                        session.commit()
+
+                    pbar.write(f"File: {record.id} successfully indexed.")
+                    pbar.update(1)
+
+            _LOGGER.info("Uploading points to qdrant using batches...")
+            operation_info = self._config.qdrant_engine.qd_client.upsert(
+                collection_name=self._config.config.qdrant.file_collection,
+                points=points_list,
+            )
+            assert operation_info.status == "completed"
+            return None
 
     def delete_qdrant_point(self, identifier: str) -> None:
         """
@@ -1554,6 +1690,7 @@ class BedAgentBedFile:
 
         :return: zarr path
         """
+
         if not self.exist_tokenized(bed_id, universe_id):
             raise TokenizeFileNotExistError("Tokenized file not found in the database.")
         univers_group = self._config.zarr_root.require_group(universe_id)
@@ -1853,3 +1990,257 @@ class BedAgentBedFile:
                 flag_modified(bedmetadata_object, "global_experiment_id")
 
             session.commit()
+
+    def reindex_semantic_search(self, batch: int = 1000, purge: bool = False) -> None:
+        """
+        Reindex all bed files for semantic database
+
+        :param batch: number of files to upload in one batch
+        :param purge: resets indexed in database for all files to False
+
+        :return: None
+        """
+
+        # Add column that will indicate if this file is indexed or not
+        statement = (
+            select(Bed)
+            .join(BedMetadata, Bed.id == BedMetadata.id)
+            .where(Bed.indexed == False)
+            .limit(150000)
+        )
+
+        with Session(self._sa_engine) as session:
+
+            if purge:
+                _LOGGER.info("Purging indexed files in the database ...")
+                session.query(Bed).update({Bed.indexed: False})
+                session.commit()
+                _LOGGER.info("Purged indexed files in the database successfully!")
+
+            _LOGGER.info("Fetching data from the database ...")
+            results = session.scalars(statement)
+
+            _LOGGER.info("Fetch data successfully!")
+
+            points = []
+            results = [result for result in results]
+
+            with tqdm(total=len(results), position=0, leave=True) as pbar:
+                processed_number = 0
+                for result in results:
+                    text = (
+                        f"biosample is {result.annotations.cell_line} / {result.annotations.cell_type} / "
+                        f"{result.annotations.tissue} with target {result.annotations.target} "
+                        f"assay {result.annotations.assay}."
+                        f"File name {result.name} with summary {result.description}"
+                    )
+
+                    embeddings_list = list(self._embedding_model.embed(text))
+                    # result_list.append(
+                    data = VectorMetadata(
+                        id=result.id,
+                        name=result.name,
+                        description=result.description,
+                        genome_alias=result.genome_alias,
+                        genome_digest=result.genome_digest,
+                        cell_line=result.annotations.cell_line,
+                        cell_type=result.annotations.cell_type,
+                        tissue=result.annotations.tissue,
+                        target=result.annotations.target,
+                        treatment=result.annotations.treatment,
+                        assay=result.annotations.assay,
+                        species_name=result.annotations.species_name,
+                    )
+
+                    points.append(
+                        PointStruct(
+                            id=result.id,
+                            vector=list(embeddings_list[0]),
+                            payload=data.model_dump(),
+                        )
+                    )
+                    processed_number += 1
+                    result.indexed = True
+
+                    if processed_number % batch == 0:
+                        pbar.set_description(
+                            "Uploading points to qdrant using batch..."
+                        )
+                        operation_info = self._config._qdrant_advanced_engine.upsert(
+                            collection_name=self._config.config.qdrant.search_collection,
+                            points=points,
+                        )
+                        session.commit()
+                        pbar.write("Uploaded batch to qdrant.")
+                        points = []
+                        assert operation_info.status == "completed"
+
+                    pbar.write(f"File: {result.id} successfully indexed.")
+                    pbar.update(1)
+
+            operation_info = self._config._qdrant_advanced_engine.upsert(
+                collection_name=self._config.config.qdrant.search_collection,
+                points=points,
+            )
+            assert operation_info.status == "completed"
+            session.commit()
+
+        return None
+
+    def semantic_search(
+        self,
+        query: str = "liver",
+        genome_alias: str = "",
+        assay: str = "",
+        limit: int = 100,
+        offset: int = 0,
+        with_metadata: bool = True,
+    ) -> BedListSearchResult:
+        """
+        Run semantic search for bed files using qdrant.
+        This is not bivec search, but usual qdrant search with embeddings.
+
+        :param query: text query to search for
+        :param genome_alias: genome alias to filter results
+        :param assay: filter by assay type
+        :param limit: number of results to return
+        :param offset: offset to start from
+        :param with_metadata: if True, metadata will be returned in the results. Default is True.
+
+        :return: list of bed file metadata
+        """
+
+        should_statement = []
+
+        if genome_alias:
+            should_statement.append(
+                models.FieldCondition(
+                    key="genome_alias",
+                    match=models.MatchValue(value=genome_alias),
+                )
+            )
+        if assay:
+            should_statement.append(
+                models.FieldCondition(
+                    key="assay",
+                    match=models.MatchValue(value=assay),
+                )
+            )
+
+        embeddings_list = list(self._embedding_model.embed(query))[0]
+
+        results = self._config._qdrant_advanced_engine.search(
+            collection_name=self._config.config.qdrant.search_collection,
+            query_vector=list(embeddings_list),
+            limit=limit,
+            offset=offset,
+            search_params=models.SearchParams(
+                exact=True,
+            ),
+            # query_filter=models.Filter(should=should_statement) if should_statement else None,
+            query_filter=(
+                models.Filter(must=should_statement) if should_statement else None
+            ),
+            with_payload=True,
+            with_vectors=True,
+        )
+
+        result_list = []
+        for result in results:
+            result_id = result.id.replace("-", "")
+
+            if with_metadata:
+                metadata = self.get(result_id, full=False)
+            else:
+                metadata = None
+
+            result_list.append(
+                QdrantSearchResult(
+                    id=result_id,
+                    payload=result.payload,
+                    score=result.score,
+                    metadata=metadata,
+                )
+            )
+
+        if with_metadata:
+            count = self.bb_agent.get_stats().bedfiles_number
+        else:
+            count = 0
+
+        return BedListSearchResult(
+            count=count,
+            limit=limit,
+            offset=offset,
+            results=result_list,
+        )
+
+    def search_external_file(self, source: str, accession: str) -> BedListSearchResult:
+        """
+        Search for bed files by external source and accession number.
+        e.g. source='geo', accession='GSE12345'
+
+        :param source: external source, e.g. 'geo' or 'encode'
+        :param accession: accession number, e.g. 'GSE12345' or 'ENCSR12345'
+
+        :return: list of bed file metadata
+        """
+        if source not in ["geo", "encode"]:
+            raise BedBaseConfError(
+                f"Source {source} is not supported. Supported sources are: 'geo', 'encode'."
+            )
+
+        if source == "geo" and accession.upper().startswith("GSE"):
+            statement = (
+                select(Bed)
+                .join(BedMetadata, Bed.id == BedMetadata.id)
+                .where(
+                    BedMetadata.global_experiment_id.contains(
+                        cast(
+                            [f"{source}:{accession}"],
+                            postgresql.ARRAY(postgresql.VARCHAR),
+                        )
+                    )
+                )
+            )
+        else:
+            statement = (
+                select(Bed)
+                .join(BedMetadata, Bed.id == BedMetadata.id)
+                .where(
+                    BedMetadata.global_sample_id.contains(
+                        cast(
+                            [f"{source}:{accession}"],
+                            postgresql.ARRAY(postgresql.VARCHAR),
+                        )
+                    )
+                )
+            )
+
+        with Session(self._sa_engine) as session:
+
+            bed_objects = session.scalars(statement)
+            results = [
+                BedMetadataBasic(
+                    **bedfile_obj.__dict__,
+                    annotation=StandardMeta(
+                        **(
+                            bedfile_obj.annotations.__dict__
+                            if bedfile_obj.annotations
+                            else {}
+                        )
+                    ),
+                )
+                for bedfile_obj in bed_objects
+            ]
+            result_list = [
+                QdrantSearchResult(id=result.id, score=1, metadata=result)
+                for result in results
+            ]
+
+        return BedListSearchResult(
+            count=len(result_list),
+            limit=len(result_list),
+            offset=0,
+            results=result_list,
+        )
