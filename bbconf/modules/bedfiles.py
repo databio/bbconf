@@ -2190,7 +2190,7 @@ class BedAgentBedFile:
                 f"Source {source} is not supported. Supported sources are: 'geo', 'encode'."
             )
 
-        if source == "geo" and accession.startswith("gse"):
+        if source == "geo" and accession.upper().startswith("GSE"):
             statement = (
                 select(Bed)
                 .join(BedMetadata, Bed.id == BedMetadata.id)
