@@ -1,5 +1,6 @@
 yacman >= 0.9.1
 sqlalchemy >= 2.0.0
+gtars >= 0.4.0
 geniml[ml] >= 0.7.1
 psycopg >= 3.1.15
 coloredlogs

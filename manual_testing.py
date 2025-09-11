@@ -8,6 +8,7 @@ from geniml.io import RegionSet
 from gtars.utils import read_tokens_from_gtok
 import matplotlib.pyplot as plt
 import numpy as np
+import time
 
 # from gtars.tokenizers import RegionSet
 
@@ -213,13 +214,14 @@ def config_t():
 
 def compreh_stats():
     from bbconf import BedBaseAgent
-    import time
 
     agent = BedBaseAgent(config="/home/bnt4me/virginia/repos/bedhost/config.yaml")
 
     time1 = time.time()
 
-    results = agent.get_detailed_stats()
+    results = agent.get_detailed_stats(concise=True)
+
+    # results = agent.get_detailed_usage()
 
     time2 = time.time()
     print(time2 - time1)
@@ -321,6 +323,43 @@ def get_genomes():
     print(results)
 
 
+def new_search():
+    from bbconf import BedBaseAgent
+
+    agent = BedBaseAgent(config="/home/bnt4me/virginia/repos/bedhost/config.yaml")
+    time1 = time.time()
+
+    results = agent.bed.reindex_semantic_search()
+    # results = agent.bed.comp_search()
+    time2 = time.time()
+
+    print(f"Time taken: {time2 - time1} seconds")
+
+
+def get_assay_list():
+    from bbconf import BedBaseAgent
+
+    agent = BedBaseAgent(config="/home/bnt4me/virginia/repos/bedhost/config.yaml")
+    results = agent.get_list_assays()
+    print(results)
+
+
+def external_search():
+    from bbconf import BedBaseAgent
+
+    agent = BedBaseAgent(config="/home/bnt4me/virginia/repos/bedhost/config.yaml")
+
+    result = agent.bed.search_external_file("geo", "gsm1399546")
+    result
+
+
+def reindex_files():
+    from bbconf import BedBaseAgent
+
+    agent = BedBaseAgent(config="/home/bnt4me/virginia/repos/bedhost/config.yaml")
+    agent.bed.reindex_qdrant(purge=True, batch=10)
+
+
 if __name__ == "__main__":
     # zarr_s3()
     # add_s3()
@@ -334,3 +373,9 @@ if __name__ == "__main__":
     compreh_stats()
     # get_unprocessed_files()
     # get_genomes()
+    # new_search()
+
+    # external_search()
+    # get_assay_list()
+
+    # reindex_files()
