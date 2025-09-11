@@ -2,6 +2,20 @@
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) and [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) format.
 
+### [0.12.0] - 2025-09-11
+### Added:
+- New qdrant semantic search
+- Added more plots to bedbase summary page
+- New reference genome compatibility that supports new refgenie
+- Genomes table, with ability of automatic updates from refgenie
+- Added filter in search (Assay and genome)
+
+### Changed:
+- Improved reindexing methods
+
+### Fixed:
+- Issues in bedfile update method
+
 ### [0.11.4] - 2025-06-01
 ### Fixed:
 - SQL search
