@@ -5,7 +5,8 @@ from typing import Dict, List, Union
 
 import numpy as np
 from geniml.bbclient import BBClient
-from geniml.io import RegionSet
+
+# from geniml.io import RegionSet
 from geniml.search.backends import QdrantBackend
 from gtars.models import RegionSet as GRegionSet
 from pephubclient.exceptions import ResponseError
@@ -1155,7 +1156,7 @@ class BedAgentBedFile:
     def upload_file_qdrant(
         self,
         bed_id: str,
-        bed_file: Union[str, RegionSet],
+        bed_file: Union[str, GRegionSet],
         payload: dict = None,
     ) -> None:
         """
@@ -1183,7 +1184,7 @@ class BedAgentBedFile:
         )
         return None
 
-    def _embed_file(self, bed_file: Union[str, RegionSet]) -> np.ndarray:
+    def _embed_file(self, bed_file: Union[str, GRegionSet]) -> np.ndarray:
         """
         Create embedding for bed file
 
@@ -1204,8 +1205,8 @@ class BedAgentBedFile:
             try:
                 bed_region_set = GRegionSet(bed_file)
             except RuntimeError as _:
-                bed_region_set = RegionSet(bed_file)
-        elif isinstance(bed_file, RegionSet) or isinstance(bed_file, GRegionSet):
+                bed_region_set = GRegionSet(bed_file)
+        elif isinstance(bed_file, GRegionSet) or isinstance(bed_file, GRegionSet):
             bed_region_set = bed_file
         else:
             raise BedBaseConfError(
@@ -1214,6 +1215,20 @@ class BedAgentBedFile:
         bed_embedding = np.mean(self._config.r2v.encode(bed_region_set), axis=0)
         vec_dim = bed_embedding.shape[0]
         return bed_embedding.reshape(1, vec_dim)
+
+    def _get_umap_file(self, bed_file: Union[str, GRegionSet]) -> np.ndarray:
+        """
+        Create UMAP for bed file
+
+        :param bed_file: bed file path or region set
+        """
+
+        if self._config._umap_model is None:
+            raise BedBaseConfError("UMAP model is not initialized.")
+
+        bed_embedding = self._embed_file(bed_file)
+        bed_umap = self._config._umap_model.transform(bed_embedding)
+        return bed_umap
 
     def text_to_bed_search(
         self,
@@ -1270,7 +1285,7 @@ class BedAgentBedFile:
 
     def bed_to_bed_search(
         self,
-        region_set: RegionSet,
+        region_set: GRegionSet,
         limit: int = 10,
         offset: int = 0,
     ) -> BedListSearchResult:

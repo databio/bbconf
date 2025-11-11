@@ -67,6 +67,7 @@ class ConfigPath(BaseModel):
     region2vec: str = DEFAULT_REGION2_VEC_MODEL
     # vec2vec: str = DEFAULT_VEC2VEC_MODEL
     text2vec: str = DEFAULT_TEXT2VEC_MODEL
+    umap_model: Union[str, None] = None  # Path or link to pre-trained UMAP model
 
 
 class AccessMethodsStruct(BaseModel):
