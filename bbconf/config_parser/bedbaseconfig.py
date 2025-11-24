@@ -3,6 +3,7 @@ import os
 import warnings
 from pathlib import Path
 from typing import List, Literal, Union
+import numpy as np
 
 import boto3
 import qdrant_client
@@ -71,7 +72,7 @@ class BedBaseConfig(object):
             self._b2bsi = self._init_b2bsi_object()
             self._r2v = self._init_r2v_object()
             self._bivec = self._init_bivec_object()
-            self._umap_model = self._init_umap_model()
+            self._umap_model: Union[UMAP, None] = self._init_umap_model()
         else:
             _LOGGER.info(
                 "Skipping initialization of ML models, init_ml parameter set to False."
@@ -80,7 +81,7 @@ class BedBaseConfig(object):
             self._b2bsi = None
             self._r2v = None
             self._bivec = None
-            self._umap_model = None
+            self._umap_model: Union[UMAP, None] = None
 
         self._phc = self._init_pephubclient()
         self._boto3_client = self._init_boto3_client()
@@ -457,7 +458,8 @@ class BedBaseConfig(object):
         if not isinstance(umap_model, UMAP):
             _LOGGER.error(f"Loaded object is not a UMAP instance: {type(umap_model)}")
             return None
-
+        # np.random.seed(42)
+        umap_model.random_state = 42
         return umap_model
 
     def upload_s3(self, file_path: str, s3_path: Union[Path, str]) -> None:
