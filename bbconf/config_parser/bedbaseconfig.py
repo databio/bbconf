@@ -451,7 +451,7 @@ class BedBaseConfig(object):
                 with open(model_path, "rb") as file:
                     umap_model = joblib.load(file)
                 print(f"UMAP model loaded from local path: {model_path}")
-            except (FileNotFoundError, joblib.JoblibException) as e:
+            except FileNotFoundError as e:
                 _LOGGER.error(f"Error loading UMAP model from local path: {e}")
                 return None
 
