@@ -3,6 +3,7 @@ import os
 import warnings
 from pathlib import Path
 from typing import List, Literal, Union
+import numpy as np
 
 import boto3
 import qdrant_client
@@ -18,6 +19,10 @@ from geniml.search.interfaces import BiVectorSearchInterface
 from geniml.search.query2vec import BED2Vec
 from pephubclient import PEPHubClient
 from zarr import Group as Z_GROUP
+from umap import UMAP
+
+import joblib
+import io
 
 from bbconf.config_parser.const import (
     S3_BEDSET_PATH_FOLDER,
@@ -67,6 +72,7 @@ class BedBaseConfig(object):
             self._b2bsi = self._init_b2bsi_object()
             self._r2v = self._init_r2v_object()
             self._bivec = self._init_bivec_object()
+            self._umap_model: Union[UMAP, None] = self._init_umap_model()
         else:
             _LOGGER.info(
                 "Skipping initialization of ML models, init_ml parameter set to False."
@@ -75,6 +81,7 @@ class BedBaseConfig(object):
             self._b2bsi = None
             self._r2v = None
             self._bivec = None
+            self._umap_model: Union[UMAP, None] = None
 
         self._phc = self._init_pephubclient()
         self._boto3_client = self._init_boto3_client()
@@ -413,6 +420,47 @@ class BedBaseConfig(object):
                 f"Error in creating Region2VecExModel object: {e}", UserWarning
             )
             return None
+
+    def _init_umap_model(self) -> Union[UMAP, None]:
+        """
+        Load UMAP model from the specified path, or url
+        """
+
+        if not self.config.path.umap_model:
+            _LOGGER.warning(
+                "UMAP model path is not specified in the configuration, and won't be used."
+            )
+            return None
+
+        model_path = self.config.path.umap_model
+
+        if model_path.startswith(("http://", "https://")):
+            import requests
+
+            try:
+                response = requests.get(model_path)
+                response.raise_for_status()
+                buffer = io.BytesIO(response.content)
+                umap_model = joblib.load(buffer)
+                print(f"UMAP model loaded from URL: {model_path}")
+            except requests.RequestException as e:
+                _LOGGER.error(f"Error downloading UMAP model from URL: {e}")
+                return None
+        else:
+            try:
+                with open(model_path, "rb") as file:
+                    umap_model = joblib.load(file)
+                print(f"UMAP model loaded from local path: {model_path}")
+            except FileNotFoundError as e:
+                _LOGGER.error(f"Error loading UMAP model from local path: {e}")
+                return None
+
+        if not isinstance(umap_model, UMAP):
+            _LOGGER.error(f"Loaded object is not a UMAP instance: {type(umap_model)}")
+            return None
+        # np.random.seed(42)
+        umap_model.random_state = 42
+        return umap_model
 
     def upload_s3(self, file_path: str, s3_path: Union[Path, str]) -> None:
         """
