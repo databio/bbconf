@@ -13,15 +13,16 @@ from bbconf.config_parser.const import (  # DEFAULT_VEC2VEC_MODEL,
     DEFAULT_PEPHUB_NAME,
     DEFAULT_PEPHUB_NAMESPACE,
     DEFAULT_PEPHUB_TAG,
-    DEFAULT_QDRANT_COLLECTION_NAME,
+    DEFAULT_QDRANT_FILE_COLLECTION_NAME,
     DEFAULT_QDRANT_PORT,
-    DEFAULT_QDRANT_TEXT_COLLECTION_NAME,
+    DEFAULT_QDRANT_BIVEC_COLLECTION_NAME,
     DEFAULT_REGION2_VEC_MODEL,
     DEFAULT_S3_BUCKET,
     DEFAULT_SERVER_HOST,
     DEFAULT_SERVER_PORT,
     DEFAULT_TEXT2VEC_MODEL,
-    DEFAULT_QDRANT_SEARCH_COLLECTION_NAME,
+    DEFAULT_SPARSE_MODEL,
+    DEFAULT_QDRANT_HYBRID_COLLECTION_NAME,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -53,9 +54,9 @@ class ConfigQdrant(BaseModel):
     host: str
     port: int = DEFAULT_QDRANT_PORT
     api_key: Optional[str] = None
-    file_collection: str = DEFAULT_QDRANT_COLLECTION_NAME
-    text_collection: Optional[str] = DEFAULT_QDRANT_TEXT_COLLECTION_NAME
-    search_collection: Optional[str] = DEFAULT_QDRANT_SEARCH_COLLECTION_NAME
+    file_collection: str = DEFAULT_QDRANT_FILE_COLLECTION_NAME
+    text_collection: Optional[str] = DEFAULT_QDRANT_BIVEC_COLLECTION_NAME
+    search_collection: Optional[str] = DEFAULT_QDRANT_HYBRID_COLLECTION_NAME
 
 
 class ConfigServer(BaseModel):
@@ -67,6 +68,7 @@ class ConfigPath(BaseModel):
     region2vec: str = DEFAULT_REGION2_VEC_MODEL
     # vec2vec: str = DEFAULT_VEC2VEC_MODEL
     text2vec: str = DEFAULT_TEXT2VEC_MODEL
+    sparse_model: str = DEFAULT_SPARSE_MODEL
     umap_model: Union[str, None] = None  # Path or link to pre-trained UMAP model
 
 

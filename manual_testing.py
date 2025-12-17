@@ -329,8 +329,9 @@ def new_search():
     agent = BedBaseAgent(config="/home/bnt4me/virginia/repos/bedhost/config.yaml")
     time1 = time.time()
 
-    results = agent.bed.reindex_semantic_search()
+    # results = agent.bed.reindex_semantic_search()
     # results = agent.bed.comp_search()
+    results = agent.bed.hybrid_search("leukemia")
     time2 = time.time()
 
     print(f"Time taken: {time2 - time1} seconds")
@@ -370,10 +371,10 @@ if __name__ == "__main__":
     # neighbour_beds()
     # sql_search()
     # config_t()
-    compreh_stats()
+    # compreh_stats()
     # get_unprocessed_files()
     # get_genomes()
-    # new_search()
+    new_search()
 
     # external_search()
     # get_assay_list()
