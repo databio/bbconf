@@ -1,3 +1,4 @@
+import io
 import logging
 import os
 import warnings
@@ -5,28 +6,24 @@ from pathlib import Path
 from typing import List, Literal, Union
 
 import boto3
+import joblib
 import qdrant_client
-from qdrant_client import QdrantClient, models
+import requests
 import s3fs
 import yacman
 import zarr
-import requests
-
-from fastembed import TextEmbedding
-from sentence_transformers import SparseEncoder
-
 from botocore.exceptions import BotoCoreError, EndpointConnectionError
+from fastembed import TextEmbedding
 from geniml.region2vec.main import Region2VecExModel
 from geniml.search import BED2BEDSearchInterface
 from geniml.search.backends import BiVectorBackend, QdrantBackend
 from geniml.search.interfaces import BiVectorSearchInterface
 from geniml.search.query2vec import BED2Vec
 from pephubclient import PEPHubClient
-from zarr import Group as Z_GROUP
+from qdrant_client import QdrantClient, models
+from sentence_transformers import SparseEncoder
 from umap import UMAP
-
-import joblib
-import io
+from zarr import Group as Z_GROUP
 
 from bbconf.config_parser.const import (
     S3_BEDSET_PATH_FOLDER,
@@ -80,7 +77,7 @@ class BedBaseConfig(object):
             self.dense_encoder: TextEmbedding = self._init_dense_encoder()
             self.sparce_encoder: Union[SparseEncoder, None] = self._init_sparce_model()
             self._umap_encoder: Union[UMAP, None] = self._init_umap_model()
-            self.r2v_encoder = self._init_r2v_encoder()
+            self.r2v_encoder: Union[Region2VecExModel, None] = self._init_r2v_encoder()
 
             self._init_qdrant_hybrid(
                 qdrant_cl=self.qdrant_client,
@@ -97,11 +94,12 @@ class BedBaseConfig(object):
                 )
             )  # used for bivec search
 
-            self._b2b_search_interface = self._init_b2b_search_interface(
+            self.b2b_search_interface = self._init_b2b_search_interface(
                 qdrant_file_backend=self.qdrant_file_backend,
+                region_encoder=self.r2v_encoder,
             )
 
-            self._bivec_search_interface = self._init_bivec_interface(
+            self.bivec_search_interface = self._init_bivec_interface(
                 qdrant_file_backend=self.qdrant_file_backend,
                 qdrant_text_backend=self._qdrant_text_backend,
                 text_encoder=self.dense_encoder,
@@ -111,8 +109,8 @@ class BedBaseConfig(object):
                 "Skipping initialization of ML models, init_ml parameter set to False."
             )
             self.r2v_encoder = None
-            self._b2b_search_interface = None
-            self._bivec_search_interface = None
+            self.b2b_search_interface = None
+            self.bivec_search_interface = None
             self._umap_encoder: Union[UMAP, None] = None
             self.sparce_encoder = None
 
@@ -160,34 +158,6 @@ class BedBaseConfig(object):
         :return: database engine
         """
         return self._db_engine
-
-    @property
-    def b2bsi(self) -> Union[BED2BEDSearchInterface, None]:
-        """
-        Get bed2bednn object
-
-        :return: bed2bednn object
-        """
-        return self._b2b_search_interface
-
-    @property
-    def bivec(self) -> BiVectorSearchInterface:
-        """
-        Get bivec search interface object
-
-        :return: bivec search interface object
-        """
-
-        return self._bivec_search_interface
-
-    # @property
-    # def qdrant_engine(self) -> QdrantBackend:
-    #     """
-    #     Get qdrant engine
-    #
-    #     :return: qdrant engine
-    #     """
-    #     return self._qdrant_file_backend
 
     @property
     def phc(self) -> PEPHubClient:
@@ -437,7 +407,9 @@ class BedBaseConfig(object):
         return search_interface
 
     def _init_b2b_search_interface(
-        self, qdrant_file_backend: QdrantBackend
+        self,
+        qdrant_file_backend: QdrantBackend,
+        region_encoder: Union[Region2VecExModel, str],
     ) -> Union[BED2BEDSearchInterface, None]:
         """
         Create Bed 2 BED search interface and return this object
@@ -448,7 +420,7 @@ class BedBaseConfig(object):
             _LOGGER.info("Initializing search bed 2 bed search interfaces...")
             return BED2BEDSearchInterface(
                 backend=qdrant_file_backend,
-                query2vec=BED2Vec(model=self._config.path.region2vec),
+                query2vec=BED2Vec(model=region_encoder),
             )
         except Exception as e:
             _LOGGER.error("Error in creating BED2BEDSearchInterface object: " + str(e))

@@ -1,14 +1,14 @@
 import os
+import time
 
+import matplotlib.pyplot as plt
+import numpy as np
 import s3fs
 import zarr
 
 # from dotenv import load_dotenv
 from geniml.io import RegionSet
 from gtars.utils import read_tokens_from_gtok
-import matplotlib.pyplot as plt
-import numpy as np
-import time
 
 # from gtars.tokenizers import RegionSet
 

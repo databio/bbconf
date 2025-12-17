@@ -5,22 +5,19 @@ from typing import Dict, List, Union
 
 import numpy as np
 from geniml.bbclient import BBClient
-
-# from geniml.io import RegionSet
 from geniml.search.backends import QdrantBackend
 from gtars.models import RegionSet as GRegionSet
 from pephubclient.exceptions import ResponseError
 from pydantic import BaseModel
+from qdrant_client import models
 from qdrant_client.http.models import PointStruct
-from qdrant_client.models import Distance, PointIdsList, VectorParams
-from sqlalchemy import and_, delete, func, or_, select, cast
+from qdrant_client.models import PointIdsList, QueryResponse
+from sqlalchemy import and_, cast, delete, func, or_, select
+from sqlalchemy.dialects import postgresql
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, aliased
 from sqlalchemy.orm.attributes import flag_modified
-from sqlalchemy.dialects import postgresql
 from tqdm import tqdm
-from qdrant_client import models
-from qdrant_client.models import QueryResponse
 
 from bbconf.config_parser.bedbaseconfig import BedBaseConfig
 from bbconf.const import DEFAULT_LICENSE, PKG_NAME, ZARR_TOKENIZED_FOLDER
@@ -86,7 +83,7 @@ class BedAgentBedFile:
         self._sa_engine = config.db_engine.engine
         self._db_engine = config.db_engine
         self._boto3_client = config.boto3_client
-        self._config = config
+        self.config = config
         self.bb_agent = bbagent_obj
 
     def get(self, identifier: str, full: bool = False) -> BedMetadataAll:
@@ -117,7 +114,7 @@ class BedAgentBedFile:
                             FileModel(
                                 **result.__dict__,
                                 object_id=f"bed.{identifier}.{result.name}",
-                                access_methods=self._config.construct_access_method_list(
+                                access_methods=self.config.construct_access_method_list(
                                     result.path
                                 ),
                             ),
@@ -131,7 +128,7 @@ class BedAgentBedFile:
                                 FileModel(
                                     **result.__dict__,
                                     object_id=f"bed.{identifier}.{result.name}",
-                                    access_methods=self._config.construct_access_method_list(
+                                    access_methods=self.config.construct_access_method_list(
                                         result.path
                                     ),
                                 ),
@@ -167,10 +164,10 @@ class BedAgentBedFile:
         try:
             if full:
                 bed_metadata = BedPEPHubRestrict(
-                    **self._config.phc.sample.get(
-                        namespace=self._config.config.phc.namespace,
-                        name=self._config.config.phc.name,
-                        tag=self._config.config.phc.tag,
+                    **self.config.phc.sample.get(
+                        namespace=self.config.config.phc.namespace,
+                        name=self.config.config.phc.name,
+                        tag=self.config.config.phc.tag,
                         sample_name=identifier,
                     )
                 )
@@ -246,7 +243,7 @@ class BedAgentBedFile:
                         FileModel(
                             **result.__dict__,
                             object_id=f"bed.{identifier}.{result.name}",
-                            access_methods=self._config.construct_access_method_list(
+                            access_methods=self.config.construct_access_method_list(
                                 result.path
                             ),
                         ),
@@ -268,8 +265,8 @@ class BedAgentBedFile:
         if not self.exists(identifier):
             raise BEDFileNotFoundError(f"Bed file with id: {identifier} not found.")
         s = identifier
-        results = self._config.qdrant_file_backend.qd_client.query_points(
-            collection_name=self._config.config.qdrant.file_collection,
+        results = self.config.qdrant_file_backend.qd_client.query_points(
+            collection_name=self.config.config.qdrant.file_collection,
             query="-".join([s[:8], s[8:12], s[12:16], s[16:20], s[20:]]),
             limit=limit,
             offset=offset,
@@ -315,7 +312,7 @@ class BedAgentBedFile:
                         FileModel(
                             **result.__dict__,
                             object_id=f"bed.{identifier}.{result.name}",
-                            access_methods=self._config.construct_access_method_list(
+                            access_methods=self.config.construct_access_method_list(
                                 result.path
                             ),
                         ),
@@ -330,10 +327,10 @@ class BedAgentBedFile:
         :return: project metadata
         """
         try:
-            bed_metadata = self._config.phc.sample.get(
-                namespace=self._config.config.phc.namespace,
-                name=self._config.config.phc.name,
-                tag=self._config.config.phc.tag,
+            bed_metadata = self.config.phc.sample.get(
+                namespace=self.config.config.phc.namespace,
+                name=self.config.config.phc.name,
+                tag=self.config.config.phc.tag,
                 sample_name=identifier,
             )
         except Exception as e:
@@ -386,8 +383,8 @@ class BedAgentBedFile:
         """
         if not self.exists(identifier):
             raise BEDFileNotFoundError(f"Bed file with id: {identifier} not found.")
-        result = self._config.qdrant_file_backend.qd_client.retrieve(
-            collection_name=self._config.config.qdrant.file_collection,
+        result = self.config.qdrant_file_backend.qd_client.retrieve(
+            collection_name=self.config.config.qdrant.file_collection,
             ids=[identifier],
             with_vectors=True,
             with_payload=True,
@@ -625,12 +622,12 @@ class BedAgentBedFile:
         # Upload files to s3
         if upload_s3:
             if files:
-                files = self._config.upload_files_s3(
+                files = self.config.upload_files_s3(
                     identifier, files=files, base_path=local_path, type="files"
                 )
 
             if plots:
-                plots = self._config.upload_files_s3(
+                plots = self.config.upload_files_s3(
                     identifier, files=plots, base_path=local_path, type="plots"
                 )
         with Session(self._sa_engine) as session:
@@ -931,7 +928,7 @@ class BedAgentBedFile:
 
         _LOGGER.info("Updating bed file plots..")
         if plots:
-            plots = self._config.upload_files_s3(
+            plots = self.config.upload_files_s3(
                 bed_object.id, files=plots, base_path=local_path, type="plots"
             )
         plots_dict = plots.model_dump(
@@ -979,7 +976,7 @@ class BedAgentBedFile:
 
         _LOGGER.info("Updating bed files..")
         if files:
-            files = self._config.upload_files_s3(
+            files = self.config.upload_files_s3(
                 bed_object.id, files=files, base_path=local_path, type="files"
             )
 
@@ -1101,16 +1098,16 @@ class BedAgentBedFile:
             self.delete_pephub_sample(identifier)
         if delete_qdrant:
             self.delete_qdrant_point(identifier)
-        self._config.delete_files_s3(files)
+        self.config.delete_files_s3(files)
 
     def upload_pephub(self, identifier: str, metadata: dict, overwrite: bool = False):
         if not metadata:
             _LOGGER.warning("No metadata provided. Skipping pephub upload..")
             return False
-        self._config.phc.sample.create(
-            namespace=self._config.config.phc.namespace,
-            name=self._config.config.phc.name,
-            tag=self._config.config.phc.tag,
+        self.config.phc.sample.create(
+            namespace=self.config.config.phc.namespace,
+            name=self.config.config.phc.name,
+            tag=self.config.config.phc.tag,
             sample_name=identifier,
             sample_dict=metadata,
             overwrite=overwrite,
@@ -1123,10 +1120,10 @@ class BedAgentBedFile:
             if not metadata:
                 _LOGGER.warning("No metadata provided. Skipping pephub upload..")
                 return None
-            self._config.phc.sample.update(
-                namespace=self._config.config.phc.namespace,
-                name=self._config.config.phc.name,
-                tag=self._config.config.phc.tag,
+            self.config.phc.sample.update(
+                namespace=self.config.config.phc.namespace,
+                name=self.config.config.phc.name,
+                tag=self.config.config.phc.tag,
                 sample_name=identifier,
                 sample_dict=metadata,
             )
@@ -1140,10 +1137,10 @@ class BedAgentBedFile:
         :param identifier: bed file identifier
         """
         try:
-            self._config.phc.sample.remove(
-                namespace=self._config.config.phc.namespace,
-                name=self._config.config.phc.name,
-                tag=self._config.config.phc.tag,
+            self.config.phc.sample.remove(
+                namespace=self.config.config.phc.namespace,
+                name=self.config.config.phc.name,
+                tag=self.config.config.phc.tag,
                 sample_name=identifier,
             )
         except ResponseError as e:
@@ -1168,12 +1165,12 @@ class BedAgentBedFile:
 
         _LOGGER.debug(f"Adding bed file to qdrant. bed_id: {bed_id}")
 
-        if not isinstance(self._config.qdrant_file_backend, QdrantBackend):
+        if not isinstance(self.config.qdrant_file_backend, QdrantBackend):
             raise QdrantInstanceNotInitializedError("Could not upload file.")
 
         bed_embedding = self._embed_file(bed_file)
 
-        self._config.qdrant_file_backend.load(
+        self.config.qdrant_file_backend.load(
             ids=[bed_id],
             vectors=bed_embedding,
             payloads=[{**payload}],
@@ -1189,9 +1186,9 @@ class BedAgentBedFile:
 
         :return np array of embeddings
         """
-        if self._config.qdrant_file_backend is None:
+        if self.config.qdrant_file_backend is None:
             raise QdrantInstanceNotInitializedError
-        if not self._config.r2v_encoder:
+        if not self.config.r2v_encoder:
             raise BedBaseConfError(
                 "Could not add add region to qdrant. Invalid type, or path. "
             )
@@ -1208,7 +1205,7 @@ class BedAgentBedFile:
             raise BedBaseConfError(
                 "Could not add add region to qdrant. Invalid type, or path. "
             )
-        bed_embedding = np.mean(self._config.r2v_encoder.encode(bed_region_set), axis=0)
+        bed_embedding = np.mean(self.config.r2v_encoder.encode(bed_region_set), axis=0)
         vec_dim = bed_embedding.shape[0]
         return bed_embedding.reshape(1, vec_dim)
 
@@ -1219,11 +1216,11 @@ class BedAgentBedFile:
         :param bed_file: bed file path or region set
         """
 
-        if self._config._umap_encoder is None:
+        if self.config._umap_encoder is None:
             raise BedBaseConfError("UMAP model is not initialized.")
 
         bed_embedding = self._embed_file(bed_file)
-        bed_umap = self._config._umap_encoder.transform(bed_embedding)
+        bed_umap = self.config._umap_encoder.transform(bed_embedding)
         return bed_umap
 
     def text_to_bed_search(
@@ -1246,7 +1243,9 @@ class BedAgentBedFile:
         """
         _LOGGER.info(f"Looking for: {query}")
 
-        results = self._config.bivec.query_search(query, limit=limit, offset=offset)
+        results = self.config.bivec_search_interface.query_search(
+            query, limit=limit, offset=offset
+        )
         results_list = []
         for result in results:
             result_id = result["id"].replace("-", "")
@@ -1267,8 +1266,8 @@ class BedAgentBedFile:
             )
 
         if with_metadata:
-            count = self._config.qdrant_client.get_collection(
-                collection_name=self._config.config.qdrant.file_collection
+            count = self.config.qdrant_client.get_collection(
+                collection_name=self.config.config.qdrant.file_collection
             ).points_count
         else:
             count = 0
@@ -1294,7 +1293,7 @@ class BedAgentBedFile:
 
         :return: BedListSetResults
         """
-        results = self._config.b2bsi.query_search(
+        results = self.config.b2b_search_interface.query_search(
             region_set, limit=limit, offset=offset
         )
         results_list = []
@@ -1497,8 +1496,8 @@ class BedAgentBedFile:
                         pbar.set_description(
                             "Uploading points to qdrant using batch..."
                         )
-                        operation_info = self._config.qdrant_file_backend.qd_client.upsert(
-                            collection_name=self._config.config.qdrant.file_collection,
+                        operation_info = self.config.qdrant_file_backend.qd_client.upsert(
+                            collection_name=self.config.config.qdrant.file_collection,
                             points=points_list,
                         )
                         pbar.write("Uploaded batch to qdrant.")
@@ -1511,8 +1510,8 @@ class BedAgentBedFile:
                     pbar.update(1)
 
             _LOGGER.info("Uploading points to qdrant using batches...")
-            operation_info = self._config.qdrant_file_backend.qd_client.upsert(
-                collection_name=self._config.config.qdrant.file_collection,
+            operation_info = self.config.qdrant_file_backend.qd_client.upsert(
+                collection_name=self.config.config.qdrant.file_collection,
                 points=points_list,
             )
             assert operation_info.status == "completed"
@@ -1526,8 +1525,8 @@ class BedAgentBedFile:
         :return: None
         """
 
-        result = self._config.qdrant_file_backend.qd_client.delete(
-            collection_name=self._config.config.qdrant.file_collection,
+        result = self.config.qdrant_file_backend.qd_client.delete(
+            collection_name=self.config.config.qdrant.file_collection,
             points_selector=PointIdsList(
                 points=[identifier],
             ),
@@ -1642,7 +1641,7 @@ class BedAgentBedFile:
                 tokenized_vector=token_vector,
                 overwrite=overwrite,
             )
-            path = os.path.join(f"s3://{self._config.config.s3.bucket}", path)
+            path = os.path.join(f"s3://{self.config.config.s3.bucket}", path)
             new_token = TokenizedBed(bed_id=bed_id, universe_id=universe_id, path=path)
 
             session.add(new_token)
@@ -1665,7 +1664,7 @@ class BedAgentBedFile:
 
         :return: zarr path
         """
-        univers_group = self._config.zarr_root.require_group(universe_id)
+        univers_group = self.config.zarr_root.require_group(universe_id)
 
         if not univers_group.get(bed_id):
             _LOGGER.info("Saving tokenized vector to s3")
@@ -1695,7 +1694,7 @@ class BedAgentBedFile:
 
         if not self.exist_tokenized(bed_id, universe_id):
             raise TokenizeFileNotExistError("Tokenized file not found in the database.")
-        univers_group = self._config.zarr_root.require_group(universe_id)
+        univers_group = self.config.zarr_root.require_group(universe_id)
 
         return TokenizedBedResponse(
             universe_id=universe_id,
@@ -1714,7 +1713,7 @@ class BedAgentBedFile:
         """
         if not self.exist_tokenized(bed_id, universe_id):
             raise TokenizeFileNotExistError("Tokenized file not found in the database.")
-        univers_group = self._config.zarr_root.require_group(universe_id)
+        univers_group = self.config.zarr_root.require_group(universe_id)
 
         del univers_group[bed_id]
 
@@ -1788,7 +1787,7 @@ class BedAgentBedFile:
         file_path = self._get_tokenized_path(bed_id, universe_id)
 
         return TokenizedPathResponse(
-            endpoint_url=self._config.config.s3.endpoint_url,
+            endpoint_url=self.config.config.s3.endpoint_url,
             file_path=file_path,
             bed_id=bed_id,
             universe_id=universe_id,
@@ -1816,7 +1815,9 @@ class BedAgentBedFile:
             t2_alias = aliased(Files)
 
             # Define the subquery
-            subquery = select(t2_alias).where(t2_alias.name == plot_name).subquery()
+            subquery = (
+                select(t2_alias).where(and_(t2_alias.name == plot_name)).subquery()
+            )
 
             query = (
                 select(Bed.id)
@@ -1871,7 +1872,9 @@ class BedAgentBedFile:
             t2_alias = aliased(Files)
 
             # Define the subquery
-            subquery = select(t2_alias).where(t2_alias.name == "bigbed_file").subquery()
+            subquery = (
+                select(t2_alias).where(and_(t2_alias.name == "bigbed_file")).subquery()
+            )
 
             query = (
                 select(Bed.id)
@@ -2037,7 +2040,7 @@ class BedAgentBedFile:
     #                     f"File name {result.name} with summary {result.description}"
     #                 )
     #
-    #                 embeddings_list = list(self._config.dense_encoder.embed(text))
+    #                 embeddings_list = list(self.config.dense_encoder.embed(text))
     #                 # result_list.append(
     #                 data = VectorMetadata(
     #                     id=result.id,
@@ -2068,8 +2071,8 @@ class BedAgentBedFile:
     #                     pbar.set_description(
     #                         "Uploading points to qdrant using batch..."
     #                     )
-    #                     operation_info = self._config._qdrant_advanced_engine.upsert(
-    #                         collection_name=self._config.config.qdrant.search_collection,
+    #                     operation_info = self.config._qdrant_advanced_engine.upsert(
+    #                         collection_name=self.config.config.qdrant.search_collection,
     #                         points=points,
     #                     )
     #                     session.commit()
@@ -2080,8 +2083,8 @@ class BedAgentBedFile:
     #                 pbar.write(f"File: {result.id} successfully indexed.")
     #                 pbar.update(1)
     #
-    #         operation_info = self._config._qdrant_advanced_engine.upsert(
-    #             collection_name=self._config.config.qdrant.search_collection,
+    #         operation_info = self.config._qdrant_advanced_engine.upsert(
+    #             collection_name=self.config.config.qdrant.search_collection,
     #             points=points,
     #         )
     #         assert operation_info.status == "completed"
@@ -2133,10 +2136,10 @@ class BedAgentBedFile:
                         f"File name {result.name} with summary {result.description}"
                     )
 
-                    embeddings_list = list(self._config.dense_encoder.embed(text))
+                    embeddings_list = list(self.config.dense_encoder.embed(text))
 
-                    if self._config.sparce_encoder:
-                        sparse_result = self._config.sparce_encoder.encode(
+                    if self.config.sparce_encoder:
+                        sparse_result = self.config.sparce_encoder.encode(
                             text
                         ).coalesce()
 
@@ -2183,8 +2186,8 @@ class BedAgentBedFile:
                         pbar.set_description(
                             "Uploading points to qdrant using batch..."
                         )
-                        operation_info = self._config.qdrant_client.upsert(
-                            collection_name=self._config.config.qdrant.search_collection,
+                        operation_info = self.config.qdrant_client.upsert(
+                            collection_name=self.config.config.qdrant.search_collection,
                             points=points,
                         )
                         session.commit()
@@ -2195,8 +2198,8 @@ class BedAgentBedFile:
                     pbar.write(f"File: {result.id} successfully indexed.")
                     pbar.update(1)
 
-            operation_info = self._config.qdrant_client.upsert(
-                collection_name=self._config.config.qdrant.search_collection,
+            operation_info = self.config.qdrant_client.upsert(
+                collection_name=self.config.config.qdrant.search_collection,
                 points=points,
             )
             assert operation_info.status == "completed"
@@ -2244,10 +2247,10 @@ class BedAgentBedFile:
                 )
             )
 
-        embeddings_list = list(self._config.dense_encoder.embed(query))[0]
+        embeddings_list = list(self.config.dense_encoder.embed(query))[0]
 
-        results: QueryResponse = self._config.qdrant_client.query_points(
-            collection_name=self._config.config.qdrant.search_collection,
+        results: QueryResponse = self.config.qdrant_client.query_points(
+            collection_name=self.config.config.qdrant.search_collection,
             query=list(embeddings_list),
             limit=limit,
             offset=offset,
@@ -2332,9 +2335,9 @@ class BedAgentBedFile:
                 )
             )
 
-        dense_query = list(list(self._config.dense_encoder.embed(query))[0])
-        if self._config.sparce_encoder:
-            sparse_result = self._config.sparce_encoder.encode(query).coalesce()
+        dense_query = list(list(self.config.dense_encoder.embed(query))[0])
+        if self.config.sparce_encoder:
+            sparse_result = self.config.sparce_encoder.encode(query).coalesce()
             sparse_embeddings = models.SparseVector(
                 indices=sparse_result.indices().tolist()[0],
                 values=sparse_result.values().tolist(),
@@ -2352,8 +2355,8 @@ class BedAgentBedFile:
                 models.Prefetch(query=dense_query, using="dense", limit=limit),
             ]
 
-        results = self._config.qdrant_client.query_points(
-            collection_name=self._config.config.qdrant.search_collection,
+        results = self.config.qdrant_client.query_points(
+            collection_name=self.config.config.qdrant.search_collection,
             limit=limit,
             offset=offset,
             prefetch=hybrid_query,
