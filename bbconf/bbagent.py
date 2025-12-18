@@ -1,36 +1,36 @@
 import logging
+import statistics
 from functools import cached_property
 from pathlib import Path
-from typing import List, Union, Dict
-import numpy as np
-import statistics
+from typing import Dict, List, Union
 
+import numpy as np
 from sqlalchemy.orm import Session
-from sqlalchemy.sql import distinct, func, select, and_, or_
+from sqlalchemy.sql import and_, distinct, func, or_, select
 
 from bbconf.config_parser.bedbaseconfig import BedBaseConfig
 from bbconf.db_utils import (
     Bed,
     BedMetadata,
     BedSets,
-    License,
-    UsageBedSetMeta,
-    UsageBedMeta,
-    UsageFiles,
-    UsageSearch,
-    GeoGsmStatus,
     BedStats,
     Files,
+    GeoGsmStatus,
+    License,
+    UsageBedMeta,
+    UsageBedSetMeta,
+    UsageFiles,
+    UsageSearch,
 )
 from bbconf.models.base_models import (
+    AllFilesInfo,
+    BinValues,
+    FileInfo,
+    FileStats,
+    GEOStatistics,
     StatsReturn,
     UsageModel,
-    FileStats,
     UsageStats,
-    AllFilesInfo,
-    FileInfo,
-    BinValues,
-    GEOStatistics,
 )
 from bbconf.modules.bedfiles import BedAgentBedFile
 from bbconf.modules.bedsets import BedAgentBedSet

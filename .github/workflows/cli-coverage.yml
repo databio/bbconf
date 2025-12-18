@@ -8,7 +8,7 @@ jobs:
   cli-coverage-report:
     strategy:
       matrix:
-        python-version: ["3.10"]
+        python-version: ["3.12"]
         os: [ ubuntu-latest ] # can't use macOS when using service containers or container jobs
     runs-on: ${{ matrix.os }}
     services:
@@ -28,7 +28,7 @@ jobs:
 
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: '3.12'
 
       - name: Install uv
         run: pip install uv

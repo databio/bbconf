@@ -1,3 +1,4 @@
+import io
 import logging
 import os
 import warnings
@@ -5,25 +6,29 @@ from pathlib import Path
 from typing import List, Literal, Union
 
 import boto3
+import joblib
 import qdrant_client
-from qdrant_client import QdrantClient, models
+import requests
 import s3fs
 import yacman
 import zarr
 from botocore.exceptions import BotoCoreError, EndpointConnectionError
+from fastembed import TextEmbedding
 from geniml.region2vec.main import Region2VecExModel
 from geniml.search import BED2BEDSearchInterface
 from geniml.search.backends import BiVectorBackend, QdrantBackend
 from geniml.search.interfaces import BiVectorSearchInterface
 from geniml.search.query2vec import BED2Vec
 from pephubclient import PEPHubClient
+from qdrant_client import QdrantClient, models
+from sentence_transformers import SparseEncoder
+from umap import UMAP
 from zarr import Group as Z_GROUP
 
 from bbconf.config_parser.const import (
     S3_BEDSET_PATH_FOLDER,
     S3_FILE_PATH_FOLDER,
     S3_PLOTS_PATH_FOLDER,
-    TEXT_EMBEDDING_DIMENSION,
 )
 from bbconf.config_parser.models import ConfigFile
 from bbconf.const import PKG_NAME, ZARR_TOKENIZED_FOLDER
@@ -59,22 +64,55 @@ class BedBaseConfig(object):
         self._config = self._read_config_file(self.cfg_path)
         self._db_engine = self._init_db_engine()
 
-        self._qdrant_engine = self._init_qdrant_backend()
-        self._qdrant_text_engine = self._init_qdrant_text_backend()
-        self._qdrant_advanced_engine = self._init_qdrant_advanced_backend()
+        try:
+            self.qdrant_client: QdrantClient = self._init_qdrant_client()
+        except Exception as err:
+            _LOGGER.error(
+                f"Unable to create Qdrant client. Skipping ML model initialization. Error: {err}"
+            )
+            init_ml = False
 
         if init_ml:
-            self._b2bsi = self._init_b2bsi_object()
-            self._r2v = self._init_r2v_object()
-            self._bivec = self._init_bivec_object()
+
+            self.dense_encoder: TextEmbedding = self._init_dense_encoder()
+            self.sparce_encoder: Union[SparseEncoder, None] = self._init_sparce_model()
+            self._umap_encoder: Union[UMAP, None] = self._init_umap_model()
+            self.r2v_encoder: Union[Region2VecExModel, None] = self._init_r2v_encoder()
+
+            self._init_qdrant_hybrid(
+                qdrant_cl=self.qdrant_client,
+                dense_encoder=self.dense_encoder,
+            )
+
+            self.qdrant_file_backend: Union[QdrantBackend, None] = (
+                self._init_qdrant_file_backend(qdrant_cl=self.qdrant_client)
+            )  # used for bivec search
+            self._qdrant_text_backend: Union[QdrantBackend, None] = (
+                self._init_qdrant_text_backend(
+                    qdrant_cl=self.qdrant_client,
+                    dense_encoder=self.dense_encoder,
+                )
+            )  # used for bivec search
+
+            self.b2b_search_interface = self._init_b2b_search_interface(
+                qdrant_file_backend=self.qdrant_file_backend,
+                region_encoder=self.r2v_encoder,
+            )
+
+            self.bivec_search_interface = self._init_bivec_interface(
+                qdrant_file_backend=self.qdrant_file_backend,
+                qdrant_text_backend=self._qdrant_text_backend,
+                text_encoder=self.dense_encoder,
+            )
         else:
             _LOGGER.info(
                 "Skipping initialization of ML models, init_ml parameter set to False."
             )
-
-            self._b2bsi = None
-            self._r2v = None
-            self._bivec = None
+            self.r2v_encoder = None
+            self.b2b_search_interface = None
+            self.bivec_search_interface = None
+            self._umap_encoder: Union[UMAP, None] = None
+            self.sparce_encoder = None
 
         self._phc = self._init_pephubclient()
         self._boto3_client = self._init_boto3_client()
@@ -120,43 +158,6 @@ class BedBaseConfig(object):
         :return: database engine
         """
         return self._db_engine
-
-    @property
-    def b2bsi(self) -> Union[BED2BEDSearchInterface, None]:
-        """
-        Get bed2bednn object
-
-        :return: bed2bednn object
-        """
-        return self._b2bsi
-
-    @property
-    def r2v(self) -> Region2VecExModel:
-        """
-        Get region2vec object
-
-        :return: region2vec object
-        """
-        return self._r2v
-
-    @property
-    def bivec(self) -> BiVectorSearchInterface:
-        """
-        Get bivec search interface object
-
-        :return: bivec search interface object
-        """
-
-        return self._bivec
-
-    @property
-    def qdrant_engine(self) -> QdrantBackend:
-        """
-        Get qdrant engine
-
-        :return: qdrant engine
-        """
-        return self._qdrant_engine
 
     @property
     def phc(self) -> PEPHubClient:
@@ -219,64 +220,12 @@ class BedBaseConfig(object):
             drivername=f"{self._config.database.dialect}+{self._config.database.driver}",
         )
 
-    def _init_qdrant_backend(self) -> QdrantBackend:
+    def _init_qdrant_client(self) -> QdrantClient:
         """
         Create qdrant client object using credentials provided in config file
-
-        :return: QdrantClient
         """
 
-        _LOGGER.info("Initializing qdrant engine...")
-        try:
-            return QdrantBackend(
-                collection=self._config.qdrant.file_collection,
-                qdrant_host=self._config.qdrant.host,
-                qdrant_port=self._config.qdrant.port,
-                qdrant_api_key=self._config.qdrant.api_key,
-            )
-        except qdrant_client.http.exceptions.ResponseHandlingException as err:
-            _LOGGER.error(
-                f"Error in Connection to qdrant! skipping... Error: {err}. Qdrant host: {self._config.qdrant.host}"
-            )
-            warnings.warn(
-                f"error in Connection to qdrant! skipping... Error: {err}", UserWarning
-            )
-
-    def _init_qdrant_text_backend(self) -> Union[QdrantBackend, None]:
-        """
-        Create qdrant client text embedding object using credentials provided in config file
-
-        :return: QdrantClient
-        """
-
-        _LOGGER.info("Initializing qdrant text engine...")
-        try:
-            return QdrantBackend(
-                dim=TEXT_EMBEDDING_DIMENSION,
-                collection=self.config.qdrant.text_collection,
-                qdrant_host=self.config.qdrant.host,
-                qdrant_api_key=self.config.qdrant.api_key,
-            )
-        except Exception as e:
-            _LOGGER.error(
-                f"Error in Connection to qdrant text! skipping {e}. Qdrant host: {self._config.qdrant.host}"
-            )
-            warnings.warn(
-                "Error in Connection to qdrant text! skipping...", UserWarning
-            )
-            return None
-
-    def _init_qdrant_advanced_backend(self) -> Union[QdrantClient, None]:
-        """
-        Create qdrant client text embedding object using credentials provided in config file
-
-        :return: QdrantClient
-        """
-
-        COLLECTION_NAME = self.config.qdrant.search_collection
-        DIMENSIONS = 384
-
-        _LOGGER.info("Initializing qdrant text advanced engine...")
+        _LOGGER.info("Initializing qdrant client...")
 
         try:
             qdrant_cl = QdrantClient(
@@ -285,15 +234,122 @@ class BedBaseConfig(object):
                 api_key=self.config.qdrant.api_key,
             )
 
-            if not qdrant_cl.collection_exists(COLLECTION_NAME):
+        except qdrant_client.http.exceptions.ResponseHandlingException as err:
+            raise BedBaseConfError(
+                f"Error in Connection to qdrant! skipping... Error: {err}"
+            )
+
+        return qdrant_cl
+
+    def _init_qdrant_file_backend(
+        self, qdrant_cl: QdrantClient
+    ) -> Union[QdrantBackend, None]:
+        """
+        Create qdrant client object using credentials provided in config file
+
+        :param: qdrant_cl: QdrantClient object
+        :return: QdrantClient
+        """
+
+        _LOGGER.info("Initializing qdrant bivec file backend...")
+
+        if not isinstance(qdrant_cl, QdrantClient):
+            _LOGGER.error(
+                f"Unable to create Qdrant bivec file collection, qdrant client is None."
+            )
+            return None
+
+        try:
+            return QdrantBackend(
+                qdrant_client=qdrant_cl,
+                collection=self.config.qdrant.file_collection,
+            )
+        except Exception as e:
+            _LOGGER.error(f"Unable to create Qdrant collection: {e}")
+            return None
+
+    def _init_qdrant_text_backend(
+        self, qdrant_cl: QdrantClient, dense_encoder: TextEmbedding
+    ) -> Union[QdrantBackend, None]:
+        """
+        Create qdrant client text embedding object using credentials provided in config file
+
+        :param: qdrant_cl: QdrantClient object
+        :param: dense_encoder: TextEmbedding model for encoding text queries
+        :return: QdrantClient
+        """
+
+        _LOGGER.info("Initializing qdrant bivec text backend...")
+
+        if not isinstance(qdrant_cl, QdrantClient):
+            _LOGGER.error(
+                f"Unable to create Qdrant bivec text collection, qdrant client is None."
+            )
+            return None
+        if not isinstance(dense_encoder, TextEmbedding):
+            _LOGGER.error(
+                f"Unable to create Qdrant bivec text collection,, dense encoder is None."
+            )
+            return None
+
+        dimensions = int(dense_encoder.get_embedding_size(self._config.path.text2vec))
+        try:
+            return QdrantBackend(
+                qdrant_client=qdrant_cl,
+                dim=dimensions,
+                collection=self.config.qdrant.text_collection,
+            )
+        except Exception as e:
+            _LOGGER.error(f"Unable to create Qdrant collection: {e}")
+            return None
+
+    def _init_qdrant_hybrid(
+        self, qdrant_cl: QdrantClient, dense_encoder: TextEmbedding
+    ) -> None:
+        """
+        Create qdrant client with sparse and text embedding object using credentials provided in config file
+
+        :param: qdrant_cl: QdrantClient object
+        :param: dense_encoder: TextEmbedding model for encoding text queries
+        :return: QdrantClient
+        """
+
+        _LOGGER.info("Initializing qdrant sparse collection...")
+
+        if not isinstance(qdrant_cl, QdrantClient):
+            _LOGGER.error(
+                f"Unable to create Qdrant hybrid collection, qdrant client is None."
+            )
+            return None
+        if not isinstance(dense_encoder, TextEmbedding):
+            _LOGGER.error(
+                f"Unable to create Qdrant hybrid collection, dense encoder is None."
+            )
+            return None
+
+        dimensions = int(dense_encoder.get_embedding_size(self._config.path.text2vec))
+        collection_name = self.config.qdrant.search_collection
+
+        try:
+            if not qdrant_cl.collection_exists(collection_name):
                 _LOGGER.info(
                     "Collection 'bedbase_query_search' does not exist, creating it."
                 )
+
                 qdrant_cl.create_collection(
-                    collection_name=COLLECTION_NAME,
-                    vectors_config=models.VectorParams(
-                        size=DIMENSIONS, distance=models.Distance.COSINE
-                    ),
+                    collection_name=collection_name,
+                    vectors_config={
+                        "dense": models.VectorParams(
+                            size=dimensions, distance=models.Distance.COSINE
+                        ),
+                    },
+                    sparse_vectors_config={
+                        "sparse": models.SparseVectorParams(
+                            index=models.SparseIndexParams(
+                                on_disk=False,
+                            )
+                        )
+                    },
                     quantization_config=models.ScalarQuantization(
                         scalar=models.ScalarQuantizationConfig(
                             type=models.ScalarType.INT8,
@@ -304,56 +360,67 @@ class BedBaseConfig(object):
                 )
 
                 qdrant_cl.create_payload_index(
-                    collection_name=COLLECTION_NAME,
+                    collection_name=collection_name,
                     field_name="assay",
-                    field_schema="keyword",
+                    field_type=models.PayloadSchemaType.KEYWORD,
                 )
                 qdrant_cl.create_payload_index(
-                    collection_name=COLLECTION_NAME,
+                    collection_name=collection_name,
                     field_name="genome_alias",
-                    field_schema="keyword",
+                    field_type=models.PayloadSchemaType.KEYWORD,
                 )
 
-            return qdrant_cl
-
-        except qdrant_client.http.exceptions.ResponseHandlingException as err:
+        except Exception as err:
             _LOGGER.error(
-                f"Error in Connection to qdrant! skipping... Error: {err}. Qdrant host: {self._config.qdrant.host}"
+                f"Error in creating Qdrant hybrid collection! skipping... Error: {err}. Qdrant host: {self._config.qdrant.host}"
             )
             warnings.warn(
-                f"error in Connection to qdrant! skipping... Error: {err}", UserWarning
+                f"error in creating Qdrant hybrid collection! skipping... Error: {err}",
+                UserWarning,
             )
             return None
 
-    def _init_bivec_object(self) -> Union[BiVectorSearchInterface, None]:
+    def _init_bivec_interface(
+        self,
+        qdrant_file_backend: QdrantBackend,
+        qdrant_text_backend: QdrantBackend,
+        text_encoder: TextEmbedding,
+    ) -> Union[BiVectorSearchInterface, None]:
         """
         Create BiVectorSearchInterface object using credentials provided in config file
 
+        :param: qdrant_file_backend: QdrantBackend for file vectors
+        :param: qdrant_text_backend: QdrantBackend for text vectors
+        :param: text_encoder: TextEmbedding model for encoding text queries
         :return: BiVectorSearchInterface
         """
 
         _LOGGER.info("Initializing BiVectorBackend...")
         search_backend = BiVectorBackend(
-            metadata_backend=self._qdrant_text_engine, bed_backend=self._qdrant_engine
+            metadata_backend=qdrant_text_backend, bed_backend=qdrant_file_backend
         )
         _LOGGER.info("Initializing BiVectorSearchInterface...")
         search_interface = BiVectorSearchInterface(
             backend=search_backend,
-            query2vec=self.config.path.text2vec,
+            query2vec=text_encoder,
         )
         return search_interface
 
-    def _init_b2bsi_object(self) -> Union[BED2BEDSearchInterface, None]:
+    def _init_b2b_search_interface(
+        self,
+        qdrant_file_backend: QdrantBackend,
+        region_encoder: Union[Region2VecExModel, str],
+    ) -> Union[BED2BEDSearchInterface, None]:
         """
         Create Bed 2 BED search interface and return this object
 
         :return: Bed2BEDSearchInterface object
         """
         try:
-            _LOGGER.info("Initializing search interfaces...")
+            _LOGGER.info("Initializing search bed 2 bed search interfaces...")
             return BED2BEDSearchInterface(
-                backend=self.qdrant_engine,
-                query2vec=BED2Vec(model=self._config.path.region2vec),
+                backend=qdrant_file_backend,
+                query2vec=BED2Vec(model=region_encoder),
             )
         except Exception as e:
             _LOGGER.error("Error in creating BED2BEDSearchInterface object: " + str(e))
@@ -363,26 +430,91 @@ class BedBaseConfig(object):
             )
             return None
 
-    @staticmethod
-    def _init_pephubclient() -> Union[PEPHubClient, None]:
+    def _init_r2v_encoder(self) -> Union[Region2VecExModel, None]:
         """
-        Create Pephub client object using credentials provided in config file
+        Create Region2VecExModel object using credentials provided in config file
+        """
+        try:
+            _LOGGER.info(
+                f"Initializing region2vec encoder... Model used: {self.config.path.region2vec}"
+            )
+            return Region2VecExModel(self.config.path.region2vec)
+        except Exception as e:
+            _LOGGER.error(f"Error in creating Region2VecExModel object: {e}")
+            warnings.warn(
+                f"Error in creating Region2VecExModel object: {e}", UserWarning
+            )
+            return None
 
-        :return: PephubClient
+    def _init_dense_encoder(self) -> Union[None, TextEmbedding]:
+        """
+        Initialize dense model from the specified path or huggingface model hub
         """
 
-        # try:
-        #     _LOGGER.info("Initializing PEPHub client...")
-        #     return PEPHubClient()
-        # except Exception as e:
-        #     _LOGGER.error(f"Error in creating PephubClient object: {e}")
-        #     warnings.warn(f"Error in creating PephubClient object: {e}", UserWarning)
-        #     return None
-        return None
+        _LOGGER.info(
+            f"Initializing dense encoder... Model used: {self.config.path.text2vec}"
+        )
+        dense_encoder = TextEmbedding(self.config.path.text2vec)
+        return dense_encoder
+
+    def _init_sparce_model(self) -> Union[None, SparseEncoder]:
+        """
+        Initialize SparseEncoder model from the specified path or huggingface model hub
+        """
+        try:
+            _LOGGER.info(
+                f"Initializing sparse encoder... Model used: {self.config.path.sparse_model}"
+            )
+            sparse_encoder = SparseEncoder(self.config.path.sparse_model)
+        except Exception as e:
+            _LOGGER.error(f"Error in creating SparseEncoder object: {e}")
+            warnings.warn(f"Error in creating SparseEncoder object: {e}", UserWarning)
+            return None
+        return sparse_encoder
+
+    def _init_umap_model(self) -> Union[UMAP, None]:
+        """
+        Load UMAP model from the specified path, or url
+        """
+
+        if not self.config.path.umap_model:
+            _LOGGER.warning(
+                "UMAP model path is not specified in the configuration, and won't be used."
+            )
+            return None
+
+        model_path = self.config.path.umap_model
+        umap_model = None
+        if model_path.startswith(("http://", "https://")):
+
+            try:
+                response = requests.get(model_path)
+                response.raise_for_status()
+                buffer = io.BytesIO(response.content)
+                umap_model = joblib.load(buffer)
+                print(f"UMAP model loaded from URL: {model_path}")
+            except requests.RequestException as e:
+                _LOGGER.error(f"Error downloading UMAP model from URL: {e}")
+                return None
+        else:
+            try:
+                with open(model_path, "rb") as file:
+                    umap_model = joblib.load(file)
+                print(f"UMAP model loaded from local path: {model_path}")
+            except FileNotFoundError as e:
+                _LOGGER.error(f"Error loading UMAP model from local path: {e}")
+                return None
+
+        if not isinstance(umap_model, UMAP):
+            _LOGGER.error(f"Loaded object is not a UMAP instance: {type(umap_model)}")
+            return None
+        # np.random.seed(42)
+        umap_model.random_state = 42
+        return umap_model
 
     def _init_boto3_client(
         self,
-    ) -> boto3.client:
+    ) -> Union[boto3.client, None]:
         """
         Create Pephub client object using credentials provided in config file
 
@@ -398,20 +530,6 @@ class BedBaseConfig(object):
         except Exception as e:
             _LOGGER.error(f"Error in creating boto3 client object: {e}")
             warnings.warn(f"Error in creating boto3 client object: {e}", UserWarning)
-            return None
-
-    def _init_r2v_object(self) -> Union[Region2VecExModel, None]:
-        """
-        Create Region2VecExModel object using credentials provided in config file
-        """
-        try:
-            _LOGGER.info("Initializing R2V object...")
-            return Region2VecExModel(self.config.path.region2vec)
-        except Exception as e:
-            _LOGGER.error(f"Error in creating Region2VecExModel object: {e}")
-            warnings.warn(
-                f"Error in creating Region2VecExModel object: {e}", UserWarning
-            )
             return None
 
     def upload_s3(self, file_path: str, s3_path: Union[Path, str]) -> None:
@@ -528,6 +646,23 @@ class BedBaseConfig(object):
             self.delete_s3(file.path)
             if file.path_thumbnail:
                 self.delete_s3(file.path_thumbnail)
+        return None
+
+    @staticmethod
+    def _init_pephubclient() -> Union[PEPHubClient, None]:
+        """
+        Create Pephub client object using credentials provided in config file
+
+        :return: PephubClient
+        """
+
+        # try:
+        #     _LOGGER.info("Initializing PEPHub client...")
+        #     return PEPHubClient()
+        # except Exception as e:
+        #     _LOGGER.error(f"Error in creating PephubClient object: {e}")
+        #     warnings.warn(f"Error in creating PephubClient object: {e}", UserWarning)
+        #     return None
         return None
 
     def get_prefixed_uri(self, postfix: str, access_id: str) -> str:
