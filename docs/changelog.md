@@ -2,6 +2,14 @@
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) and [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) format.
 
+
+### [0.14.0] - 2025-12-18
+### Fixed:
+- Updated qdrant and encoder model initialization. (One connection for qdrant and one initialized object per model)
+
+### Added:
+- Added hybrid semantic search.(dense + sparse search)
+
 ### [0.13.0] - 2025-11-24
 ### Added:
 - Conversion of bedfile to umap from predefined model
