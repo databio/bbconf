@@ -76,7 +76,7 @@ class BedBaseConfig(object):
 
             self.dense_encoder: TextEmbedding = self._init_dense_encoder()
             self.sparse_encoder: Union[SparseEncoder, None] = self._init_sparce_model()
-            self._umap_encoder: Union[UMAP, None] = self._init_umap_model()
+            self.umap_encoder: Union[UMAP, None] = self._init_umap_model()
             self.r2v_encoder: Union[Region2VecExModel, None] = self._init_r2v_encoder()
 
             self._init_qdrant_hybrid(
@@ -111,7 +111,7 @@ class BedBaseConfig(object):
             self.r2v_encoder = None
             self.b2b_search_interface = None
             self.bivec_search_interface = None
-            self._umap_encoder: Union[UMAP, None] = None
+            self.umap_encoder: Union[UMAP, None] = None
             self.sparse_encoder = None
 
         self._phc = self._init_pephubclient()

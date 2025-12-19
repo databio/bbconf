@@ -1216,11 +1216,11 @@ class BedAgentBedFile:
         :param bed_file: bed file path or region set
         """
 
-        if self.config._umap_encoder is None:
+        if self.config.umap_encoder is None:
             raise BedBaseConfError("UMAP model is not initialized.")
 
         bed_embedding = self._embed_file(bed_file)
-        bed_umap = self.config._umap_encoder.transform(bed_embedding)
+        bed_umap = self.config.umap_encoder.transform(bed_embedding)
         return bed_umap
 
     def text_to_bed_search(
