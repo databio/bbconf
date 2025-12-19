@@ -2071,7 +2071,7 @@ class BedAgentBedFile:
     #                         "Uploading points to qdrant using batch..."
     #                     )
     #                     operation_info = self.config._qdrant_advanced_engine.upsert(
-    #                         collection_name=self.config.config.qdrant.search_collection,
+    #                         collection_name=self.config.config.qdrant.hybrid_collection,
     #                         points=points,
     #                     )
     #                     session.commit()
@@ -2083,7 +2083,7 @@ class BedAgentBedFile:
     #                 pbar.update(1)
     #
     #         operation_info = self.config._qdrant_advanced_engine.upsert(
-    #             collection_name=self.config.config.qdrant.search_collection,
+    #             collection_name=self.config.config.qdrant.hybrid_collection,
     #             points=points,
     #         )
     #         assert operation_info.status == "completed"
@@ -2186,7 +2186,7 @@ class BedAgentBedFile:
                             "Uploading points to qdrant using batch..."
                         )
                         operation_info = self.config.qdrant_client.upsert(
-                            collection_name=self.config.config.qdrant.search_collection,
+                            collection_name=self.config.config.qdrant.hybrid_collection,
                             points=points,
                         )
                         session.commit()
@@ -2199,7 +2199,7 @@ class BedAgentBedFile:
 
             if points:
                 operation_info = self.config.qdrant_client.upsert(
-                    collection_name=self.config.config.qdrant.search_collection,
+                    collection_name=self.config.config.qdrant.hybrid_collection,
                     points=points,
                 )
                 assert operation_info.status == "completed"
@@ -2250,7 +2250,7 @@ class BedAgentBedFile:
     #     embeddings_list = list(self.config.dense_encoder.embed(query))[0]
     #
     #     results: QueryResponse = self.config.qdrant_client.query_points(
-    #         collection_name=self.config.config.qdrant.search_collection,
+    #         collection_name=self.config.config.qdrant.hybrid_collection,
     #         query=list(embeddings_list),
     #         limit=limit,
     #         offset=offset,
@@ -2362,7 +2362,7 @@ class BedAgentBedFile:
             ]
 
         results = self.config.qdrant_client.query_points(
-            collection_name=self.config.config.qdrant.search_collection,
+            collection_name=self.config.config.qdrant.hybrid_collection,
             limit=limit,
             offset=offset,
             prefetch=hybrid_query,

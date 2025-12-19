@@ -56,7 +56,7 @@ class ConfigQdrant(BaseModel):
     api_key: Optional[str] = None
     file_collection: str = DEFAULT_QDRANT_FILE_COLLECTION_NAME
     text_collection: Optional[str] = DEFAULT_QDRANT_BIVEC_COLLECTION_NAME
-    search_collection: Optional[str] = DEFAULT_QDRANT_HYBRID_COLLECTION_NAME
+    hybrid_collection: Optional[str] = DEFAULT_QDRANT_HYBRID_COLLECTION_NAME
 
 
 class ConfigServer(BaseModel):

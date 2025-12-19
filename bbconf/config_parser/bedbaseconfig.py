@@ -328,7 +328,7 @@ class BedBaseConfig(object):
             return None
 
         dimensions = int(dense_encoder.get_embedding_size(self._config.path.text2vec))
-        collection_name = self.config.qdrant.search_collection
+        collection_name = self.config.qdrant.hybrid_collection
 
         try:
             if not qdrant_cl.collection_exists(collection_name):
