@@ -1627,13 +1627,12 @@ class BedAgentBedFile:
 
             if self.exist_tokenized(bed_id, universe_id):
                 if not overwrite:
-                    if not overwrite:
-                        raise TokenizeFileExistsError(
-                            "Tokenized file already exists in the database. "
-                            "Set overwrite to True to overwrite it."
-                        )
-                    else:
-                        self.delete_tokenized(bed_id, universe_id)
+                    raise TokenizeFileExistsError(
+                        "Tokenized file already exists in the database. "
+                        "Set overwrite to True to overwrite it."
+                    )
+                else:
+                    self.delete_tokenized(bed_id, universe_id)
 
             path = self._add_zarr_s3(
                 bed_id=bed_id,
