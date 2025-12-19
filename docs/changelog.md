@@ -5,7 +5,13 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### [0.14.0] - 2025-12-18
 ### Fixed:
+- Insertion of tokenized files
+
+### Changed:
 - Updated qdrant and encoder model initialization. (One connection for qdrant and one initialized object per model)
+
+### Added:
+- Hybrid semantic search: dense + sparse search
 
 ### Added:
 - Added hybrid semantic search.(dense + sparse search)
