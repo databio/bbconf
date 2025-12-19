@@ -75,7 +75,7 @@ class BedBaseConfig(object):
         if init_ml:
 
             self.dense_encoder: TextEmbedding = self._init_dense_encoder()
-            self.sparce_encoder: Union[SparseEncoder, None] = self._init_sparce_model()
+            self.sparse_encoder: Union[SparseEncoder, None] = self._init_sparce_model()
             self._umap_encoder: Union[UMAP, None] = self._init_umap_model()
             self.r2v_encoder: Union[Region2VecExModel, None] = self._init_r2v_encoder()
 
@@ -112,7 +112,7 @@ class BedBaseConfig(object):
             self.b2b_search_interface = None
             self.bivec_search_interface = None
             self._umap_encoder: Union[UMAP, None] = None
-            self.sparce_encoder = None
+            self.sparse_encoder = None
 
         self._phc = self._init_pephubclient()
         self._boto3_client = self._init_boto3_client()
@@ -288,7 +288,7 @@ class BedBaseConfig(object):
             return None
         if not isinstance(dense_encoder, TextEmbedding):
             _LOGGER.error(
-                f"Unable to create Qdrant bivec text collection,, dense encoder is None."
+                f"Unable to create Qdrant bivec text collection, dense encoder is None."
             )
             return None
 

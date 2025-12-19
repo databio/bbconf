@@ -2137,8 +2137,8 @@ class BedAgentBedFile:
 
                     embeddings_list = list(self.config.dense_encoder.embed(text))
 
-                    if self.config.sparce_encoder:
-                        sparse_result = self.config.sparce_encoder.encode(
+                    if self.config.sparse_encoder:
+                        sparse_result = self.config.sparse_encoder.encode(
                             text
                         ).coalesce()
 
@@ -2335,8 +2335,8 @@ class BedAgentBedFile:
             )
 
         dense_query = list(list(self.config.dense_encoder.embed(query))[0])
-        if self.config.sparce_encoder:
-            sparse_result = self.config.sparce_encoder.encode(query).coalesce()
+        if self.config.sparse_encoder:
+            sparse_result = self.config.sparse_encoder.encode(query).coalesce()
             sparse_embeddings = models.SparseVector(
                 indices=sparse_result.indices().tolist()[0],
                 values=sparse_result.values().tolist(),
