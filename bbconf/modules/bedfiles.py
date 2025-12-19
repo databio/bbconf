@@ -2197,11 +2197,12 @@ class BedAgentBedFile:
                     pbar.write(f"File: {result.id} successfully indexed.")
                     pbar.update(1)
 
-            operation_info = self.config.qdrant_client.upsert(
-                collection_name=self.config.config.qdrant.search_collection,
-                points=points,
-            )
-            assert operation_info.status == "completed"
+            if points:
+                operation_info = self.config.qdrant_client.upsert(
+                    collection_name=self.config.config.qdrant.search_collection,
+                    points=points,
+                )
+                assert operation_info.status == "completed"
             session.commit()
 
         return None
@@ -2344,14 +2345,20 @@ class BedAgentBedFile:
 
             hybrid_query = [
                 # Dense retrieval: semantic understanding
-                models.Prefetch(query=dense_query, using="dense", limit=limit),
+                models.Prefetch(
+                    query=dense_query, using="dense", limit=limit + offset + 100
+                ),
                 # Sparse retrieval: exact technical term matching
-                models.Prefetch(query=sparse_embeddings, using="sparse", limit=limit),
+                models.Prefetch(
+                    query=sparse_embeddings, using="sparse", limit=limit + offset + 100
+                ),
             ]
         else:
             hybrid_query = [
                 # Dense retrieval: semantic understanding
-                models.Prefetch(query=dense_query, using="dense", limit=limit),
+                models.Prefetch(
+                    query=dense_query, using="dense", limit=limit + offset + 100
+                ),
             ]
 
         results = self.config.qdrant_client.query_points(
