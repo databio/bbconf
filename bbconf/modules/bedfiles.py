@@ -1190,7 +1190,7 @@ class BedAgentBedFile:
             raise QdrantInstanceNotInitializedError
         if not self.config.r2v_encoder:
             raise BedBaseConfError(
-                "Could not add add region to qdrant. Invalid type, or path. "
+                "Could not add region to qdrant. Invalid type, or path. "
             )
 
         if isinstance(bed_file, str):
@@ -1203,7 +1203,7 @@ class BedAgentBedFile:
             bed_region_set = bed_file
         else:
             raise BedBaseConfError(
-                "Could not add add region to qdrant. Invalid type, or path. "
+                "Could not add region to qdrant. Invalid type, or path. "
             )
         bed_embedding = np.mean(self.config.r2v_encoder.encode(bed_region_set), axis=0)
         vec_dim = bed_embedding.shape[0]
@@ -2106,7 +2106,7 @@ class BedAgentBedFile:
             select(Bed)
             .join(BedMetadata, Bed.id == BedMetadata.id)
             .where(Bed.indexed == False)
-            .limit(150)
+            .limit(batch)
         )
 
         with Session(self._sa_engine) as session:
@@ -2206,93 +2206,93 @@ class BedAgentBedFile:
 
         return None
 
-    def semantic_search(
-        self,
-        query: str = "liver",
-        genome_alias: str = "",
-        assay: str = "",
-        limit: int = 100,
-        offset: int = 0,
-        with_metadata: bool = True,
-    ) -> BedListSearchResult:
-        """
-        Run semantic search for bed files using qdrant.
-        This is not bivec search, but usual qdrant search with embeddings.
-
-        :param query: text query to search for
-        :param genome_alias: genome alias to filter results
-        :param assay: filter by assay type
-        :param limit: number of results to return
-        :param offset: offset to start from
-        :param with_metadata: if True, metadata will be returned in the results. Default is True.
-
-        :return: list of bed file metadata
-        """
-
-        should_statement = []
-
-        if genome_alias:
-            should_statement.append(
-                models.FieldCondition(
-                    key="genome_alias",
-                    match=models.MatchValue(value=genome_alias),
-                )
-            )
-        if assay:
-            should_statement.append(
-                models.FieldCondition(
-                    key="assay",
-                    match=models.MatchValue(value=assay),
-                )
-            )
-
-        embeddings_list = list(self.config.dense_encoder.embed(query))[0]
-
-        results: QueryResponse = self.config.qdrant_client.query_points(
-            collection_name=self.config.config.qdrant.search_collection,
-            query=list(embeddings_list),
-            limit=limit,
-            offset=offset,
-            search_params=models.SearchParams(
-                exact=True,
-            ),
-            # query_filter=models.Filter(should=should_statement) if should_statement else None,
-            query_filter=(
-                models.Filter(must=should_statement) if should_statement else None
-            ),
-            with_payload=True,
-            with_vectors=True,
-        )
-
-        result_list = []
-        for result in results.points:
-            result_id = result.id.replace("-", "")
-
-            if with_metadata:
-                metadata = self.get(result_id, full=False)
-            else:
-                metadata = None
-
-            result_list.append(
-                QdrantSearchResult(
-                    id=result_id,
-                    payload=result.payload,
-                    score=result.score,
-                    metadata=metadata,
-                )
-            )
-
-        if with_metadata:
-            count = self.bb_agent.get_stats().bedfiles_number
-        else:
-            count = 0
-
-        return BedListSearchResult(
-            count=count,
-            limit=limit,
-            offset=offset,
-            results=result_list,
-        )
+    # def semantic_search(
+    #     self,
+    #     query: str = "liver",
+    #     genome_alias: str = "",
+    #     assay: str = "",
+    #     limit: int = 100,
+    #     offset: int = 0,
+    #     with_metadata: bool = True,
+    # ) -> BedListSearchResult:
+    #     """
+    #     Run semantic search for bed files using qdrant.
+    #     This is not bivec search, but usual qdrant search with embeddings.
+    #
+    #     :param query: text query to search for
+    #     :param genome_alias: genome alias to filter results
+    #     :param assay: filter by assay type
+    #     :param limit: number of results to return
+    #     :param offset: offset to start from
+    #     :param with_metadata: if True, metadata will be returned in the results. Default is True.
+    #
+    #     :return: list of bed file metadata
+    #     """
+    #
+    #     should_statement = []
+    #
+    #     if genome_alias:
+    #         should_statement.append(
+    #             models.FieldCondition(
+    #                 key="genome_alias",
+    #                 match=models.MatchValue(value=genome_alias),
+    #             )
+    #         )
+    #     if assay:
+    #         should_statement.append(
+    #             models.FieldCondition(
+    #                 key="assay",
+    #                 match=models.MatchValue(value=assay),
+    #             )
+    #         )
+    #
+    #     embeddings_list = list(self.config.dense_encoder.embed(query))[0]
+    #
+    #     results: QueryResponse = self.config.qdrant_client.query_points(
+    #         collection_name=self.config.config.qdrant.search_collection,
+    #         query=list(embeddings_list),
+    #         limit=limit,
+    #         offset=offset,
+    #         search_params=models.SearchParams(
+    #             exact=True,
+    #         ),
+    #         # query_filter=models.Filter(should=should_statement) if should_statement else None,
+    #         query_filter=(
+    #             models.Filter(must=should_statement) if should_statement else None
+    #         ),
+    #         with_payload=True,
+    #         with_vectors=True,
+    #     )
+    #
+    #     result_list = []
+    #     for result in results.points:
+    #         result_id = result.id.replace("-", "")
+    #
+    #         if with_metadata:
+    #             metadata = self.get(result_id, full=False)
+    #         else:
+    #             metadata = None
+    #
+    #         result_list.append(
+    #             QdrantSearchResult(
+    #                 id=result_id,
+    #                 payload=result.payload,
+    #                 score=result.score,
+    #                 metadata=metadata,
+    #             )
+    #         )
+    #
+    #     if with_metadata:
+    #         count = self.bb_agent.get_stats().bedfiles_number
+    #     else:
+    #         count = 0
+    #
+    #     return BedListSearchResult(
+    #         count=count,
+    #         limit=limit,
+    #         offset=offset,
+    #         results=result_list,
+    #     )
 
     def hybrid_search(
         self,
