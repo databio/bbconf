@@ -11,6 +11,7 @@ from pephubclient.exceptions import ResponseError
 from pydantic import BaseModel
 from qdrant_client import models
 from qdrant_client.http.models import PointStruct
+from qdrant_client.http.exceptions import UnexpectedResponse
 from qdrant_client.models import PointIdsList, QueryResponse
 from sqlalchemy import and_, cast, delete, func, or_, select
 from sqlalchemy.dialects import postgresql
@@ -265,23 +266,30 @@ class BedAgentBedFile:
         if not self.exists(identifier):
             raise BEDFileNotFoundError(f"Bed file with id: {identifier} not found.")
         s = identifier
-        results = self.config.qdrant_file_backend.qd_client.query_points(
-            collection_name=self.config.config.qdrant.file_collection,
-            query="-".join([s[:8], s[8:12], s[12:16], s[16:20], s[20:]]),
-            limit=limit,
-            offset=offset,
-        )
-        result_list = []
-        for result in results.points:
-            result_id = result.id.replace("-", "")
-            result_list.append(
-                QdrantSearchResult(
-                    id=result_id,
-                    payload=result.payload,
-                    score=result.score,
-                    metadata=self.get(result_id, full=False),
-                )
+        try:
+            results = self.config.qdrant_file_backend.qd_client.query_points(
+                collection_name=self.config.config.qdrant.file_collection,
+                query="-".join([s[:8], s[8:12], s[12:16], s[16:20], s[20:]]),
+                limit=limit,
+                offset=offset,
             )
+            result_list = []
+            for result in results.points:
+                result_id = result.id.replace("-", "")
+                result_list.append(
+                    QdrantSearchResult(
+                        id=result_id,
+                        payload=result.payload,
+                        score=result.score,
+                        metadata=self.get(result_id, full=False),
+                    )
+                )
+        except UnexpectedResponse as err:
+            _LOGGER.error(
+                f"Qdrant request failed. Error: {err}. Returning empty result set."
+            )
+            result_list = []
+
         return BedListSearchResult(
             count=self.bb_agent.get_stats().bedfiles_number,
             limit=limit,
