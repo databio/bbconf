@@ -9,12 +9,12 @@ from sqlalchemy import (
     ForeignKey,
     Result,
     Select,
+    String,
     UniqueConstraint,
     event,
     select,
-    String,
 )
-from sqlalchemy.dialects.postgresql import JSON, ARRAY
+from sqlalchemy.dialects.postgresql import ARRAY, JSON
 from sqlalchemy.engine import URL, Engine, create_engine
 from sqlalchemy.event import listens_for
 from sqlalchemy.exc import IntegrityError, ProgrammingError

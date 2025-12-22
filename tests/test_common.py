@@ -1,12 +1,13 @@
+import datetime
+
 import pytest
 
 from bbconf.const import DEFAULT_LICENSE
-from bbconf.models.base_models import UsageModel
 from bbconf.exceptions import BedBaseConfError
-import datetime
+from bbconf.models.base_models import UsageModel
 
 from .conftest import SERVICE_UNAVAILABLE
-from .utils import ContextManagerDBTesting, BED_TEST_ID, BEDSET_TEST_ID
+from .utils import BED_TEST_ID, BEDSET_TEST_ID, ContextManagerDBTesting
 
 
 @pytest.mark.skipif(SERVICE_UNAVAILABLE, reason="Database is not available")

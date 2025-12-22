@@ -1,7 +1,7 @@
 yacman >= 0.9.1
 sqlalchemy >= 2.0.0
-gtars >= 0.4.0
-geniml[ml] >= 0.7.1
+gtars >= 0.5.2
+geniml[ml] >= 0.8.3
 psycopg >= 3.1.15
 coloredlogs
 pydantic >= 2.9.0
@@ -15,3 +15,4 @@ s3fs >= 2024.3.1
 pandas >= 2.0.0
 pybiocfilecache == 0.6.1
 umap-learn >= 0.5.8
+qdrant_client >= 1.16.1

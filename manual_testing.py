@@ -1,14 +1,14 @@
 import os
+import time
 
+import matplotlib.pyplot as plt
+import numpy as np
 import s3fs
 import zarr
 
 # from dotenv import load_dotenv
 from geniml.io import RegionSet
 from gtars.utils import read_tokens_from_gtok
-import matplotlib.pyplot as plt
-import numpy as np
-import time
 
 # from gtars.tokenizers import RegionSet
 
@@ -329,8 +329,9 @@ def new_search():
     agent = BedBaseAgent(config="/home/bnt4me/virginia/repos/bedhost/config.yaml")
     time1 = time.time()
 
-    results = agent.bed.reindex_semantic_search()
+    # results = agent.bed.reindex_semantic_search()
     # results = agent.bed.comp_search()
+    results = agent.bed.hybrid_search("leukemia")
     time2 = time.time()
 
     print(f"Time taken: {time2 - time1} seconds")
@@ -370,10 +371,10 @@ if __name__ == "__main__":
     # neighbour_beds()
     # sql_search()
     # config_t()
-    compreh_stats()
+    # compreh_stats()
     # get_unprocessed_files()
     # get_genomes()
-    # new_search()
+    new_search()
 
     # external_search()
     # get_assay_list()

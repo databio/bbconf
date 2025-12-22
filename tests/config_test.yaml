@@ -1,5 +1,5 @@
 path:
-  region2vec: databio/r2v-encode-hg38
+  region2vec: databio/r2v_encoder-encode-hg38
 #  vec2vec: databio/v2v-geo-hg38
 database:
   host: localhost
