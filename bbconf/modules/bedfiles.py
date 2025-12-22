@@ -2114,7 +2114,6 @@ class BedAgentBedFile:
             select(Bed)
             .join(BedMetadata, Bed.id == BedMetadata.id)
             .where(Bed.indexed == False)
-            .limit(batch)
         )
 
         with Session(self._sa_engine) as session:
