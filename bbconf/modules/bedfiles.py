@@ -2195,11 +2195,16 @@ class BedAgentBedFile:
                         operation_info = self.config.qdrant_client.upsert(
                             collection_name=self.config.config.qdrant.hybrid_collection,
                             points=points,
+                            wait=False,
                         )
-                        session.commit()
                         pbar.write("Uploaded batch to qdrant.")
                         points = []
-                        assert operation_info.status == "completed"
+                        print(operation_info.status)
+                        assert (
+                            operation_info.status == "completed"
+                            or operation_info.status == "acknowledged"
+                        )
+                        session.commit()
 
                     pbar.write(f"File: {result.id} successfully indexed.")
                     pbar.update(1)
@@ -2209,7 +2214,10 @@ class BedAgentBedFile:
                     collection_name=self.config.config.qdrant.hybrid_collection,
                     points=points,
                 )
-                assert operation_info.status == "completed"
+                assert (
+                    operation_info.status == "completed"
+                    or operation_info.status == "acknowledged"
+                )
             session.commit()
 
         return None
