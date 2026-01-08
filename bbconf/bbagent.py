@@ -6,6 +6,7 @@ from typing import Dict, List, Union
 
 import numpy as np
 from sqlalchemy.orm import Session
+from sqlalchemy.engine import ScalarResult
 from sqlalchemy.sql import and_, distinct, func, or_, select
 
 from bbconf.config_parser.bedbaseconfig import BedBaseConfig
@@ -21,6 +22,7 @@ from bbconf.db_utils import (
     UsageBedSetMeta,
     UsageFiles,
     UsageSearch,
+    ReferenceGenome,
 )
 from bbconf.models.base_models import (
     AllFilesInfo,
@@ -778,3 +780,22 @@ class BedBaseAgent(object):
                 median=round(statistics.median(file_sizes), 2),
             ),
         )
+
+    def get_reference_genomes(self) -> Dict[str, str]:
+        """
+        Get mapping of genome aliases to reference genome names.
+
+        :return: dict mapping genome_alias -> reference_genome_name
+        """
+
+        genomes = {}
+
+        with Session(self.config.db_engine.engine) as session:
+            results: ScalarResult[ReferenceGenome] = session.scalars(
+                select(ReferenceGenome)
+            )
+
+            for genome in results:
+                genomes[genome.digest] = genome.alias
+
+        return genomes
