@@ -3,6 +3,10 @@
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) and [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) format.
 
 
+### [0.14.2] - 2026-01-21
+### Added:
+- Added method that fetches available reference genomes 
+
 ### [0.14.0] - 2025-12-18
 ### Fixed:
 - Insertion of tokenized files
