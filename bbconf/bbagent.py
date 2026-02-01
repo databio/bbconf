@@ -156,6 +156,14 @@ class BedBaseAgent(object):
                     .order_by(func.count(BedMetadata.assay).desc())
                 ).all()
             }
+            cell_line = {
+                f[0]: f[1]
+                for f in session.execute(
+                    select(BedMetadata.cell_line, func.count(BedMetadata.cell_line))
+                    .group_by(BedMetadata.cell_line)
+                    .order_by(func.count(BedMetadata.cell_line).desc())
+                ).all()
+            }
 
         slice_value = 20
 
@@ -219,12 +227,23 @@ class BedBaseAgent(object):
                 )
                 file_assay_concise.pop("OTHER")
 
+            cell_line_concise = dict(list(cell_line.items())[0:slice_value])
+            cell_line_concise["other"] = sum(
+                list(cell_line.values())[slice_value:]
+            ) + cell_line.get("other", 0)
+            if "" in cell_line_concise:
+                cell_line_concise["other"] = (
+                    cell_line_concise["other"] + cell_line_concise[""]
+                )
+                cell_line_concise.pop("")
+
             return FileStats(
                 data_format=data_format,
                 bed_compliance=bed_compliance_concise,
                 file_genome=file_genomes_concise,
                 file_organism=file_organism_concise,
                 file_assay=file_assay_concise,
+                cell_line=cell_line_concise,
                 bed_comments=bed_comments,
                 geo_status=geo_status,
                 mean_region_width=list_mean_width_bins,
@@ -239,6 +258,7 @@ class BedBaseAgent(object):
             file_genome=file_genomes,
             file_organism=file_organism,
             file_assay=file_assay,
+            cell_line=cell_line,
             bed_comments=bed_comments,
             geo_status=geo_status,
             mean_region_width=list_mean_width_bins,

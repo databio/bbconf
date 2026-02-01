@@ -97,6 +97,7 @@ class FileStats(BaseModel):
     file_genome: Dict[str, int]
     file_organism: Dict[str, int]
     file_assay: Dict[str, int]
+    cell_line: Dict[str, int]
     geo_status: Dict[str, int]
     bed_comments: Dict[str, int]
     mean_region_width: BinValues
