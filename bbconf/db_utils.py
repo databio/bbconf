@@ -729,14 +729,16 @@ class BaseEngine:
         """
         Upload licenses to the database.
         """
+        # Check if licenses already exist to avoid duplicate key errors
+        with Session(self.engine) as session:
+            existing = session.scalar(select(License).limit(1))
+            if existing:
+                _LOGGER.info("Licenses already exist in the database, skipping upload.")
+                return
 
         _LOGGER.info("Uploading licenses to the database...")
         df = pd.read_csv(LICENSES_CSV_URL)
 
-        with Session(self.engine) as session:
-            df.to_sql(
-                License.__tablename__, self.engine, if_exists="append", index=False
-            )
-            session.commit()
+        df.to_sql(License.__tablename__, self.engine, if_exists="append", index=False)
 
         _LOGGER.info("Licenses uploaded successfully!")
