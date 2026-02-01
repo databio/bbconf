@@ -2,6 +2,11 @@
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) and [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) format.
 
+### [0.14.3] - 2026-01-31
+### Added:
+
+### Fixed:
+- Saving of big file size (changed to bigint db column type)
 
 ### [0.14.2] - 2026-01-21
 ### Added:

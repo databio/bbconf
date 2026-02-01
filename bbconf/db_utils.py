@@ -532,7 +532,9 @@ class GeoGsmStatus(Base):
         nullable=True, index=True, comment="Bed identifier"
     )
 
-    file_size: Mapped[int] = mapped_column(default=0, comment="Size of the file")
+    file_size: Mapped[int] = mapped_column(
+        BigInteger, default=0, comment="Size of the file"
+    )
     genome: Mapped[str] = mapped_column(nullable=True, comment="Genome")
 
     gse_status_mapper: Mapped["GeoGseStatus"] = relationship(
