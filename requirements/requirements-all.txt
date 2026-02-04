@@ -12,7 +12,7 @@ sqlalchemy_schemadisplay
 zarr < 3.0.0
 pyyaml >= 6.0.1 # for s3fs because of the errors
 s3fs >= 2024.3.1
-pandas >= 2.0.0
+pandas < 3.0.0
 pybiocfilecache == 0.6.1
 umap-learn >= 0.5.8
 qdrant_client >= 1.16.1
