@@ -1477,7 +1477,10 @@ class BedAgentBedFile:
                     except FileNotFoundError:
                         bed_region_set_obj = bb_client.load_bed(record.id)
                     except RuntimeError:
-                        bed_region_set_obj = bb_client.load_bed(record.id)
+                        _LOGGER.warning(
+                            f"Unable to open file: {record.id}"
+                        )
+                        continue
                     except Exception:
                         _LOGGER.warning(
                             f"File not found or corrupted. Skipping.. {record.id}"
