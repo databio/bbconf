@@ -1476,6 +1476,13 @@ class BedAgentBedFile:
                         bed_region_set_obj = GRegionSet(bb_client.seek(record.id))
                     except FileNotFoundError:
                         bed_region_set_obj = bb_client.load_bed(record.id)
+                    except RuntimeError:
+                        bed_region_set_obj = bb_client.load_bed(record.id)
+                    except Exception:
+                        _LOGGER.warning(
+                            f"File not found or corrupted. Skipping.. {record.id}"
+                        )
+                        continue
 
                     pbar.set_description(f"Processing file: {record.id}")
 
