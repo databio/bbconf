@@ -1,6 +1,6 @@
 import datetime
 import logging
-from typing import List, Literal, Union
+from typing import Literal
 
 from bbconf.config_parser.bedbaseconfig import BedBaseConfig
 from bbconf.const import PKG_NAME
@@ -79,7 +79,7 @@ class BBObjects:
         self,
         record_type: Literal["bed", "bedset"],
         record_id: str,
-        result_id: Union[str, List[str]],
+        result_id: str | list[str],
     ) -> FileModel:
         """
         Generic getter that can return a result from either bed or bedset
@@ -157,9 +157,9 @@ class BBObjects:
         base_uri: str,
         object_id: str,
         record_metadata: FileModel,
-        created_time: datetime.datetime = None,
-        modified_time: datetime.datetime = None,
-    ):
+        created_time: datetime.datetime | None = None,
+        modified_time: datetime.datetime | None = None,
+    ) -> DRSModel:
         """
         Construct DRS metadata object
 

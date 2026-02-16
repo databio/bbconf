@@ -68,6 +68,8 @@ line-length = 88
 [tool.ruff.lint]
 select = ["E", "F", "I"]
 ignore = ["F403", "F405", "E501"]
+exclude = ["manual_testing.py"]
+
 
 [tool.ruff.lint.isort]
 known-first-party = ["bbconf"]

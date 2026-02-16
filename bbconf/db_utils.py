@@ -1,6 +1,6 @@
 import datetime
 import logging
-from typing import List, Optional
+from typing import Optional
 
 import pandas as pd
 from sqlalchemy import (
@@ -117,11 +117,11 @@ class Bed(Base):
     )
     is_universe: Mapped[Optional[bool]] = mapped_column(default=False)
 
-    files: Mapped[List["Files"]] = relationship(
+    files: Mapped[list["Files"]] = relationship(
         "Files", back_populates="bedfile", cascade="all, delete-orphan"
     )
 
-    bedsets: Mapped[List["BedFileBedSetRelation"]] = relationship(
+    bedsets: Mapped[list["BedFileBedSetRelation"]] = relationship(
         "BedFileBedSetRelation", back_populates="bedfile", cascade="all, delete-orphan"
     )
 
@@ -144,7 +144,7 @@ class Bed(Base):
     )
     license_mapping: Mapped["License"] = relationship("License", back_populates="bed")
 
-    ref_classifier: Mapped[List["GenomeRefStats"]] = relationship(
+    ref_classifier: Mapped[list["GenomeRefStats"]] = relationship(
         "GenomeRefStats", back_populates="bed", cascade="all, delete-orphan"
     )
     processed: Mapped[bool] = mapped_column(
@@ -337,10 +337,10 @@ class BedSets(Base):
         JSON, comment="Median values of the bedset"
     )
 
-    bedfiles: Mapped[List["BedFileBedSetRelation"]] = relationship(
+    bedfiles: Mapped[list["BedFileBedSetRelation"]] = relationship(
         "BedFileBedSetRelation", back_populates="bedset", cascade="all, delete-orphan"
     )
-    files: Mapped[List["Files"]] = relationship("Files", back_populates="bedset")
+    files: Mapped[list["Files"]] = relationship("Files", back_populates="bedset")
     universe: Mapped["Universes"] = relationship("Universes", back_populates="bedset")
 
     author: Mapped[str] = mapped_column(nullable=True, comment="Author of the bedset")
@@ -413,7 +413,7 @@ class License(Base):
         nullable=False, comment="License description"
     )
 
-    bed: Mapped[List["Bed"]] = relationship("Bed", back_populates="license_mapping")
+    bed: Mapped[list["Bed"]] = relationship("Bed", back_populates="license_mapping")
 
 
 class ReferenceGenome(Base):
@@ -424,7 +424,7 @@ class ReferenceGenome(Base):
         nullable=False, comment="Name of the reference genome"
     )
 
-    bed_reference: Mapped[List["GenomeRefStats"]] = relationship(
+    bed_reference: Mapped[list["GenomeRefStats"]] = relationship(
         "GenomeRefStats",
         back_populates="genome_object",
         cascade="all, delete-orphan",
@@ -501,7 +501,7 @@ class GeoGseStatus(Base):
     number_of_skips: Mapped[int] = mapped_column(default=0, comment="Number of skips")
     number_of_fails: Mapped[int] = mapped_column(default=0, comment="Number of fails")
 
-    gsm_status_mapper: Mapped[List["GeoGsmStatus"]] = relationship(
+    gsm_status_mapper: Mapped[list["GeoGsmStatus"]] = relationship(
         "GeoGsmStatus", back_populates="gse_status_mapper"
     )
     error: Mapped[str] = mapped_column(nullable=True, comment="Error message")
@@ -607,10 +607,10 @@ class BaseEngine:
         host: str = "localhost",
         port: int = 5432,
         database: str = "bedbase",
-        user: str = None,
-        password: str = None,
+        user: str | None = None,
+        password: str | None = None,
         drivername: str = POSTGRES_DIALECT,
-        dsn: str = None,
+        dsn: str | None = None,
         echo: bool = False,
     ):
         """

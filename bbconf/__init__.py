@@ -3,6 +3,7 @@ import logging
 import coloredlogs
 
 from bbconf.bbagent import BedBaseAgent
+
 from .const import PKG_NAME
 
 __all__ = ["BedBaseAgent"]

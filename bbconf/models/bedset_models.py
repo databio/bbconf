@@ -1,5 +1,4 @@
 import datetime
-from typing import List, Union
 
 from pydantic import BaseModel, ConfigDict, model_validator
 
@@ -24,36 +23,36 @@ class BedSetMetadata(BaseModel):
     md5sum: str
     submission_date: datetime.datetime = None
     last_update_date: datetime.datetime = None
-    statistics: Union[BedSetStats, None] = None
-    plots: Union[BedSetPlots, None] = None
+    statistics: BedSetStats | None = None
+    plots: BedSetPlots | None = None
     description: str = None
     summary: str = None
-    bed_ids: List[str] = None
-    author: Union[str, None] = None
-    source: Union[str, None] = None
+    bed_ids: list[str] = None
+    author: str | None = None
+    source: str | None = None
 
 
 class BedSetListResult(BaseModel):
     count: int
     limit: int
     offset: int
-    results: List[BedSetMetadata]
+    results: list[BedSetMetadata]
 
 
 class BedSetBedFiles(BaseModel):
     count: int
-    results: List[BedMetadataBasic]
+    results: list[BedMetadataBasic]
 
 
 class BedSetPEP(BaseModel):
     sample_name: str
     original_name: str
-    genome_alias: Union[str, None] = ""
-    genome_digest: Union[str, None] = ""
-    bed_compliance: Union[str, None] = ""
-    data_format: Union[str, None] = ""
-    description: Union[str, None] = ""
-    url: Union[str, None] = ""
+    genome_alias: str | None = ""
+    genome_digest: str | None = ""
+    bed_compliance: str | None = ""
+    data_format: str | None = ""
+    description: str | None = ""
+    url: str | None = ""
 
     @model_validator(mode="before")
     def remove_underscore_keys(cls, values):

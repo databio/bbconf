@@ -1,6 +1,5 @@
 import logging
 from pathlib import Path
-from typing import Optional, Union
 
 from pydantic import BaseModel, ConfigDict, computed_field, field_validator
 from yacman import load_yaml
@@ -35,7 +34,7 @@ class ConfigDB(BaseModel):
     password: str
     database: str = DEFAULT_DB_NAME
     dialect: str = DEFAULT_DB_DIALECT
-    driver: Optional[str] = DEFAULT_DB_DRIVER
+    driver: str | None = DEFAULT_DB_DRIVER
 
     model_config = ConfigDict(extra="forbid")
 
@@ -53,10 +52,10 @@ class ConfigDB(BaseModel):
 class ConfigQdrant(BaseModel):
     host: str
     port: int = DEFAULT_QDRANT_PORT
-    api_key: Optional[str] = None
+    api_key: str | None = None
     file_collection: str = DEFAULT_QDRANT_FILE_COLLECTION_NAME
-    text_collection: Optional[str] = DEFAULT_QDRANT_BIVEC_COLLECTION_NAME
-    hybrid_collection: Optional[str] = DEFAULT_QDRANT_HYBRID_COLLECTION_NAME
+    text_collection: str | None = DEFAULT_QDRANT_BIVEC_COLLECTION_NAME
+    hybrid_collection: str | None = DEFAULT_QDRANT_HYBRID_COLLECTION_NAME
 
 
 class ConfigServer(BaseModel):
@@ -69,7 +68,7 @@ class ConfigPath(BaseModel):
     # vec2vec: str = DEFAULT_VEC2VEC_MODEL
     text2vec: str = DEFAULT_TEXT2VEC_MODEL
     sparse_model: str = DEFAULT_SPARSE_MODEL
-    umap_model: Union[str, None] = None  # Path or link to pre-trained UMAP model
+    umap_model: str | None = None  # Path or link to pre-trained UMAP model
 
 
 class AccessMethodsStruct(BaseModel):
@@ -85,10 +84,10 @@ class AccessMethods(BaseModel):
 
 
 class ConfigS3(BaseModel):
-    endpoint_url: Union[str, None] = None
-    aws_access_key_id: Union[str, None] = None
-    aws_secret_access_key: Union[str, None] = None
-    bucket: Union[str, None] = DEFAULT_S3_BUCKET
+    endpoint_url: str | None = None
+    aws_access_key_id: str | None = None
+    aws_secret_access_key: str | None = None
+    bucket: str | None = DEFAULT_S3_BUCKET
 
     @field_validator("aws_access_key_id", "aws_secret_access_key")
     def validate_aws_credentials(cls, value):
@@ -120,9 +119,9 @@ class ConfigS3(BaseModel):
 
 
 class ConfigPepHubClient(BaseModel):
-    namespace: Union[str, None] = DEFAULT_PEPHUB_NAMESPACE
-    name: Union[str, None] = DEFAULT_PEPHUB_NAME
-    tag: Union[str, None] = DEFAULT_PEPHUB_TAG
+    namespace: str | None = DEFAULT_PEPHUB_NAMESPACE
+    name: str | None = DEFAULT_PEPHUB_NAME
+    tag: str | None = DEFAULT_PEPHUB_TAG
 
 
 class ConfigFile(BaseModel):

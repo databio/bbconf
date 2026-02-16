@@ -1,5 +1,4 @@
 import logging
-from typing import Dict, List
 
 from geniml.io.utils import compute_md5sum_bedset
 from sqlalchemy import Float, Numeric, func, or_, select
@@ -121,7 +120,7 @@ class BedAgentBedSet:
                     )
         return bedset_files
 
-    def get_objects(self, identifier: str) -> Dict[str, FileModel]:
+    def get_objects(self, identifier: str) -> dict[str, FileModel]:
         """
         Get objects for bedset by identifier.
 
@@ -185,7 +184,6 @@ class BedAgentBedSet:
                 bedfile_meta_list = []
 
                 for bedfile in bedfiles:
-
                     try:
                         annotation = bedfile.annotations.__dict__
                     except AttributeError:
@@ -281,11 +279,11 @@ class BedAgentBedSet:
         self,
         identifier: str,
         name: str,
-        bedid_list: List[str],
-        description: str = None,
+        bedid_list: list[str],
+        description: str | None = None,
         statistics: bool = False,
-        annotation: dict = None,
-        plots: dict = None,
+        annotation: dict | None = None,
+        plots: dict | None = None,
         upload_pephub: bool = False,
         upload_s3: bool = False,
         local_path: str = "",
@@ -393,7 +391,7 @@ class BedAgentBedSet:
         _LOGGER.info(f"Bedset '{identifier}' was created successfully")
         return None
 
-    def _calculate_statistics(self, bed_ids: List[str]) -> BedSetStats:
+    def _calculate_statistics(self, bed_ids: list[str]) -> BedSetStats:
         """
         Calculate statistics for bedset.
 
@@ -617,7 +615,6 @@ class BedAgentBedSet:
         """
 
         with Session(self._db_engine.engine) as session:
-
             statement = (
                 select(BedSets)
                 .where(BedSets.processed.is_(False))
