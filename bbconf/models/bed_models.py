@@ -1,5 +1,4 @@
 import datetime
-from typing import List, Optional, Union
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -23,8 +22,8 @@ class BedPlots(BaseModel):
 
 
 class BedFiles(BaseModel):
-    bed_file: Union[FileModel, None] = None
-    bigbed_file: Union[FileModel, None] = None
+    bed_file: FileModel | None = None
+    bigbed_file: FileModel | None = None
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -33,47 +32,47 @@ class BedFiles(BaseModel):
 
 
 class BedClassification(BaseModel):
-    name: Optional[str] = None
-    genome_alias: str = None
-    genome_digest: Union[str, None] = None
+    name: str | None = None
+    genome_alias: str | None = None
+    genome_digest: str | None = None
     bed_compliance: str = Field(
         default="bed3", pattern=r"^bed(?:[3-9]|1[0-5])(?:\+|$)[0-9]?+$"
     )
-    data_format: Union[str, None] = None
+    data_format: str | None = None
     compliant_columns: int = 3
     non_compliant_columns: int = 0
 
-    header: Union[str, None] = None  # Header of the bed file (if any)
+    header: str | None = None  # Header of the bed file (if any)
 
     model_config = ConfigDict(extra="ignore")
 
 
 class BedStatsModel(BaseModel):
-    number_of_regions: Optional[float] = None
-    gc_content: Optional[float] = None
-    median_tss_dist: Optional[float] = None
-    mean_region_width: Optional[float] = None
+    number_of_regions: float | None = None
+    gc_content: float | None = None
+    median_tss_dist: float | None = None
+    mean_region_width: float | None = None
 
-    exon_frequency: Optional[float] = None
-    exon_percentage: Optional[float] = None
+    exon_frequency: float | None = None
+    exon_percentage: float | None = None
 
-    intron_frequency: Optional[float] = None
-    intron_percentage: Optional[float] = None
+    intron_frequency: float | None = None
+    intron_percentage: float | None = None
 
-    intergenic_percentage: Optional[float] = None
-    intergenic_frequency: Optional[float] = None
+    intergenic_percentage: float | None = None
+    intergenic_frequency: float | None = None
 
-    promotercore_frequency: Optional[float] = None
-    promotercore_percentage: Optional[float] = None
+    promotercore_frequency: float | None = None
+    promotercore_percentage: float | None = None
 
-    fiveutr_frequency: Optional[float] = None
-    fiveutr_percentage: Optional[float] = None
+    fiveutr_frequency: float | None = None
+    fiveutr_percentage: float | None = None
 
-    threeutr_frequency: Optional[float] = None
-    threeutr_percentage: Optional[float] = None
+    threeutr_frequency: float | None = None
+    threeutr_percentage: float | None = None
 
-    promoterprox_frequency: Optional[float] = None
-    promoterprox_percentage: Optional[float] = None
+    promoterprox_frequency: float | None = None
+    promoterprox_percentage: float | None = None
 
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
@@ -114,7 +113,7 @@ class StandardMeta(BaseModel):
     species_id: str = ""
     genotype: str = Field("", description="Genotype of the sample")
     phenotype: str = Field("", description="Phenotype of the sample")
-    description: Union[str, None] = ""
+    description: str | None = ""
 
     cell_type: str = Field(
         "",
@@ -139,10 +138,10 @@ class StandardMeta(BaseModel):
         "", description="Treatment of the sample (e.g. drug treatment)"
     )
 
-    global_sample_id: Union[List[str], None] = Field(
+    global_sample_id: list[str] | None = Field(
         "", description="Global sample identifier. e.g. GSM000"
     )  # excluded in training
-    global_experiment_id: Union[List[str], None] = Field(
+    global_experiment_id: list[str] | None = Field(
         "", description="Global experiment identifier. e.g. GSE000"
     )  # excluded in training
 
@@ -155,7 +154,7 @@ class StandardMeta(BaseModel):
     )
 
     @field_validator("global_sample_id", "global_experiment_id", mode="before")
-    def ensure_list(cls, v: Union[str, List[str]]) -> List[str]:
+    def ensure_list(cls, v: str | list[str]) -> list[str]:
         if isinstance(v, str):
             return [v]
         elif isinstance(v, list):
@@ -172,67 +171,67 @@ class BedPEPHubRestrict(BedPEPHub):
 
 class BedMetadataBasic(BedClassification):
     id: str
-    name: Optional[Union[str, None]] = ""
-    description: Optional[str] = None
-    submission_date: datetime.datetime = None
-    last_update_date: Optional[datetime.datetime] = None
-    is_universe: Optional[bool] = False
-    license_id: Optional[str] = DEFAULT_LICENSE
-    annotation: Optional[StandardMeta] = None
-    processed: Optional[bool] = True
+    name: str | None = ""
+    description: str | None = None
+    submission_date: datetime.datetime | None = None
+    last_update_date: datetime.datetime | None = None
+    is_universe: bool | None = False
+    license_id: str | None = DEFAULT_LICENSE
+    annotation: StandardMeta | None = None
+    processed: bool | None = True
 
 
 class UniverseMetadata(BaseModel):
-    construct_method: Union[str, None] = None
-    bedset_id: Union[str, None] = None
+    construct_method: str | None = None
+    bedset_id: str | None = None
 
 
 class BedSetMinimal(BaseModel):
     id: str
-    name: Union[str, None] = None
-    description: Union[str, None] = None
+    name: str | None = None
+    description: str | None = None
 
 
 class BedMetadataAll(BedMetadataBasic):
-    stats: Union[BedStatsModel, None] = None
-    plots: Union[BedPlots, None] = None
-    files: Union[BedFiles, None] = None
-    universe_metadata: Union[UniverseMetadata, None] = None
-    raw_metadata: Union[BedPEPHub, BedPEPHubRestrict, None] = None
-    bedsets: Union[List[BedSetMinimal], None] = None
+    stats: BedStatsModel | None = None
+    plots: BedPlots | None = None
+    files: BedFiles | None = None
+    universe_metadata: UniverseMetadata | None = None
+    raw_metadata: BedPEPHub | BedPEPHubRestrict | None = None
+    bedsets: list[BedSetMinimal] | None = None
 
 
 class BedListResult(BaseModel):
     count: int
     limit: int
     offset: int
-    results: List[BedMetadataBasic]
+    results: list[BedMetadataBasic]
 
 
 class QdrantSearchResult(BaseModel):
     id: str
     payload: dict = None
     score: float = None
-    metadata: Union[BedMetadataBasic, None] = None
+    metadata: BedMetadataBasic | None = None
 
 
 class BedListSearchResult(BaseModel):
     count: int
     limit: int
     offset: int
-    results: List[QdrantSearchResult] = None
+    results: list[QdrantSearchResult] | None = None
 
 
 class TokenizedBedResponse(BaseModel):
     universe_id: str
     bed_id: str
-    tokenized_bed: List[int]
+    tokenized_bed: list[int]
 
 
 class BedEmbeddingResult(BaseModel):
     identifier: str
     payload: dict
-    embedding: List[float]
+    embedding: list[float]
 
 
 class TokenizedPathResponse(BaseModel):
@@ -244,11 +243,11 @@ class TokenizedPathResponse(BaseModel):
 
 class RefGenValidModel(BaseModel):
     provided_genome: str
-    compared_genome: Union[str, None]
-    genome_digest: Union[str, None]
+    compared_genome: str | None
+    genome_digest: str | None
     xs: float = 0.0
-    oobr: Union[float, None] = None
-    sequence_fit: Union[float, None] = None
+    oobr: float | None = None
+    sequence_fit: float | None = None
     assigned_points: int
     tier_ranking: int
 
@@ -257,8 +256,8 @@ class RefGenValidModel(BaseModel):
 
 class RefGenValidReturnModel(BaseModel):
     id: str
-    provided_genome: Union[str, None] = None
-    compared_genome: List[RefGenValidModel]
+    provided_genome: str | None = None
+    compared_genome: list[RefGenValidModel]
 
 
 class VectorMetadata(BaseModel):
@@ -272,7 +271,7 @@ class VectorMetadata(BaseModel):
     treatment: str
     assay: str
     genome_alias: str
-    genome_digest: Union[str, None] = None
+    genome_digest: str | None = None
     species_name: str
     # summary: str
     # global_sample_id: str

@@ -2,11 +2,10 @@ import logging
 import statistics
 from functools import cached_property
 from pathlib import Path
-from typing import Dict, List, Union
 
 import numpy as np
-from sqlalchemy.orm import Session
 from sqlalchemy.engine import ScalarResult
+from sqlalchemy.orm import Session
 from sqlalchemy.sql import and_, distinct, func, or_, select
 
 from bbconf.config_parser.bedbaseconfig import BedBaseConfig
@@ -18,11 +17,11 @@ from bbconf.db_utils import (
     Files,
     GeoGsmStatus,
     License,
+    ReferenceGenome,
     UsageBedMeta,
     UsageBedSetMeta,
     UsageFiles,
     UsageSearch,
-    ReferenceGenome,
 )
 from bbconf.models.base_models import (
     AllFilesInfo,
@@ -43,10 +42,10 @@ from .const import PKG_NAME
 _LOGGER = logging.getLogger(PKG_NAME)
 
 
-class BedBaseAgent(object):
+class BedBaseAgent:
     def __init__(
         self,
-        config: Union[Path, str],
+        config: Path | str,
         init_ml: bool = True,
     ):
         """
@@ -339,7 +338,7 @@ class BedBaseAgent(object):
             bed_downloads=bed_downloads,
         )
 
-    def get_list_genomes(self) -> List[str]:
+    def get_list_genomes(self) -> list[str]:
         """
         Get list of genomes from the database
 
@@ -354,7 +353,7 @@ class BedBaseAgent(object):
             genomes = session.execute(statement).all()
         return [result[0] for result in genomes if result[0]]
 
-    def get_list_assays(self):
+    def get_list_assays(self) -> list[str]:
         """
         Get list of genomes from the database
 
@@ -371,7 +370,7 @@ class BedBaseAgent(object):
         return [result[0] for result in results if result[0]]
 
     @cached_property
-    def list_of_licenses(self) -> List[str]:
+    def list_of_licenses(self) -> list[str]:
         """
         Get list of licenses from the database
 
@@ -497,7 +496,7 @@ class BedBaseAgent(object):
 
             session.commit()
 
-    def _stats_comments(self, sa_session: Session) -> Dict[str, int]:
+    def _stats_comments(self, sa_session: Session) -> dict[str, int]:
         """
         Get statistics about comments that are present in bed files.
 
@@ -551,7 +550,7 @@ class BedBaseAgent(object):
             "header_comments": header_comments,
         }
 
-    def _stats_geo_status(self, sa_session: Session) -> Dict[str, int]:
+    def _stats_geo_status(self, sa_session: Session) -> dict[str, int]:
         """
         Get statistics about status of GEO bed file processing.
 
@@ -801,7 +800,7 @@ class BedBaseAgent(object):
             ),
         )
 
-    def get_reference_genomes(self) -> Dict[str, str]:
+    def get_reference_genomes(self) -> dict[str, str]:
         """
         Get mapping of genome aliases to reference genome names.
 
