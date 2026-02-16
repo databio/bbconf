@@ -1,4 +1,4 @@
-yacman >= 0.9.1
+yacman == 0.9.4
 sqlalchemy >= 2.0.0
 gtars >= 0.5.3
 geniml[ml] >= 0.8.4
@@ -16,3 +16,4 @@ pandas < 3.0.0
 pybiocfilecache == 0.6.1
 umap-learn >= 0.5.8
 qdrant_client >= 1.16.1
+setuptools>=82.0.0
