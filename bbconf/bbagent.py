@@ -112,7 +112,6 @@ class BedBaseAgent:
         _LOGGER.info("Getting detailed statistics for all bed files")
 
         with Session(self.config.db_engine.engine) as session:
-
             bed_compliance = {
                 f[0]: f[1]
                 for f in session.execute(
@@ -384,7 +383,6 @@ class BedBaseAgent:
     def add_usage(self, stats: UsageModel) -> None:
 
         with Session(self.config.db_engine.engine) as session:
-
             # FILES USAGE
             reported_items_files = session.scalars(
                 select(UsageFiles).where(UsageFiles.date_to > func.now())

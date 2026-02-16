@@ -74,7 +74,6 @@ class BedBaseConfig:
             init_ml = False
 
         if init_ml:
-
             self.dense_encoder: TextEmbedding = self._init_dense_encoder()
             self.sparse_encoder: SparseEncoder | None = self._init_sparce_model()
             self.umap_encoder: UMAP | None = self._init_umap_model()
@@ -487,7 +486,6 @@ class BedBaseConfig:
         model_path = self.config.path.umap_model
         umap_model = None
         if model_path.startswith(("http://", "https://")):
-
             try:
                 response = requests.get(model_path)
                 response.raise_for_status()

@@ -184,7 +184,6 @@ class BedAgentBedSet:
                 bedfile_meta_list = []
 
                 for bedfile in bedfiles:
-
                     try:
                         annotation = bedfile.annotations.__dict__
                     except AttributeError:
@@ -616,7 +615,6 @@ class BedAgentBedSet:
         """
 
         with Session(self._db_engine.engine) as session:
-
             statement = (
                 select(BedSets)
                 .where(BedSets.processed.is_(False))

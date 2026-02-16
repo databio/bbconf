@@ -165,7 +165,6 @@ class StandardMeta(BaseModel):
 
 
 class BedPEPHubRestrict(BedPEPHub):
-
     model_config = ConfigDict(extra="ignore")
 
 

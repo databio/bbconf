@@ -689,7 +689,6 @@ class BedAgentBedFile:
             session.add(new_metadata)
 
             if ref_validation:
-
                 new_gen_refs = self._create_ref_validation_models(
                     ref_validation=ref_validation,
                     bed_id=identifier,
@@ -1554,7 +1553,9 @@ class BedAgentBedFile:
             ),
         )
         if result.status == "completed":
-            _LOGGER.info(f"File with id: {identifier} successfully deleted from qdrant.")
+            _LOGGER.info(
+                f"File with id: {identifier} successfully deleted from qdrant."
+            )
         return None
 
     def exists(self, identifier: str) -> bool:
@@ -2035,7 +2036,6 @@ class BedAgentBedFile:
         )
 
         with Session(self._sa_engine) as session:
-
             if purge:
                 _LOGGER.info("Purging indexed files in the database ...")
                 session.query(Bed).update({Bed.indexed: False})
@@ -2295,7 +2295,6 @@ class BedAgentBedFile:
             )
 
         with Session(self._sa_engine) as session:
-
             bed_objects = session.scalars(statement)
             results = [
                 BedMetadataBasic(
