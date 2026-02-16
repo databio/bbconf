@@ -107,7 +107,7 @@ class BedAgentBedSet:
                 raise BedSetNotFoundError(f"Bed file with id: {identifier} not found.")
             bedset_files = BedSetPlots()
             for result in bedset_object.files:
-                if result.name in bedset_files.model_fields:
+                if result.name in BedSetPlots.model_fields:
                     setattr(
                         bedset_files,
                         result.name,
