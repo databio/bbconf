@@ -36,7 +36,8 @@ tables_initialized: list = []
 class SchemaError(Exception):
     def __init__(self):
         super().__init__(
-            """The database schema is incorrect, can't connect to the database!"""
+            """
+            The database schema is incorrect, can't connect to the database!"""
         )
 
 
@@ -614,17 +615,18 @@ class BaseEngine:
         echo: bool = False,
     ):
         """
-        Initialize connection to the bedbase database. You can use The basic connection parameters
+        Initialize connection to the bedbase database. You can use the basic connection parameters
         or libpq connection string.
 
-        :param host: database server address e.g., localhost or an IP address.
-        :param port: the port number that defaults to 5432 if it is not provided.
-        :param database: the name of the database that you want to connect.
-        :param user: the username used to authenticate.
-        :param password: password used to authenticate.
-        :param drivername: driver used in
-        :param dsn: libpq connection string using the dsn parameter
-        (e.g. 'postgresql://user_name:password@host_name:port/db_name')
+        Args:
+            host: Database server address e.g., localhost or an IP address.
+            port: The port number that defaults to 5432 if it is not provided.
+            database: The name of the database that you want to connect.
+            user: The username used to authenticate.
+            password: Password used to authenticate.
+            drivername: Driver used in connection.
+            dsn: Libpq connection string using the dsn parameter
+                (e.g. 'postgresql://user_name:password@host_name:port/db_name').
         """
         if not dsn:
             dsn = URL.create(
@@ -644,8 +646,11 @@ class BaseEngine:
         """
         Create sql schema in the database.
 
-        :param engine: sqlalchemy engine [Default: None]
-        :return: None
+        Args:
+            engine: Sqlalchemy engine [Default: None].
+
+        Returns:
+            None.
         """
         if not engine:
             engine = self._engine
@@ -663,8 +668,11 @@ class BaseEngine:
         """
         Delete sql schema in the database.
 
-        :param engine: sqlalchemy engine [Default: None]
-        :return: None
+        Args:
+            engine: Sqlalchemy engine [Default: None].
+
+        Returns:
+            None.
         """
         if not engine:
             engine = self._engine
@@ -673,11 +681,14 @@ class BaseEngine:
 
     def session_execute(self, statement: Select) -> Result:
         """
-        Execute statement using sqlalchemy statement
+        Execute statement using sqlalchemy statement.
 
-        :param statement: SQL query or a SQL expression that is constructed using
-            SQLAlchemy's SQL expression language
-        :return: query result represented with declarative base
+        Args:
+            statement: SQL query or a SQL expression that is constructed using
+                SQLAlchemy's SQL expression language.
+
+        Returns:
+            Query result represented with declarative base.
         """
         _LOGGER.debug(f"Executing statement: {statement}")
         with Session(self._engine) as session:
@@ -688,14 +699,20 @@ class BaseEngine:
     @property
     def session(self):
         """
-        :return: started sqlalchemy session
+        Get a started sqlalchemy session.
+
+        Returns:
+            Started sqlalchemy session.
         """
         return self._start_session()
 
     @property
     def engine(self) -> Engine:
         """
-        :return: sqlalchemy engine
+        Get sqlalchemy engine.
+
+        Returns:
+            Sqlalchemy engine.
         """
         return self._engine
 
@@ -718,8 +735,11 @@ class BaseEngine:
         """
         Create schema graph of the database.
 
-        :param output_file: path to the output file
-        :return: None
+        Args:
+            output_file: Path to the output file.
+
+        Returns:
+            None.
         """
         graph = create_schema_graph(engine=self.engine, metadata=Base.metadata)
         graph.write(output_file, format="svg", prog="dot")
