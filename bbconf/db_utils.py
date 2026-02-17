@@ -36,7 +36,8 @@ tables_initialized: list = []
 class SchemaError(Exception):
     def __init__(self):
         super().__init__(
-            """The database schema is incorrect, can't connect to the database!"""
+            """
+            The database schema is incorrect, can't connect to the database!"""
         )
 
 
@@ -613,7 +614,8 @@ class BaseEngine:
         dsn: str | None = None,
         echo: bool = False,
     ):
-        """Initialize connection to the bedbase database. You can use the basic connection parameters
+        """
+        Initialize connection to the bedbase database. You can use the basic connection parameters
         or libpq connection string.
 
         Args:
@@ -641,7 +643,8 @@ class BaseEngine:
         self.check_db_connection()
 
     def create_schema(self, engine=None):
-        """Create sql schema in the database.
+        """
+        Create sql schema in the database.
 
         Args:
             engine: Sqlalchemy engine [Default: None].
@@ -662,7 +665,8 @@ class BaseEngine:
                 pass
 
     def delete_schema(self, engine=None) -> None:
-        """Delete sql schema in the database.
+        """
+        Delete sql schema in the database.
 
         Args:
             engine: Sqlalchemy engine [Default: None].
@@ -676,7 +680,8 @@ class BaseEngine:
         return None
 
     def session_execute(self, statement: Select) -> Result:
-        """Execute statement using sqlalchemy statement.
+        """
+        Execute statement using sqlalchemy statement.
 
         Args:
             statement: SQL query or a SQL expression that is constructed using
@@ -693,7 +698,8 @@ class BaseEngine:
 
     @property
     def session(self):
-        """Get a started sqlalchemy session.
+        """
+        Get a started sqlalchemy session.
 
         Returns:
             Started sqlalchemy session.
@@ -702,7 +708,8 @@ class BaseEngine:
 
     @property
     def engine(self) -> Engine:
-        """Get sqlalchemy engine.
+        """
+        Get sqlalchemy engine.
 
         Returns:
             Sqlalchemy engine.
@@ -725,7 +732,8 @@ class BaseEngine:
             raise SchemaError()
 
     def create_schema_graph(self, output_file: str = "schema.svg"):
-        """Create schema graph of the database.
+        """
+        Create schema graph of the database.
 
         Args:
             output_file: Path to the output file.

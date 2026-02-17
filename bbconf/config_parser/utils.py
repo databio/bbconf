@@ -12,7 +12,8 @@ _LOGGER = logging.getLogger(PKG_NAME)
 
 
 def config_analyzer(config_path: str) -> bool:
-    """Read configuration file and insert default values if not set.
+    """
+    Read configuration file and insert default values if not set.
 
     Args:
         config_path: Configuration file path.

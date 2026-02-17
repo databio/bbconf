@@ -12,7 +12,8 @@ CFG_ENV_VARS = ["BEDBASE"]
 
 
 def get_bedbase_cfg(cfg: str = None) -> str:
-    """Determine path to the bedbase configuration file.
+    """
+    Determine path to the bedbase configuration file.
 
     The path can be either explicitly provided
     or read from a $BEDBASE environment variable.
@@ -43,7 +44,8 @@ def get_bedbase_cfg(cfg: str = None) -> str:
 
 
 def get_absolute_path(path: str, base_path: str) -> str:
-    """Get absolute path to the file and create it if it doesn't exist.
+    """
+    Get absolute path to the file and create it if it doesn't exist.
 
     Args:
         path: Path to the file (abs or relative).

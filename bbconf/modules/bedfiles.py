@@ -81,7 +81,8 @@ class BedAgentBedFile:
     """
 
     def __init__(self, config: BedBaseConfig, bbagent_obj=None):
-        """Initialize BedAgentBedFile.
+        """
+        Initialize BedAgentBedFile.
 
         Args:
             config: Config object with database and qdrant engine and credentials.
@@ -94,7 +95,8 @@ class BedAgentBedFile:
         self.bb_agent = bbagent_obj
 
     def get(self, identifier: str, full: bool = False) -> BedMetadataAll:
-        """Get file metadata by identifier.
+        """
+        Get file metadata by identifier.
 
         Args:
             identifier: Bed file identifier.
@@ -213,7 +215,8 @@ class BedAgentBedFile:
         )
 
     def get_stats(self, identifier: str) -> BedStatsModel:
-        """Get file statistics by identifier.
+        """
+        Get file statistics by identifier.
 
         Args:
             identifier: Bed file identifier.
@@ -232,7 +235,8 @@ class BedAgentBedFile:
         return bed_stats
 
     def get_plots(self, identifier: str) -> BedPlots:
-        """Get file plots by identifier.
+        """
+        Get file plots by identifier.
 
         Args:
             identifier: Bed file identifier.
@@ -265,7 +269,8 @@ class BedAgentBedFile:
     def get_neighbours(
         self, identifier: str, limit: int = 10, offset: int = 0
     ) -> BedListSearchResult:
-        """Get nearest neighbours of bed file from qdrant.
+        """
+        Get nearest neighbours of bed file from qdrant.
 
         Args:
             identifier: Bed file identifier.
@@ -310,7 +315,8 @@ class BedAgentBedFile:
         )
 
     def get_files(self, identifier: str) -> BedFiles:
-        """Get file files by identifier.
+        """
+        Get file files by identifier.
 
         Args:
             identifier: Bed file identifier.
@@ -342,7 +348,8 @@ class BedAgentBedFile:
         return bed_files
 
     def get_raw_metadata(self, identifier: str) -> BedPEPHub:
-        """Get file metadata by identifier.
+        """
+        Get file metadata by identifier.
 
         Args:
             identifier: Bed file identifier.
@@ -363,7 +370,8 @@ class BedAgentBedFile:
         return BedPEPHubRestrict(**bed_metadata)
 
     def get_classification(self, identifier: str) -> BedClassification:
-        """Get file classification by identifier.
+        """
+        Get file classification by identifier.
 
         Args:
             identifier: Bed file identifier.
@@ -382,7 +390,8 @@ class BedAgentBedFile:
         return bed_classification
 
     def get_objects(self, identifier: str) -> dict[str, FileModel]:
-        """Get all object related to bedfile.
+        """
+        Get all object related to bedfile.
 
         Args:
             identifier: Bed file identifier.
@@ -403,7 +412,8 @@ class BedAgentBedFile:
         return return_dict
 
     def get_embedding(self, identifier: str) -> BedEmbeddingResult:
-        """Get bed file embedding of bed file from qdrant.
+        """
+        Get bed file embedding of bed file from qdrant.
 
         Args:
             identifier: Bed file identifier.
@@ -434,7 +444,8 @@ class BedAgentBedFile:
         genome: str = None,
         bed_compliance: str = None,
     ) -> BedListResult:
-        """Get list of bed file identifiers.
+        """
+        Get list of bed file identifiers.
 
         Args:
             limit: Number of results to return.
@@ -482,7 +493,8 @@ class BedAgentBedFile:
         )
 
     def get_reference_validation(self, identifier: str) -> RefGenValidReturnModel:
-        """Get results of reference genome validation for the bed file.
+        """
+        Get results of reference genome validation for the bed file.
 
         Args:
             identifier: Bed file identifier.
@@ -552,7 +564,8 @@ class BedAgentBedFile:
         nofail: bool = False,
         processed: bool = True,
     ) -> None:
-        """Add bed file to the database.
+        """
+        Add bed file to the database.
 
         Args:
             identifier: Bed file identifier.
@@ -752,7 +765,8 @@ class BedAgentBedFile:
         nofail: bool = False,
         processed: bool = False,
     ) -> None:
-        """Update bed file to the database.
+        """
+        Update bed file to the database.
 
         Args:
             identifier: Bed file identifier.
@@ -869,7 +883,8 @@ class BedAgentBedFile:
     def _update_classification(
         sa_session: Session, bed_object: Bed, classification: BedClassification
     ) -> None:
-        """Update bed file classification.
+        """
+        Update bed file classification.
 
         Args:
             sa_session: Sqlalchemy session.
@@ -891,7 +906,8 @@ class BedAgentBedFile:
     def _update_stats(
         sa_session: Session, bed_object: Bed, stats: BedStatsModel
     ) -> None:
-        """Update bed file statistics.
+        """
+        Update bed file statistics.
 
         Args:
             sa_session: Sqlalchemy session.
@@ -917,7 +933,8 @@ class BedAgentBedFile:
     def _update_metadata(
         self, sa_session: Session, bed_object: Bed, bed_metadata: StandardMeta
     ) -> None:
-        """Update bed file metadata.
+        """
+        Update bed file metadata.
 
         Args:
             sa_session: Sqlalchemy session.
@@ -958,7 +975,8 @@ class BedAgentBedFile:
         plots: BedPlots,
         local_path: str = None,
     ) -> None:
-        """Update bed file plots.
+        """
+        Update bed file plots.
 
         Args:
             sa_session: Sqlalchemy session.
@@ -1007,7 +1025,8 @@ class BedAgentBedFile:
         files: BedFiles,
         local_path: str = None,
     ) -> None:
-        """Update bed files.
+        """
+        Update bed files.
 
         Args:
             sa_session: Sqlalchemy session.
@@ -1055,7 +1074,8 @@ class BedAgentBedFile:
         ref_validation: dict[str, BaseModel],
         provided_genome: str = "",
     ) -> None:
-        """Update reference validation data.
+        """
+        Update reference validation data.
 
         This function won't update the reference validation data, if it exists, it will skip it.
 
@@ -1114,7 +1134,8 @@ class BedAgentBedFile:
         return new_gen_refs
 
     def delete(self, identifier: str) -> None:
-        """Delete bed file from the database.
+        """
+        Delete bed file from the database.
 
         Args:
             identifier: Bed file identifier.
@@ -1174,7 +1195,8 @@ class BedAgentBedFile:
             _LOGGER.warning(f"Could not update pephub. Error: {e}")
 
     def delete_pephub_sample(self, identifier: str):
-        """Delete sample from pephub.
+        """
+        Delete sample from pephub.
 
         Args:
             identifier: Bed file identifier.
@@ -1195,7 +1217,8 @@ class BedAgentBedFile:
         bed_file: str | GRegionSet,
         payload: dict = None,
     ) -> None:
-        """Convert bed file to vector and add it to qdrant database.
+        """
+        Convert bed file to vector and add it to qdrant database.
 
         Warning: only hg38 genome can be added to qdrant!
 
@@ -1223,7 +1246,8 @@ class BedAgentBedFile:
         return None
 
     def _embed_file(self, bed_file: str | GRegionSet) -> np.ndarray:
-        """Create embedding for bed file.
+        """
+        Create embedding for bed file.
 
         Args:
             bed_file: Path to the bed file, or RegionSet object.
@@ -1255,7 +1279,8 @@ class BedAgentBedFile:
         return bed_embedding.reshape(1, vec_dim)
 
     def _get_umap_file(self, bed_file: str | GRegionSet) -> np.ndarray:
-        """Create UMAP for bed file.
+        """
+        Create UMAP for bed file.
 
         Args:
             bed_file: Bed file path or region set.
@@ -1275,7 +1300,8 @@ class BedAgentBedFile:
         offset: int = 0,
         with_metadata: bool = True,
     ) -> BedListSearchResult:
-        """Search for bed files by text query in qdrant database.
+        """
+        Search for bed files by text query in qdrant database.
         This is bivec_search.
 
         Args:
@@ -1330,7 +1356,8 @@ class BedAgentBedFile:
         limit: int = 10,
         offset: int = 0,
     ) -> BedListSearchResult:
-        """Search for bed files by using region set in qdrant database.
+        """
+        Search for bed files by using region set in qdrant database.
 
         Args:
             region_set: RegionSet object to search for (bed file).
@@ -1370,7 +1397,8 @@ class BedAgentBedFile:
         limit: int = 10,
         offset: int = 0,
     ) -> BedListSearchResult:
-        """Search for bed files by using sql exact search.
+        """
+        Search for bed files by using sql exact search.
         This search will search files by id, name, and description.
 
         Args:
@@ -1443,7 +1471,8 @@ class BedAgentBedFile:
         )
 
     def _sql_search_count(self, condition_statement) -> int:
-        """Get number of total found files in the database.
+        """
+        Get number of total found files in the database.
 
         Args:
             condition_statement: Sql alchemy condition statement to filter results.
@@ -1463,7 +1492,8 @@ class BedAgentBedFile:
         return count[0]
 
     def reindex_qdrant(self, batch: int = 100, purge: bool = False) -> None:
-        """Re-upload all files to quadrant.
+        """
+        Re-upload all files to quadrant.
         Warning: only hg38 genome can be added to qdrant!
 
         If you want to fully reindex/reupload to qdrant, first delete collection and create new one.
@@ -1575,7 +1605,8 @@ class BedAgentBedFile:
             return None
 
     def delete_qdrant_point(self, identifier: str) -> None:
-        """Delete bed file from qdrant.
+        """
+        Delete bed file from qdrant.
 
         Args:
             identifier: Bed file identifier.
@@ -1597,7 +1628,8 @@ class BedAgentBedFile:
         return None
 
     def exists(self, identifier: str) -> bool:
-        """Check if bed file exists in the database.
+        """
+        Check if bed file exists in the database.
 
         Args:
             identifier: Bed file identifier.
@@ -1614,7 +1646,8 @@ class BedAgentBedFile:
             return True
 
     def exists_universe(self, identifier: str) -> bool:
-        """Check if universe exists in the database.
+        """
+        Check if universe exists in the database.
 
         Args:
             identifier: Universe identifier.
@@ -1633,7 +1666,8 @@ class BedAgentBedFile:
     def add_universe(
         self, bedfile_id: str, bedset_id: str = None, construct_method: str = None
     ) -> str:
-        """Add universe to the database.
+        """
+        Add universe to the database.
 
         Args:
             bedfile_id: Bed file identifier.
@@ -1657,7 +1691,8 @@ class BedAgentBedFile:
         return bedfile_id
 
     def delete_universe(self, identifier: str) -> None:
-        """Delete universe from the database.
+        """
+        Delete universe from the database.
 
         Args:
             identifier: Universe identifier.
@@ -1676,7 +1711,8 @@ class BedAgentBedFile:
     def add_tokenized(
         self, bed_id: str, universe_id: str, token_vector: list, overwrite: bool = False
     ) -> str:
-        """Add tokenized bed file to the database.
+        """
+        Add tokenized bed file to the database.
 
         Args:
             bed_id: Bed file identifier.
@@ -1724,7 +1760,8 @@ class BedAgentBedFile:
         tokenized_vector: list,
         overwrite: bool = False,
     ) -> str:
-        """Add zarr file to the database.
+        """
+        Add zarr file to the database.
 
         Args:
             universe_id: Universe identifier.
@@ -1753,7 +1790,8 @@ class BedAgentBedFile:
         return str(os.path.join(ZARR_TOKENIZED_FOLDER, path))
 
     def get_tokenized(self, bed_id: str, universe_id: str) -> TokenizedBedResponse:
-        """Get zarr file from the database.
+        """
+        Get zarr file from the database.
 
         Args:
             bed_id: Bed file identifier.
@@ -1774,7 +1812,8 @@ class BedAgentBedFile:
         )
 
     def delete_tokenized(self, bed_id: str, universe_id: str) -> None:
-        """Delete tokenized bed file from the database.
+        """
+        Delete tokenized bed file from the database.
 
         Args:
             bed_id: Bed file identifier.
@@ -1802,7 +1841,8 @@ class BedAgentBedFile:
         return None
 
     def _get_tokenized_path(self, bed_id: str, universe_id: str) -> str:
-        """Get tokenized path to tokenized file.
+        """
+        Get tokenized path to tokenized file.
 
         Args:
             bed_id: Bed file identifier.
@@ -1825,7 +1865,8 @@ class BedAgentBedFile:
             return str(tokenized_object.path)
 
     def exist_tokenized(self, bed_id: str, universe_id: str) -> bool:
-        """Check if tokenized bed file exists in the database.
+        """
+        Check if tokenized bed file exists in the database.
 
         Args:
             bed_id: Bed file identifier.
@@ -1849,7 +1890,8 @@ class BedAgentBedFile:
     def get_tokenized_link(
         self, bed_id: str, universe_id: str
     ) -> TokenizedPathResponse:
-        """Get tokenized link to tokenized file.
+        """
+        Get tokenized link to tokenized file.
 
         Args:
             bed_id: Bed file identifier.
@@ -1873,7 +1915,8 @@ class BedAgentBedFile:
     def get_missing_plots(
         self, plot_name: str, limit: int = 1000, offset: int = 0
     ) -> list[str]:
-        """Get list of bed files that are missing plot.
+        """
+        Get list of bed files that are missing plot.
 
         Args:
             plot_name: Plot name.
@@ -1912,7 +1955,8 @@ class BedAgentBedFile:
         return results
 
     def get_missing_stats(self, limit: int = 1000, offset: int = 0) -> list[str]:
-        """Get list of bed files that are missing statistics.
+        """
+        Get list of bed files that are missing statistics.
 
         Args:
             limit: Number of results to return.
@@ -1937,7 +1981,8 @@ class BedAgentBedFile:
         return results
 
     def get_missing_files(self, limit: int = 1000, offset: int = 0) -> list[str]:
-        """Get list of bed files that are missing files (bigBed files).
+        """
+        Get list of bed files that are missing files (bigBed files).
 
         Args:
             limit: Number of results to return.
@@ -1971,7 +2016,8 @@ class BedAgentBedFile:
     def get_unprocessed(
         self, limit: int = 1000, offset: int = 0, genome: str | list | None = None
     ) -> BedListResult:
-        """Get bed files that are not processed.
+        """
+        Get bed files that are not processed.
 
         Args:
             limit: Number of results to return.
@@ -2040,7 +2086,8 @@ class BedAgentBedFile:
         global_sample_id: list[str] | None = None,
         global_experiment_id: list[str] | None = None,
     ) -> None:
-        """Add global sample and experiment ids to the bed file if they are missing.
+        """
+        Add global sample and experiment ids to the bed file if they are missing.
 
         Args:
             identifier: Bed file identifier.
@@ -2078,7 +2125,8 @@ class BedAgentBedFile:
             session.commit()
 
     def reindex_hybrid_search(self, batch: int = 1000, purge: bool = False) -> None:
-        """Reindex all bed files for semantic database.
+        """
+        Reindex all bed files for semantic database.
 
         Args:
             batch: Number of files to upload in one batch.
@@ -2209,7 +2257,8 @@ class BedAgentBedFile:
         offset: int = 0,
         with_metadata: bool = True,
     ) -> BedListSearchResult:
-        """Run semantic search for bed files using qdrant.
+        """
+        Run semantic search for bed files using qdrant.
         This is not bivec search, but usual qdrant search with sparse and dense embeddings.
 
         Args:
@@ -2314,7 +2363,8 @@ class BedAgentBedFile:
         )
 
     def search_external_file(self, source: str, accession: str) -> BedListSearchResult:
-        """Search for bed files by external source and accession number.
+        """
+        Search for bed files by external source and accession number.
         e.g. source='geo', accession='GSE12345'.
 
         Args:

@@ -54,7 +54,8 @@ class BedBaseConfig:
     """
 
     def __init__(self, config: Path | str, init_ml: bool = True):
-        """Initialize BedBaseConfig object.
+        """
+        Initialize BedBaseConfig object.
 
         Args:
             config: Path to the configuration file.
@@ -119,7 +120,8 @@ class BedBaseConfig:
 
     @staticmethod
     def _read_config_file(config_path: str) -> ConfigFile:
-        """Read configuration file and insert default values if not set.
+        """
+        Read configuration file and insert default values if not set.
 
         Args:
             config_path: Configuration file path.
@@ -147,7 +149,8 @@ class BedBaseConfig:
 
     @property
     def config(self) -> ConfigFile:
-        """Get configuration.
+        """
+        Get configuration.
 
         Returns:
             Configuration object.
@@ -156,7 +159,8 @@ class BedBaseConfig:
 
     @property
     def db_engine(self) -> BaseEngine:
-        """Get database engine.
+        """
+        Get database engine.
 
         Returns:
             Database engine.
@@ -165,7 +169,8 @@ class BedBaseConfig:
 
     @property
     def phc(self) -> PEPHubClient:
-        """Get PEPHub client.
+        """
+        Get PEPHub client.
 
         Returns:
             PEPHub client.
@@ -174,7 +179,8 @@ class BedBaseConfig:
 
     @property
     def boto3_client(self) -> boto3.client:
-        """Get boto3 client.
+        """
+        Get boto3 client.
 
         Returns:
             Boto3 client.
@@ -183,7 +189,8 @@ class BedBaseConfig:
 
     @property
     def zarr_root(self) -> Z_GROUP | None:
-        """Get zarr root object (Group).
+        """
+        Get zarr root object (Group).
 
         Returns:
             Zarr root group object.
@@ -248,7 +255,8 @@ class BedBaseConfig:
     def _init_qdrant_file_backend(
         self, qdrant_cl: QdrantClient
     ) -> QdrantBackend | None:
-        """Create qdrant client object using credentials provided in config file.
+        """
+        Create qdrant client object using credentials provided in config file.
 
         Args:
             qdrant_cl: QdrantClient object.
@@ -277,7 +285,8 @@ class BedBaseConfig:
     def _init_qdrant_text_backend(
         self, qdrant_cl: QdrantClient, dense_encoder: TextEmbedding
     ) -> QdrantBackend | None:
-        """Create qdrant client text embedding object using credentials provided in config file.
+        """
+        Create qdrant client text embedding object using credentials provided in config file.
 
         Args:
             qdrant_cl: QdrantClient object.
@@ -314,7 +323,8 @@ class BedBaseConfig:
     def _init_qdrant_hybrid(
         self, qdrant_cl: QdrantClient, dense_encoder: TextEmbedding
     ) -> None:
-        """Create qdrant client with sparse and text embedding object using credentials provided in config file.
+        """
+        Create qdrant client with sparse and text embedding object using credentials provided in config file.
 
         Args:
             qdrant_cl: QdrantClient object.
@@ -396,7 +406,8 @@ class BedBaseConfig:
         qdrant_text_backend: QdrantBackend,
         text_encoder: TextEmbedding,
     ) -> BiVectorSearchInterface | None:
-        """Create BiVectorSearchInterface object using credentials provided in config file.
+        """
+        Create BiVectorSearchInterface object using credentials provided in config file.
 
         Args:
             qdrant_file_backend: QdrantBackend for file vectors.
@@ -423,7 +434,8 @@ class BedBaseConfig:
         qdrant_file_backend: QdrantBackend,
         region_encoder: Region2VecExModel | str,
     ) -> BED2BEDSearchInterface | None:
-        """Create Bed 2 BED search interface and return this object.
+        """
+        Create Bed 2 BED search interface and return this object.
 
         Returns:
             Bed2BEDSearchInterface object.
@@ -526,7 +538,8 @@ class BedBaseConfig:
     def _init_boto3_client(
         self,
     ) -> BaseClient | None:
-        """Create boto3 client object using credentials provided in config file.
+        """
+        Create boto3 client object using credentials provided in config file.
 
         Returns:
             Boto3 client.
@@ -544,7 +557,8 @@ class BedBaseConfig:
             return None
 
     def upload_s3(self, file_path: str, s3_path: Path | str) -> None:
-        """Upload file to s3.
+        """
+        Upload file to s3.
 
         Args:
             file_path: Local path to the file.
@@ -572,7 +586,8 @@ class BedBaseConfig:
         base_path: str,
         type: Literal["files", "plots", "bedsets"] = "files",
     ) -> BedFiles | BedPlots | BedSetPlots:
-        """Upload files to s3.
+        """
+        Upload files to s3.
 
         Args:
             identifier: Bed file identifier.
@@ -627,7 +642,8 @@ class BedBaseConfig:
         return files
 
     def delete_s3(self, s3_path: str) -> None:
-        """Delete file from s3.
+        """
+        Delete file from s3.
 
         Args:
             s3_path: Path to the file in s3.
@@ -653,7 +669,8 @@ class BedBaseConfig:
             )
 
     def delete_files_s3(self, files: list[FileModel]) -> None:
-        """Delete files from s3.
+        """
+        Delete files from s3.
 
         Args:
             files: List of file objects.
@@ -669,7 +686,8 @@ class BedBaseConfig:
 
     @staticmethod
     def _init_pephubclient() -> PEPHubClient | None:
-        """Create Pephub client object using credentials provided in config file.
+        """
+        Create Pephub client object using credentials provided in config file.
 
         Returns:
             PephubClient.
@@ -685,7 +703,8 @@ class BedBaseConfig:
         return None
 
     def get_prefixed_uri(self, postfix: str, access_id: str) -> str:
-        """Return uri with correct prefix (schema).
+        """
+        Return uri with correct prefix (schema).
 
         Args:
             postfix: Postfix of the uri (or everything after uri schema).
@@ -703,7 +722,8 @@ class BedBaseConfig:
             raise BadAccessMethodError(f"Access method {access_id} is not defined.")
 
     def construct_access_method_list(self, rel_path: str) -> list[AccessMethod]:
-        """Construct access method list for a given record.
+        """
+        Construct access method list for a given record.
 
         Args:
             rel_path: Relative path to the record.

@@ -48,7 +48,8 @@ class BedBaseAgent:
         config: Path | str,
         init_ml: bool = True,
     ):
-        """Initialize connection to the pep_db database. You can use the basic connection parameters
+        """
+        Initialize connection to the pep_db database. You can use the basic connection parameters
         or libpq connection string.
 
         Args:
@@ -82,7 +83,8 @@ class BedBaseAgent:
         return repr
 
     def get_stats(self) -> StatsReturn:
-        """Get statistics for a bed file.
+        """
+        Get statistics for a bed file.
 
         Returns:
             Statistics.
@@ -102,7 +104,8 @@ class BedBaseAgent:
         )
 
     def get_detailed_stats(self, concise: bool = False) -> FileStats:
-        """Get comprehensive statistics for all bed files.
+        """
+        Get comprehensive statistics for all bed files.
 
         Args:
             concise: If True, return only top 20 items for each category.
@@ -268,7 +271,8 @@ class BedBaseAgent:
         )
 
     def get_detailed_usage(self) -> UsageStats:
-        """Get detailed usage statistics for the bedbase platform.
+        """
+        Get detailed usage statistics for the bedbase platform.
         This method will only return top 20 items for each category.
 
         Returns:
@@ -340,7 +344,8 @@ class BedBaseAgent:
         )
 
     def get_list_genomes(self) -> list[str]:
-        """Get list of genomes from the database.
+        """
+        Get list of genomes from the database.
 
         Returns:
             List of genomes.
@@ -355,7 +360,8 @@ class BedBaseAgent:
         return [result[0] for result in genomes if result[0]]
 
     def get_list_assays(self) -> list[str]:
-        """Get list of genomes from the database.
+        """
+        Get list of genomes from the database.
 
         Returns:
             List of genomes.
@@ -372,7 +378,8 @@ class BedBaseAgent:
 
     @cached_property
     def list_of_licenses(self) -> list[str]:
-        """Get list of licenses from the database.
+        """
+        Get list of licenses from the database.
 
         Returns:
             List of licenses.
@@ -497,7 +504,8 @@ class BedBaseAgent:
             session.commit()
 
     def _stats_comments(self, sa_session: Session) -> dict[str, int]:
-        """Get statistics about comments that are present in bed files.
+        """
+        Get statistics about comments that are present in bed files.
 
         Args:
             sa_session: SQLAlchemy session.
@@ -552,7 +560,8 @@ class BedBaseAgent:
         }
 
     def _stats_geo_status(self, sa_session: Session) -> dict[str, int]:
-        """Get statistics about status of GEO bed file processing.
+        """
+        Get statistics about status of GEO bed file processing.
 
         Args:
             sa_session: SQLAlchemy session.
@@ -603,7 +612,8 @@ class BedBaseAgent:
         }
 
     def bed_files_info(self) -> AllFilesInfo:
-        """Get information about all bed files in bedbase.
+        """
+        Get information about all bed files in bedbase.
 
         Returns:
             AllFilesInfo containing total count and list of file info objects.
@@ -652,7 +662,8 @@ class BedBaseAgent:
         )
 
     def _bin_number_of_regions(self, number_of_regions: list) -> BinValues:
-        """Create bins for number of regions in bed files.
+        """
+        Create bins for number of regions in bed files.
 
         Args:
             number_of_regions: List of number of regions in bed files.
@@ -682,7 +693,8 @@ class BedBaseAgent:
         )
 
     def _bin_mean_region_width(self, mean_region_widths: list) -> BinValues:
-        """Create bins for number of regions in bed files.
+        """
+        Create bins for number of regions in bed files.
 
         Args:
             mean_region_widths: List of mean region widths in bed files.
@@ -712,7 +724,8 @@ class BedBaseAgent:
         )
 
     def _bin_file_size(self, list_file_size: list) -> BinValues:
-        """Create bins for number of regions in bed files.
+        """
+        Create bins for number of regions in bed files.
 
         Args:
             list_file_size: List of bed file sizes in bytes.
@@ -743,7 +756,8 @@ class BedBaseAgent:
         )
 
     def _get_geo_stats(self, sa_session: Session) -> GEOStatistics:
-        """Get GEO statistics for the bedbase platform.
+        """
+        Get GEO statistics for the bedbase platform.
 
         Returns:
             GEOStatistics.
@@ -797,7 +811,8 @@ class BedBaseAgent:
         )
 
     def get_reference_genomes(self) -> dict[str, str]:
-        """Get mapping of genome aliases to reference genome names.
+        """
+        Get mapping of genome aliases to reference genome names.
 
         Returns:
             Dict mapping genome_alias to reference_genome_name.

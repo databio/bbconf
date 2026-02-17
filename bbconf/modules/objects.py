@@ -21,7 +21,8 @@ class BBObjects:
     """ """
 
     def __init__(self, config: BedBaseConfig):
-        """Initialize BBObjects.
+        """
+        Initialize BBObjects.
 
         Args:
             config: Config object.
@@ -37,7 +38,8 @@ class BBObjects:
         result_id: str,
         access_id: str = "http",
     ) -> str:
-        """Create URL to access a bed- or bedset-associated thumbnail.
+        """
+        Create URL to access a bed- or bedset-associated thumbnail.
 
         Args:
             record_type: Table name ["bed", "bedset"].
@@ -67,7 +69,8 @@ class BBObjects:
         result_id: str,
         access_id: str,
     ) -> str:
-        """Create URL to access a bed- or bedset-associated file.
+        """
+        Create URL to access a bed- or bedset-associated file.
 
         Args:
             record_type: Table name ["bed", "bedset"].
@@ -87,7 +90,8 @@ class BBObjects:
         record_id: str,
         result_id: str | list[str],
     ) -> FileModel:
-        """Generic getter that can return a result from either bed or bedset.
+        """
+        Generic getter that can return a result from either bed or bedset.
 
         Args:
             record_type: Table name ["bed", "bedset"].
@@ -130,7 +134,8 @@ class BBObjects:
         result_id: str,
         base_uri: str,
     ) -> DRSModel:
-        """Get DRS metadata for a bed- or bedset-associated file.
+        """
+        Get DRS metadata for a bed- or bedset-associated file.
 
         Args:
             record_type: Bed or bedset.
@@ -170,7 +175,8 @@ class BBObjects:
         created_time: datetime.datetime | None = None,
         modified_time: datetime.datetime | None = None,
     ) -> DRSModel:
-        """Construct DRS metadata object.
+        """
+        Construct DRS metadata object.
 
         Args:
             base_uri: Base uri to use for the self_uri field (server hostname of DRS broker).

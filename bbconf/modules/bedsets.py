@@ -38,7 +38,8 @@ class BedAgentBedSet:
     """
 
     def __init__(self, config: BedBaseConfig):
-        """Initialize BedAgentBedSet.
+        """
+        Initialize BedAgentBedSet.
 
         Args:
             config: Config object.
@@ -47,7 +48,8 @@ class BedAgentBedSet:
         self._db_engine = self.config.db_engine
 
     def get(self, identifier: str, full: bool = False) -> BedSetMetadata:
-        """Get file metadata by identifier.
+        """
+        Get file metadata by identifier.
 
         Args:
             identifier: Bed file identifier.
@@ -96,7 +98,8 @@ class BedAgentBedSet:
         return bedset_metadata
 
     def get_plots(self, identifier: str) -> BedSetPlots:
-        """Get plots for bedset by identifier.
+        """
+        Get plots for bedset by identifier.
 
         Args:
             identifier: Bedset identifier.
@@ -127,7 +130,8 @@ class BedAgentBedSet:
         return bedset_files
 
     def get_objects(self, identifier: str) -> dict[str, FileModel]:
-        """Get objects for bedset by identifier.
+        """
+        Get objects for bedset by identifier.
 
         Args:
             identifier: Bedset identifier.
@@ -154,7 +158,8 @@ class BedAgentBedSet:
         return return_dict
 
     def get_statistics(self, identifier: str) -> BedSetStats:
-        """Get statistics for bedset by identifier.
+        """
+        Get statistics for bedset by identifier.
 
         Args:
             identifier: Bedset identifier.
@@ -173,7 +178,8 @@ class BedAgentBedSet:
             )
 
     def get_bedset_pep(self, identifier: str) -> dict:
-        """Create pep file for a bedset.
+        """
+        Create pep file for a bedset.
 
         Args:
             identifier: Bedset identifier.
@@ -232,7 +238,8 @@ class BedAgentBedSet:
         }
 
     def get_track_hub_file(self, identifier: str) -> str:
-        """Get track hub file for bedset.
+        """
+        Get track hub file for bedset.
 
         Args:
             identifier: Bedset identifier.
@@ -305,7 +312,8 @@ class BedAgentBedSet:
         overwrite: bool = False,
         processed: bool = True,
     ) -> None:
-        """Create bedset in the database.
+        """
+        Create bedset in the database.
 
         Args:
             identifier: Bedset identifier.
@@ -408,7 +416,8 @@ class BedAgentBedSet:
         return None
 
     def _calculate_statistics(self, bed_ids: list[str]) -> BedSetStats:
-        """Calculate statistics for bedset.
+        """
+        Calculate statistics for bedset.
 
         Args:
             bed_ids: List of bed file identifiers.
@@ -457,7 +466,8 @@ class BedAgentBedSet:
         bed_ids: list = None,
         nofail: bool = False,
     ) -> None:
-        """Create view in pephub for bedset.
+        """
+        Create view in pephub for bedset.
 
         Args:
             bedset_id: Bedset identifier.
@@ -488,7 +498,8 @@ class BedAgentBedSet:
     def get_ids_list(
         self, query: str = None, limit: int = 10, offset: int = 0
     ) -> BedSetListResult:
-        """Get list of bedsets from the database.
+        """
+        Get list of bedsets from the database.
 
         Args:
             query: Search query.
@@ -531,7 +542,8 @@ class BedAgentBedSet:
         )
 
     def get_bedset_bedfiles(self, identifier: str) -> BedSetBedFiles:
-        """Get list of bedfiles in bedset.
+        """
+        Get list of bedfiles in bedset.
 
         Args:
             identifier: Bedset identifier.
@@ -566,7 +578,8 @@ class BedAgentBedSet:
         )
 
     def delete(self, identifier: str) -> None:
-        """Delete bed file from the database.
+        """
+        Delete bed file from the database.
 
         Args:
             identifier: Bedset identifier.
@@ -593,7 +606,8 @@ class BedAgentBedSet:
             self.config.delete_files_s3(files)
 
     def delete_phc_view(self, identifier: str, nofail: bool = False) -> None:
-        """Delete view in pephub.
+        """
+        Delete view in pephub.
 
         Args:
             identifier: Bedset identifier.
@@ -617,7 +631,8 @@ class BedAgentBedSet:
         return None
 
     def exists(self, identifier: str) -> bool:
-        """Check if bedset exists in the database.
+        """
+        Check if bedset exists in the database.
 
         Args:
             identifier: Bedset identifier.
@@ -633,7 +648,8 @@ class BedAgentBedSet:
         return False
 
     def get_unprocessed(self, limit: int = 100, offset: int = 0) -> BedSetListResult:
-        """Get unprocessed bedset from the database.
+        """
+        Get unprocessed bedset from the database.
 
         Args:
             limit: Limit of results.
