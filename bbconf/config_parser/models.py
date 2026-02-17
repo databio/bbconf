@@ -41,10 +41,10 @@ class ConfigDB(BaseModel):
     @computed_field
     @property
     def url(self) -> str:
-        """
-        The URL of the database.
+        """The URL of the database.
 
-        :return str: The URL of the database.
+        Returns:
+            The URL of the database.
         """
         return f"{self.dialect}+{self.driver}://{self.user}:{self.password}@{self.host}:{self.port}/{self.database}"
 
@@ -105,10 +105,10 @@ class ConfigS3(BaseModel):
     @computed_field
     @property
     def modify_access(self) -> bool:
-        """
-        If the AWS credentials are provided, set the modify access to True. (create = True)
+        """If the AWS credentials are provided, set the modify access to True. (create = True)
 
-        :return str: The URL of the database.
+        Returns:
+            True if AWS credentials are provided, False otherwise.
         """
         if self.aws_access_key_id and self.aws_secret_access_key:
             return True
@@ -137,11 +137,12 @@ class ConfigFile(BaseModel):
 
     @classmethod
     def from_yaml(cls, path: Path):
-        """
-        Load the database configuration from a YAML file.
+        """Load the database configuration from a YAML file.
 
-        :param path: The path to the YAML file.
+        Args:
+            path: The path to the YAML file.
 
-        :returns: DatabaseConfig: The database configuration.
+        Returns:
+            The database configuration.
         """
         return cls.model_validate(load_yaml(path.as_posix()))

@@ -613,18 +613,18 @@ class BaseEngine:
         dsn: str | None = None,
         echo: bool = False,
     ):
-        """
-        Initialize connection to the bedbase database. You can use The basic connection parameters
+        """Initialize connection to the bedbase database. You can use the basic connection parameters
         or libpq connection string.
 
-        :param host: database server address e.g., localhost or an IP address.
-        :param port: the port number that defaults to 5432 if it is not provided.
-        :param database: the name of the database that you want to connect.
-        :param user: the username used to authenticate.
-        :param password: password used to authenticate.
-        :param drivername: driver used in
-        :param dsn: libpq connection string using the dsn parameter
-        (e.g. 'postgresql://user_name:password@host_name:port/db_name')
+        Args:
+            host: Database server address e.g., localhost or an IP address.
+            port: The port number that defaults to 5432 if it is not provided.
+            database: The name of the database that you want to connect.
+            user: The username used to authenticate.
+            password: Password used to authenticate.
+            drivername: Driver used in connection.
+            dsn: Libpq connection string using the dsn parameter
+                (e.g. 'postgresql://user_name:password@host_name:port/db_name').
         """
         if not dsn:
             dsn = URL.create(
@@ -641,11 +641,13 @@ class BaseEngine:
         self.check_db_connection()
 
     def create_schema(self, engine=None):
-        """
-        Create sql schema in the database.
+        """Create sql schema in the database.
 
-        :param engine: sqlalchemy engine [Default: None]
-        :return: None
+        Args:
+            engine: Sqlalchemy engine [Default: None].
+
+        Returns:
+            None.
         """
         if not engine:
             engine = self._engine
@@ -660,11 +662,13 @@ class BaseEngine:
                 pass
 
     def delete_schema(self, engine=None) -> None:
-        """
-        Delete sql schema in the database.
+        """Delete sql schema in the database.
 
-        :param engine: sqlalchemy engine [Default: None]
-        :return: None
+        Args:
+            engine: Sqlalchemy engine [Default: None].
+
+        Returns:
+            None.
         """
         if not engine:
             engine = self._engine
@@ -672,12 +676,14 @@ class BaseEngine:
         return None
 
     def session_execute(self, statement: Select) -> Result:
-        """
-        Execute statement using sqlalchemy statement
+        """Execute statement using sqlalchemy statement.
 
-        :param statement: SQL query or a SQL expression that is constructed using
-            SQLAlchemy's SQL expression language
-        :return: query result represented with declarative base
+        Args:
+            statement: SQL query or a SQL expression that is constructed using
+                SQLAlchemy's SQL expression language.
+
+        Returns:
+            Query result represented with declarative base.
         """
         _LOGGER.debug(f"Executing statement: {statement}")
         with Session(self._engine) as session:
@@ -687,15 +693,19 @@ class BaseEngine:
 
     @property
     def session(self):
-        """
-        :return: started sqlalchemy session
+        """Get a started sqlalchemy session.
+
+        Returns:
+            Started sqlalchemy session.
         """
         return self._start_session()
 
     @property
     def engine(self) -> Engine:
-        """
-        :return: sqlalchemy engine
+        """Get sqlalchemy engine.
+
+        Returns:
+            Sqlalchemy engine.
         """
         return self._engine
 
@@ -715,11 +725,13 @@ class BaseEngine:
             raise SchemaError()
 
     def create_schema_graph(self, output_file: str = "schema.svg"):
-        """
-        Create schema graph of the database.
+        """Create schema graph of the database.
 
-        :param output_file: path to the output file
-        :return: None
+        Args:
+            output_file: Path to the output file.
+
+        Returns:
+            None.
         """
         graph = create_schema_graph(engine=self.engine, metadata=Base.metadata)
         graph.write(output_file, format="svg", prog="dot")

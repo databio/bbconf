@@ -21,8 +21,10 @@ class BBObjects:
     """ """
 
     def __init__(self, config: BedBaseConfig):
-        """
-        :param config: config object
+        """Initialize BBObjects.
+
+        Args:
+            config: Config object.
         """
         self.config = config
         self.bed = BedAgentBedFile(self.config)
@@ -35,14 +37,16 @@ class BBObjects:
         result_id: str,
         access_id: str = "http",
     ) -> str:
-        """
-        Create URL to access a bed- or bedset-associated thumbnail
+        """Create URL to access a bed- or bedset-associated thumbnail.
 
-        :param record_type: table_name ["bed", "bedset"]
-        :param record_id: record identifier
-        :param result_id: column name (result name)
-        :param access_id: access id (e.g. http, s3, etc.)
-        :return: string with thumbnail
+        Args:
+            record_type: Table name ["bed", "bedset"].
+            record_id: Record identifier.
+            result_id: Column name (result name).
+            access_id: Access id (e.g. http, s3, etc.).
+
+        Returns:
+            String with thumbnail.
         """
         result = self._get_result(record_type, record_id, result_id)
         if result.path_thumbnail:
@@ -63,14 +67,16 @@ class BBObjects:
         result_id: str,
         access_id: str,
     ) -> str:
-        """
-        Create URL to access a bed- or bedset-associated file
+        """Create URL to access a bed- or bedset-associated file.
 
-        :param record_type: table_name ["bed", "bedset"]
-        :param record_id: record identifier
-        :param result_id: column name (result name)
-        :param access_id: access id (e.g. http, s3, etc.)
-        :return:
+        Args:
+            record_type: Table name ["bed", "bedset"].
+            record_id: Record identifier.
+            result_id: Column name (result name).
+            access_id: Access id (e.g. http, s3, etc.).
+
+        Returns:
+            URI string for the object.
         """
         result = self._get_result(record_type, record_id, result_id)
         return self.config.get_prefixed_uri(result.path, access_id)
@@ -81,13 +87,15 @@ class BBObjects:
         record_id: str,
         result_id: str | list[str],
     ) -> FileModel:
-        """
-        Generic getter that can return a result from either bed or bedset
+        """Generic getter that can return a result from either bed or bedset.
 
-        :param record_type: table_name ["bed", "bedset"]
-        :param record_id: record identifier
-        :param result_id: column name (result name). e.g. "bigbedfile", "bed_file", "open_chromatin"
-        :return: pipestat result
+        Args:
+            record_type: Table name ["bed", "bedset"].
+            record_id: Record identifier.
+            result_id: Column name (result name). e.g. "bigbedfile", "bed_file", "open_chromatin".
+
+        Returns:
+            Pipestat result.
         """
         if record_type == "bed":
             try:
@@ -122,14 +130,16 @@ class BBObjects:
         result_id: str,
         base_uri: str,
     ) -> DRSModel:
-        """
-        Get DRS metadata for a bed- or bedset-associated file
+        """Get DRS metadata for a bed- or bedset-associated file.
 
-        :param record_type: bed or bedset
-        :param record_id: record identifier
-        :param result_id: name of the result file to get metadata for
-        :param base_uri: base uri to use for the self_uri field (server hostname of DRS broker)
-        :return: DRS metadata
+        Args:
+            record_type: Bed or bedset.
+            record_id: Record identifier.
+            result_id: Name of the result file to get metadata for.
+            base_uri: Base uri to use for the self_uri field (server hostname of DRS broker).
+
+        Returns:
+            DRS metadata.
         """
 
         object_id = f"{record_type}.{record_id}.{result_id}"
@@ -160,15 +170,17 @@ class BBObjects:
         created_time: datetime.datetime | None = None,
         modified_time: datetime.datetime | None = None,
     ) -> DRSModel:
-        """
-        Construct DRS metadata object
+        """Construct DRS metadata object.
 
-        :param base_uri: base uri to use for the self_uri field (server hostname of DRS broker)
-        :param object_id: record identifier
-        :param record_metadata: metadata of the record
-        :param created_time: time of creation
-        :param modified_time: time of last modification
-        :return: DRS metadata
+        Args:
+            base_uri: Base uri to use for the self_uri field (server hostname of DRS broker).
+            object_id: Record identifier.
+            record_metadata: Metadata of the record.
+            created_time: Time of creation.
+            modified_time: Time of last modification.
+
+        Returns:
+            DRS metadata.
         """
         access_methods = self.config.construct_access_method_list(record_metadata.path)
         drs_dict = DRSModel(

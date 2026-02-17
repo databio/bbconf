@@ -81,9 +81,11 @@ class BedAgentBedFile:
     """
 
     def __init__(self, config: BedBaseConfig, bbagent_obj=None):
-        """
-        :param config: config object with database and qdrant engine and credentials
-        :param bbagent_obj: BedBaseAgent object (Parent object)
+        """Initialize BedAgentBedFile.
+
+        Args:
+            config: Config object with database and qdrant engine and credentials.
+            bbagent_obj: BedBaseAgent object (Parent object).
         """
         self._sa_engine = config.db_engine.engine
         self._db_engine = config.db_engine
@@ -92,12 +94,14 @@ class BedAgentBedFile:
         self.bb_agent = bbagent_obj
 
     def get(self, identifier: str, full: bool = False) -> BedMetadataAll:
-        """
-        Get file metadata by identifier.
+        """Get file metadata by identifier.
 
-        :param identifier: bed file identifier
-        :param full: if True, return full metadata, including statistics, files, and raw metadata from pephub
-        :return: project metadata
+        Args:
+            identifier: Bed file identifier.
+            full: If True, return full metadata, including statistics, files, and raw metadata from pephub.
+
+        Returns:
+            Project metadata.
         """
         statement = select(Bed).where(and_(Bed.id == identifier))
 
@@ -209,12 +213,13 @@ class BedAgentBedFile:
         )
 
     def get_stats(self, identifier: str) -> BedStatsModel:
-        """
-        Get file statistics by identifier.
+        """Get file statistics by identifier.
 
-        :param identifier: bed file identifier
+        Args:
+            identifier: Bed file identifier.
 
-        :return: project statistics as BedStats object
+        Returns:
+            Project statistics as BedStats object.
         """
         statement = select(BedStats).where(and_(BedStats.id == identifier))
 
@@ -227,11 +232,13 @@ class BedAgentBedFile:
         return bed_stats
 
     def get_plots(self, identifier: str) -> BedPlots:
-        """
-        Get file plots by identifier.
+        """Get file plots by identifier.
 
-        :param identifier: bed file identifier
-        :return: project plots
+        Args:
+            identifier: Bed file identifier.
+
+        Returns:
+            Project plots.
         """
         statement = select(Bed).where(and_(Bed.id == identifier))
 
@@ -258,14 +265,15 @@ class BedAgentBedFile:
     def get_neighbours(
         self, identifier: str, limit: int = 10, offset: int = 0
     ) -> BedListSearchResult:
-        """
-        Get nearest neighbours of bed file from qdrant.
+        """Get nearest neighbours of bed file from qdrant.
 
-        :param identifier: bed file identifier
-        :param limit: number of results to return
-        :param offset: offset to start from
+        Args:
+            identifier: Bed file identifier.
+            limit: Number of results to return.
+            offset: Offset to start from.
 
-        :return: list of nearest neighbours
+        Returns:
+            List of nearest neighbours.
         """
         if not self.exists(identifier):
             raise BEDFileNotFoundError(f"Bed file with id: {identifier} not found.")
@@ -302,11 +310,13 @@ class BedAgentBedFile:
         )
 
     def get_files(self, identifier: str) -> BedFiles:
-        """
-        Get file files by identifier.
+        """Get file files by identifier.
 
-        :param identifier: bed file identifier
-        :return: project files
+        Args:
+            identifier: Bed file identifier.
+
+        Returns:
+            Project files.
         """
         statement = select(Bed).where(and_(Bed.id == identifier))
 
@@ -332,11 +342,13 @@ class BedAgentBedFile:
         return bed_files
 
     def get_raw_metadata(self, identifier: str) -> BedPEPHub:
-        """
-        Get file metadata by identifier.
+        """Get file metadata by identifier.
 
-        :param identifier: bed file identifier
-        :return: project metadata
+        Args:
+            identifier: Bed file identifier.
+
+        Returns:
+            Project metadata.
         """
         try:
             bed_metadata = self.config.phc.sample.get(
@@ -351,11 +363,13 @@ class BedAgentBedFile:
         return BedPEPHubRestrict(**bed_metadata)
 
     def get_classification(self, identifier: str) -> BedClassification:
-        """
-        Get file classification by identifier.
+        """Get file classification by identifier.
 
-        :param identifier: bed file identifier
-        :return: project classification
+        Args:
+            identifier: Bed file identifier.
+
+        Returns:
+            Project classification.
         """
         statement = select(Bed).where(and_(Bed.id == identifier))
 
@@ -368,11 +382,13 @@ class BedAgentBedFile:
         return bed_classification
 
     def get_objects(self, identifier: str) -> dict[str, FileModel]:
-        """
-        Get all object related to bedfile
+        """Get all object related to bedfile.
 
-        :param identifier:  bed file identifier
-        :return: project objects dict
+        Args:
+            identifier: Bed file identifier.
+
+        Returns:
+            Project objects dict.
         """
         statement = select(Bed).where(and_(Bed.id == identifier))
         return_dict = {}
@@ -387,11 +403,13 @@ class BedAgentBedFile:
         return return_dict
 
     def get_embedding(self, identifier: str) -> BedEmbeddingResult:
-        """
-        Get bed file embedding of bed file from qdrant.
+        """Get bed file embedding of bed file from qdrant.
 
-        :param identifier: bed file identifier
-        :return: bed file embedding
+        Args:
+            identifier: Bed file identifier.
+
+        Returns:
+            Bed file embedding.
         """
         if not self.exists(identifier):
             raise BEDFileNotFoundError(f"Bed file with id: {identifier} not found.")
@@ -416,15 +434,16 @@ class BedAgentBedFile:
         genome: str = None,
         bed_compliance: str = None,
     ) -> BedListResult:
-        """
-        Get list of bed file identifiers.
+        """Get list of bed file identifiers.
 
-        :param limit: number of results to return
-        :param offset: offset to start from
-        :param genome: filter by genome
-        :param bed_compliance: filter by bed type. e.g. 'bed6+4'
+        Args:
+            limit: Number of results to return.
+            offset: Offset to start from.
+            genome: Filter by genome.
+            bed_compliance: Filter by bed type. e.g. 'bed6+4'.
 
-        :return: list of bed file identifiers
+        Returns:
+            List of bed file identifiers.
         """
         statement = select(Bed)
         count_statement = select(func.count(Bed.id))
@@ -463,11 +482,13 @@ class BedAgentBedFile:
         )
 
     def get_reference_validation(self, identifier: str) -> RefGenValidReturnModel:
-        """
-        Get results of reference genome validation for the bed file.
+        """Get results of reference genome validation for the bed file.
 
-        :param identifier: bed file identifier
-        :return: reference genome validation results
+        Args:
+            identifier: Bed file identifier.
+
+        Returns:
+            Reference genome validation results.
         """
 
         if not self.exists(identifier):
@@ -531,26 +552,28 @@ class BedAgentBedFile:
         nofail: bool = False,
         processed: bool = True,
     ) -> None:
-        """
-        Add bed file to the database.
+        """Add bed file to the database.
 
-        :param identifier: bed file identifier
-        :param stats: bed file results {statistics, plots, files, metadata}
-        :param metadata: bed file metadata (will be saved in pephub)
-        :param plots: bed file plots
-        :param files: bed file files
-        :param classification: bed file classification
-        :param ref_validation: reference validation data.  RefGenValidModel
-        :param license_id: bed file license id (default: 'DUO:0000042'). Full list of licenses:
-            https://raw.githubusercontent.com/EBISPOT/DUO/master/duo.csv
-        :param upload_qdrant: add bed file to qdrant indexs
-        :param upload_pephub: add bed file to pephub
-        :param upload_s3: upload files to s3
-        :param local_path: local path to the output files
-        :param overwrite: overwrite bed file if it already exists
-        :param nofail: do not raise an error for error in pephub/s3/qdrant or record exsist and not overwrite
-        :param processed: true if bedfile was processed and statistics and plots were calculated
-        :return: None
+        Args:
+            identifier: Bed file identifier.
+            stats: Bed file results {statistics, plots, files, metadata}.
+            metadata: Bed file metadata (will be saved in pephub).
+            plots: Bed file plots.
+            files: Bed file files.
+            classification: Bed file classification.
+            ref_validation: Reference validation data. RefGenValidModel.
+            license_id: Bed file license id (default: 'DUO:0000042'). Full list of licenses:
+                https://raw.githubusercontent.com/EBISPOT/DUO/master/duo.csv
+            upload_qdrant: Add bed file to qdrant indexes.
+            upload_pephub: Add bed file to pephub.
+            upload_s3: Upload files to s3.
+            local_path: Local path to the output files.
+            overwrite: Overwrite bed file if it already exists.
+            nofail: Do not raise an error for error in pephub/s3/qdrant or record exists and not overwrite.
+            processed: True if bedfile was processed and statistics and plots were calculated.
+
+        Returns:
+            None.
         """
 
         _LOGGER.info(f"Adding bed file to database. bed_id: {identifier}")
@@ -729,25 +752,27 @@ class BedAgentBedFile:
         nofail: bool = False,
         processed: bool = False,
     ) -> None:
-        """
-        Update bed file to the database.
+        """Update bed file to the database.
 
-        :param identifier: bed file identifier
-        :param stats: bed file results {statistics, plots, files, metadata}
-        :param metadata: bed file metadata (will be saved in pephub)
-        :param plots: bed file plots
-        :param files: bed file files
-        :param classification: bed file classification
-        :param ref_validation: reference validation data.  RefGenValidModel
-        :param license_id: bed file license id (default: 'DUO:0000042').
-        :param upload_qdrant: add bed file to qdrant indexs
-        :param upload_pephub: add bed file to pephub
-        :param upload_s3: upload files to s3
-        :param local_path: local path to the output files
-        :param overwrite: overwrite bed file if it already exists
-        :param nofail: do not raise an error for error in pephub/s3/qdrant or record exsist and not overwrite
-        :param processed: true if bedfile was processed and statistics and plots were calculated
-        :return: None
+        Args:
+            identifier: Bed file identifier.
+            stats: Bed file results {statistics, plots, files, metadata}.
+            metadata: Bed file metadata (will be saved in pephub).
+            plots: Bed file plots.
+            files: Bed file files.
+            classification: Bed file classification.
+            ref_validation: Reference validation data. RefGenValidModel.
+            license_id: Bed file license id (default: 'DUO:0000042').
+            upload_qdrant: Add bed file to qdrant indexes.
+            upload_pephub: Add bed file to pephub.
+            upload_s3: Upload files to s3.
+            local_path: Local path to the output files.
+            overwrite: Overwrite bed file if it already exists.
+            nofail: Do not raise an error for error in pephub/s3/qdrant or record exists and not overwrite.
+            processed: True if bedfile was processed and statistics and plots were calculated.
+
+        Returns:
+            None.
         """
         if not self.exists(identifier):
             raise BEDFileNotFoundError(
@@ -844,14 +869,15 @@ class BedAgentBedFile:
     def _update_classification(
         sa_session: Session, bed_object: Bed, classification: BedClassification
     ) -> None:
-        """
-        Update bed file classification
+        """Update bed file classification.
 
-        :param sa_session: sqlalchemy session
-        :param bed_object: bed sqlalchemy object
-        :param classification: bed file classification as BedClassification object
+        Args:
+            sa_session: Sqlalchemy session.
+            bed_object: Bed sqlalchemy object.
+            classification: Bed file classification as BedClassification object.
 
-        :return: None
+        Returns:
+            None.
         """
         classification_dict = classification.model_dump(
             exclude_defaults=True, exclude_none=True, exclude_unset=True
@@ -865,13 +891,15 @@ class BedAgentBedFile:
     def _update_stats(
         sa_session: Session, bed_object: Bed, stats: BedStatsModel
     ) -> None:
-        """
-        Update bed file statistics
+        """Update bed file statistics.
 
-        :param sa_session: sqlalchemy session
-        :param bed_object: bed sqlalchemy object
-        :param stats: bed file statistics as BedStatsModel object
-        :return: None
+        Args:
+            sa_session: Sqlalchemy session.
+            bed_object: Bed sqlalchemy object.
+            stats: Bed file statistics as BedStatsModel object.
+
+        Returns:
+            None.
         """
 
         stats_dict = stats.model_dump(
@@ -889,14 +917,15 @@ class BedAgentBedFile:
     def _update_metadata(
         self, sa_session: Session, bed_object: Bed, bed_metadata: StandardMeta
     ) -> None:
-        """
-        Update bed file metadata
+        """Update bed file metadata.
 
-        :param sa_session: sqlalchemy session
-        :param bed_object: bed sqlalchemy object
-        :param bed_metadata: bed file metadata as StandardMeta object
+        Args:
+            sa_session: Sqlalchemy session.
+            bed_object: Bed sqlalchemy object.
+            bed_metadata: Bed file metadata as StandardMeta object.
 
-        :return: None
+        Returns:
+            None.
         """
 
         self._update_sources(
@@ -929,13 +958,13 @@ class BedAgentBedFile:
         plots: BedPlots,
         local_path: str = None,
     ) -> None:
-        """
-        Update bed file plots
+        """Update bed file plots.
 
-        :param sa_session: sqlalchemy session
-        :param bed_object: bed sqlalchemy object
-        :param plots: bed file plots
-        :param local_path: local path to the output files
+        Args:
+            sa_session: Sqlalchemy session.
+            bed_object: Bed sqlalchemy object.
+            plots: Bed file plots.
+            local_path: Local path to the output files.
         """
 
         _LOGGER.info("Updating bed file plots..")
@@ -978,12 +1007,12 @@ class BedAgentBedFile:
         files: BedFiles,
         local_path: str = None,
     ) -> None:
-        """
-        Update bed files
+        """Update bed files.
 
-        :param sa_session: sqlalchemy session
-        :param bed_object: bed sqlalchemy object
-        :param files: bed file files
+        Args:
+            sa_session: Sqlalchemy session.
+            bed_object: Bed sqlalchemy object.
+            files: Bed file files.
         """
 
         _LOGGER.info("Updating bed files..")
@@ -1026,15 +1055,15 @@ class BedAgentBedFile:
         ref_validation: dict[str, BaseModel],
         provided_genome: str = "",
     ) -> None:
-        """
-        Update reference validation data
+        """Update reference validation data.
 
-        ! This function won't update the reference validation data, if it exists, it will skip it.
+        This function won't update the reference validation data, if it exists, it will skip it.
 
-        :param sa_session: sqlalchemy session
-        :param bed_id: bed sqlalchemy object
-        :param ref_validation: bed file metadata
-        :param provided_genome: genome reference that was provided by user
+        Args:
+            sa_session: Sqlalchemy session.
+            bed_id: Bed sqlalchemy object.
+            ref_validation: Bed file metadata.
+            provided_genome: Genome reference that was provided by user.
         """
 
         if not ref_validation:
@@ -1085,11 +1114,13 @@ class BedAgentBedFile:
         return new_gen_refs
 
     def delete(self, identifier: str) -> None:
-        """
-        Delete bed file from the database.
+        """Delete bed file from the database.
 
-        :param identifier: bed file identifier
-        :return: None
+        Args:
+            identifier: Bed file identifier.
+
+        Returns:
+            None.
         """
         _LOGGER.info(f"Deleting bed file from database. bed_id: {identifier}")
         if not self.exists(identifier):
@@ -1143,10 +1174,10 @@ class BedAgentBedFile:
             _LOGGER.warning(f"Could not update pephub. Error: {e}")
 
     def delete_pephub_sample(self, identifier: str):
-        """
-        Delete sample from pephub
+        """Delete sample from pephub.
 
-        :param identifier: bed file identifier
+        Args:
+            identifier: Bed file identifier.
         """
         try:
             self.config.phc.sample.remove(
@@ -1164,15 +1195,17 @@ class BedAgentBedFile:
         bed_file: str | GRegionSet,
         payload: dict = None,
     ) -> None:
-        """
-        Convert bed file to vector and add it to qdrant database
+        """Convert bed file to vector and add it to qdrant database.
 
-        !Warning: only hg38 genome can be added to qdrant!
+        Warning: only hg38 genome can be added to qdrant!
 
-        :param bed_id: bed file id
-        :param bed_file: path to the bed file, or RegionSet object
-        :param payload: additional metadata to store alongside vectors
-        :return: None
+        Args:
+            bed_id: Bed file id.
+            bed_file: Path to the bed file, or RegionSet object.
+            payload: Additional metadata to store alongside vectors.
+
+        Returns:
+            None.
         """
 
         _LOGGER.debug(f"Adding bed file to qdrant. bed_id: {bed_id}")
@@ -1190,13 +1223,13 @@ class BedAgentBedFile:
         return None
 
     def _embed_file(self, bed_file: str | GRegionSet) -> np.ndarray:
-        """
-        Create embedding for bed file
+        """Create embedding for bed file.
 
-        :param bed_file: bed file path or region set
-        :param bed_file: path to the bed file, or RegionSet object
+        Args:
+            bed_file: Path to the bed file, or RegionSet object.
 
-        :return np array of embeddings
+        Returns:
+            Numpy array of embeddings.
         """
         if self.config.qdrant_file_backend is None:
             raise QdrantInstanceNotInitializedError
@@ -1222,10 +1255,10 @@ class BedAgentBedFile:
         return bed_embedding.reshape(1, vec_dim)
 
     def _get_umap_file(self, bed_file: str | GRegionSet) -> np.ndarray:
-        """
-        Create UMAP for bed file
+        """Create UMAP for bed file.
 
-        :param bed_file: bed file path or region set
+        Args:
+            bed_file: Bed file path or region set.
         """
 
         if self.config.umap_encoder is None:
@@ -1242,16 +1275,17 @@ class BedAgentBedFile:
         offset: int = 0,
         with_metadata: bool = True,
     ) -> BedListSearchResult:
-        """
-        Search for bed files by text query in qdrant database
-        This is bivec_search
+        """Search for bed files by text query in qdrant database.
+        This is bivec_search.
 
-        :param query: text query
-        :param limit: number of results to return
-        :param offset: offset to start from
-        :param with_metadata: if True, will return metadata for each result
+        Args:
+            query: Text query.
+            limit: Number of results to return.
+            offset: Offset to start from.
+            with_metadata: If True, will return metadata for each result.
 
-        :return: list of bed file metadata
+        Returns:
+            List of bed file metadata.
         """
         _LOGGER.info(f"Looking for: {query}")
 
@@ -1296,14 +1330,15 @@ class BedAgentBedFile:
         limit: int = 10,
         offset: int = 0,
     ) -> BedListSearchResult:
-        """
-        Search for bed files by using region set in qdrant database.
+        """Search for bed files by using region set in qdrant database.
 
-        :param region_set: RegionSet object to search for (bed file)
-        :param limit: number of results to return
-        :param offset: offset to start from
+        Args:
+            region_set: RegionSet object to search for (bed file).
+            limit: Number of results to return.
+            offset: Offset to start from.
 
-        :return: BedListSetResults
+        Returns:
+            BedListSetResults.
         """
         results = self.config.b2b_search_interface.query_search(
             region_set, limit=limit, offset=offset
@@ -1335,17 +1370,18 @@ class BedAgentBedFile:
         limit: int = 10,
         offset: int = 0,
     ) -> BedListSearchResult:
-        """
-        Search for bed files by using sql exact search.
-        This search will search files by id, name, and description
+        """Search for bed files by using sql exact search.
+        This search will search files by id, name, and description.
 
-        :param query: text query
-        :param genome: genome alias to filter results
-        :param assay: filter by assay type
-        :param limit: number of results to return
-        :param offset: offset to start from
+        Args:
+            query: Text query.
+            genome: Genome alias to filter results.
+            assay: Filter by assay type.
+            limit: Number of results to return.
+            offset: Offset to start from.
 
-        :return: list of bed file metadata
+        Returns:
+            List of bed file metadata.
         """
 
         _LOGGER.debug(f"Looking for: {query}")
@@ -1407,12 +1443,13 @@ class BedAgentBedFile:
         )
 
     def _sql_search_count(self, condition_statement) -> int:
-        """
-        Get number of total found files in the database.
+        """Get number of total found files in the database.
 
-        :param condition_statement: sql alchemy condition statement to filter results
+        Args:
+            condition_statement: Sql alchemy condition statement to filter results.
 
-        :return: number of found files
+        Returns:
+            Number of found files.
         """
 
         with Session(self._sa_engine) as session:
@@ -1426,15 +1463,14 @@ class BedAgentBedFile:
         return count[0]
 
     def reindex_qdrant(self, batch: int = 100, purge: bool = False) -> None:
-        """
-        Re-upload all files to quadrant.
-        !Warning: only hg38 genome can be added to qdrant!
+        """Re-upload all files to quadrant.
+        Warning: only hg38 genome can be added to qdrant!
 
         If you want to fully reindex/reupload to qdrant, first delete collection and create new one.
-
         Upload all files to qdrant.
 
-        :param batch: number of files to upload in one batch
+        Args:
+            batch: Number of files to upload in one batch.
         """
         bb_client = BBClient()
 
@@ -1539,11 +1575,13 @@ class BedAgentBedFile:
             return None
 
     def delete_qdrant_point(self, identifier: str) -> None:
-        """
-        Delete bed file from qdrant.
+        """Delete bed file from qdrant.
 
-        :param identifier: bed file identifier
-        :return: None
+        Args:
+            identifier: Bed file identifier.
+
+        Returns:
+            None.
         """
 
         result = self.config.qdrant_file_backend.qd_client.delete(
@@ -1559,11 +1597,13 @@ class BedAgentBedFile:
         return None
 
     def exists(self, identifier: str) -> bool:
-        """
-        Check if bed file exists in the database.
+        """Check if bed file exists in the database.
 
-        :param identifier: bed file identifier
-        :return: True if bed file exists, False otherwise
+        Args:
+            identifier: Bed file identifier.
+
+        Returns:
+            True if bed file exists, False otherwise.
         """
         statement = select(Bed).where(and_(Bed.id == identifier))
 
@@ -1574,12 +1614,13 @@ class BedAgentBedFile:
             return True
 
     def exists_universe(self, identifier: str) -> bool:
-        """
-        Check if universe exists in the database.
+        """Check if universe exists in the database.
 
-        :param identifier: universe identifier
+        Args:
+            identifier: Universe identifier.
 
-        :return: True if universe exists, False otherwise
+        Returns:
+            True if universe exists, False otherwise.
         """
         statement = select(Universes).where(and_(Universes.id == identifier))
 
@@ -1592,14 +1633,15 @@ class BedAgentBedFile:
     def add_universe(
         self, bedfile_id: str, bedset_id: str = None, construct_method: str = None
     ) -> str:
-        """
-        Add universe to the database.
+        """Add universe to the database.
 
-        :param bedfile_id: bed file identifier
-        :param bedset_id: bedset identifier
-        :param construct_method: method used to construct the universe
+        Args:
+            bedfile_id: Bed file identifier.
+            bedset_id: Bedset identifier.
+            construct_method: Method used to construct the universe.
 
-        :return: universe identifier.
+        Returns:
+            Universe identifier.
         """
 
         if not self.exists(bedfile_id):
@@ -1615,11 +1657,13 @@ class BedAgentBedFile:
         return bedfile_id
 
     def delete_universe(self, identifier: str) -> None:
-        """
-        Delete universe from the database.
+        """Delete universe from the database.
 
-        :param identifier: universe identifier
-        :return: None
+        Args:
+            identifier: Universe identifier.
+
+        Returns:
+            None.
         """
         if not self.exists_universe(identifier):
             raise UniverseNotFoundError(f"Universe not found. id: {identifier}")
@@ -1632,15 +1676,16 @@ class BedAgentBedFile:
     def add_tokenized(
         self, bed_id: str, universe_id: str, token_vector: list, overwrite: bool = False
     ) -> str:
-        """
-        Add tokenized bed file to the database
+        """Add tokenized bed file to the database.
 
-        :param bed_id: bed file identifier
-        :param universe_id: universe identifier
-        :param token_vector: list of tokens
-        :param overwrite: overwrite tokenized file if it already exists
+        Args:
+            bed_id: Bed file identifier.
+            universe_id: Universe identifier.
+            token_vector: List of tokens.
+            overwrite: Overwrite tokenized file if it already exists.
 
-        :return: token path
+        Returns:
+            Token path.
         """
 
         with Session(self._sa_engine) as session:
@@ -1679,14 +1724,15 @@ class BedAgentBedFile:
         tokenized_vector: list,
         overwrite: bool = False,
     ) -> str:
-        """
-        Add zarr file to the database
+        """Add zarr file to the database.
 
-        :param universe_id: universe identifier
-        :param bed_id: bed file identifier
-        :param tokenized_vector: tokenized vector
+        Args:
+            universe_id: Universe identifier.
+            bed_id: Bed file identifier.
+            tokenized_vector: Tokenized vector.
 
-        :return: zarr path
+        Returns:
+            Zarr path.
         """
         univers_group = self.config.zarr_root.require_group(universe_id)
 
@@ -1707,13 +1753,14 @@ class BedAgentBedFile:
         return str(os.path.join(ZARR_TOKENIZED_FOLDER, path))
 
     def get_tokenized(self, bed_id: str, universe_id: str) -> TokenizedBedResponse:
-        """
-        Get zarr file from the database
+        """Get zarr file from the database.
 
-        :param bed_id: bed file identifier
-        :param universe_id: universe identifier
+        Args:
+            bed_id: Bed file identifier.
+            universe_id: Universe identifier.
 
-        :return: zarr path
+        Returns:
+            Zarr path.
         """
 
         if not self.exist_tokenized(bed_id, universe_id):
@@ -1727,13 +1774,14 @@ class BedAgentBedFile:
         )
 
     def delete_tokenized(self, bed_id: str, universe_id: str) -> None:
-        """
-        Delete tokenized bed file from the database
+        """Delete tokenized bed file from the database.
 
-        :param bed_id: bed file identifier
-        :param universe_id: universe identifier
+        Args:
+            bed_id: Bed file identifier.
+            universe_id: Universe identifier.
 
-        :return: None
+        Returns:
+            None.
         """
         if not self.exist_tokenized(bed_id, universe_id):
             raise TokenizeFileNotExistError("Tokenized file not found in the database.")
@@ -1754,13 +1802,14 @@ class BedAgentBedFile:
         return None
 
     def _get_tokenized_path(self, bed_id: str, universe_id: str) -> str:
-        """
-        Get tokenized path to tokenized file
+        """Get tokenized path to tokenized file.
 
-        :param bed_id: bed file identifier
-        :param universe_id: universe identifier
+        Args:
+            bed_id: Bed file identifier.
+            universe_id: Universe identifier.
 
-        :return: token path
+        Returns:
+            Token path.
         """
         if not self.exist_tokenized(bed_id, universe_id):
             raise TokenizeFileNotExistError("Tokenized file not found in the database.")
@@ -1776,13 +1825,14 @@ class BedAgentBedFile:
             return str(tokenized_object.path)
 
     def exist_tokenized(self, bed_id: str, universe_id: str) -> bool:
-        """
-        Check if tokenized bed file exists in the database
+        """Check if tokenized bed file exists in the database.
 
-        :param bed_id: bed file identifier
-        :param universe_id: universe identifier
+        Args:
+            bed_id: Bed file identifier.
+            universe_id: Universe identifier.
 
-        :return: bool
+        Returns:
+            True if tokenized bed file exists, False otherwise.
         """
         with Session(self._sa_engine) as session:
             statement = select(TokenizedBed).where(
@@ -1799,14 +1849,17 @@ class BedAgentBedFile:
     def get_tokenized_link(
         self, bed_id: str, universe_id: str
     ) -> TokenizedPathResponse:
-        """
-        Get tokenized link to tokenized file
+        """Get tokenized link to tokenized file.
 
-        :param bed_id: bed file identifier
-        :param universe_id: universe identifier
+        Args:
+            bed_id: Bed file identifier.
+            universe_id: Universe identifier.
 
-        :return: token link
-        :raises: TokenizeFileNotExistError
+        Returns:
+            Token link.
+
+        Raises:
+            TokenizeFileNotExistError: If the tokenized file does not exist.
         """
         file_path = self._get_tokenized_path(bed_id, universe_id)
 
@@ -1820,14 +1873,15 @@ class BedAgentBedFile:
     def get_missing_plots(
         self, plot_name: str, limit: int = 1000, offset: int = 0
     ) -> list[str]:
-        """
-        Get list of bed files that are missing plot
+        """Get list of bed files that are missing plot.
 
-        :param plot_name: plot name
-        :param limit: number of results to return
-        :param offset: offset to start from
+        Args:
+            plot_name: Plot name.
+            limit: Number of results to return.
+            offset: Offset to start from.
 
-        :return: list of bed file identifiers
+        Returns:
+            List of bed file identifiers.
         """
         if plot_name not in list(BedPlots.model_fields.keys()):
             raise BedBaseConfError(
@@ -1858,13 +1912,14 @@ class BedAgentBedFile:
         return results
 
     def get_missing_stats(self, limit: int = 1000, offset: int = 0) -> list[str]:
-        """
-        Get list of bed files that are missing statistics
+        """Get list of bed files that are missing statistics.
 
-        :param limit: number of results to return
-        :param offset: offset to start from
+        Args:
+            limit: Number of results to return.
+            offset: Offset to start from.
 
-        :return: list of bed file identifiers
+        Returns:
+            List of bed file identifiers.
         """
 
         with Session(self._sa_engine) as session:
@@ -1882,13 +1937,14 @@ class BedAgentBedFile:
         return results
 
     def get_missing_files(self, limit: int = 1000, offset: int = 0) -> list[str]:
-        """
-        Get list of bed files that are missing files (bigBed files)
+        """Get list of bed files that are missing files (bigBed files).
 
-        :param limit: number of results to return
-        :param offset: offset to start from
+        Args:
+            limit: Number of results to return.
+            offset: Offset to start from.
 
-        :return: list of bed file identifiers
+        Returns:
+            List of bed file identifiers.
         """
 
         with Session(self._sa_engine) as session:
@@ -1915,14 +1971,16 @@ class BedAgentBedFile:
     def get_unprocessed(
         self, limit: int = 1000, offset: int = 0, genome: str | list | None = None
     ) -> BedListResult:
-        """
-        Get bed files that are not processed.
+        """Get bed files that are not processed.
 
-        :param limit: number of results to return
-        :param offset: offset to start from
-        :param genome: genome alias or list of genome aliases to filter by. e.g. "hg38" or ["hg38", "mm10"]. by default None, which means no filtering by genome.
+        Args:
+            limit: Number of results to return.
+            offset: Offset to start from.
+            genome: Genome alias or list of genome aliases to filter by. e.g. "hg38" or
+                ["hg38", "mm10"]. By default None, which means no filtering by genome.
 
-        :return: list of bed file identifiers
+        Returns:
+            List of bed file identifiers.
         """
 
         if isinstance(genome, str):
@@ -1982,14 +2040,15 @@ class BedAgentBedFile:
         global_sample_id: list[str] | None = None,
         global_experiment_id: list[str] | None = None,
     ) -> None:
-        """
-        Add global sample and experiment ids to the bed file if they are missing
+        """Add global sample and experiment ids to the bed file if they are missing.
 
-        :param identifier: bed file identifier
-        :param global_sample_id: list of global sample ids
-        :param global_experiment_id: list of global experiment ids
+        Args:
+            identifier: Bed file identifier.
+            global_sample_id: List of global sample ids.
+            global_experiment_id: List of global experiment ids.
 
-        :return: None
+        Returns:
+            None.
         """
         _LOGGER.info(f"Updating sources for bed file: {identifier}")
 
@@ -2019,13 +2078,14 @@ class BedAgentBedFile:
             session.commit()
 
     def reindex_hybrid_search(self, batch: int = 1000, purge: bool = False) -> None:
-        """
-        Reindex all bed files for semantic database
+        """Reindex all bed files for semantic database.
 
-        :param batch: number of files to upload in one batch
-        :param purge: resets indexed in database for all files to False
+        Args:
+            batch: Number of files to upload in one batch.
+            purge: Resets indexed in database for all files to False.
 
-        :return: None
+        Returns:
+            None.
         """
 
         # Add column that will indicate if this file is indexed or not
@@ -2149,18 +2209,19 @@ class BedAgentBedFile:
         offset: int = 0,
         with_metadata: bool = True,
     ) -> BedListSearchResult:
-        """
-        Run semantic search for bed files using qdrant.
+        """Run semantic search for bed files using qdrant.
         This is not bivec search, but usual qdrant search with sparse and dense embeddings.
 
-        :param query: text query to search for
-        :param genome_alias: genome alias to filter results
-        :param assay: filter by assay type
-        :param limit: number of results to return
-        :param offset: offset to start from
-        :param with_metadata: if True, metadata will be returned in the results. Default is True.
+        Args:
+            query: Text query to search for.
+            genome_alias: Genome alias to filter results.
+            assay: Filter by assay type.
+            limit: Number of results to return.
+            offset: Offset to start from.
+            with_metadata: If True, metadata will be returned in the results. Default is True.
 
-        :return: list of bed file metadata
+        Returns:
+            List of bed file metadata.
         """
 
         must_statement = []
@@ -2253,14 +2314,15 @@ class BedAgentBedFile:
         )
 
     def search_external_file(self, source: str, accession: str) -> BedListSearchResult:
-        """
-        Search for bed files by external source and accession number.
-        e.g. source='geo', accession='GSE12345'
+        """Search for bed files by external source and accession number.
+        e.g. source='geo', accession='GSE12345'.
 
-        :param source: external source, e.g. 'geo' or 'encode'
-        :param accession: accession number, e.g. 'GSE12345' or 'ENCSR12345'
+        Args:
+            source: External source, e.g. 'geo' or 'encode'.
+            accession: Accession number, e.g. 'GSE12345' or 'ENCSR12345'.
 
-        :return: list of bed file metadata
+        Returns:
+            List of bed file metadata.
         """
         if source not in ["geo", "encode"]:
             raise BedBaseConfError(

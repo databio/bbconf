@@ -48,12 +48,12 @@ class BedBaseAgent:
         config: Path | str,
         init_ml: bool = True,
     ):
-        """
-        Initialize connection to the pep_db database. You can use the basic connection parameters
+        """Initialize connection to the pep_db database. You can use the basic connection parameters
         or libpq connection string.
 
-        :param config: path to the configuration file
-        :param init_ml: initialize ML models for search (default: True)
+        Args:
+            config: Path to the configuration file.
+            init_ml: Initialize ML models for search (default: True).
         """
 
         self.config = BedBaseConfig(config, init_ml)
@@ -82,10 +82,10 @@ class BedBaseAgent:
         return repr
 
     def get_stats(self) -> StatsReturn:
-        """
-        Get statistics for a bed file
+        """Get statistics for a bed file.
 
-        :return: statistics
+        Returns:
+            Statistics.
         """
         with Session(self.config.db_engine.engine) as session:
             number_of_bed = session.execute(select(func.count(Bed.id))).one()[0]
@@ -102,11 +102,13 @@ class BedBaseAgent:
         )
 
     def get_detailed_stats(self, concise: bool = False) -> FileStats:
-        """
-        Get comprehensive statistics for all bed files
+        """Get comprehensive statistics for all bed files.
 
-        :param concise: if True, return only top 20 items for each category
-        :return: FileStats object containing detailed statistics
+        Args:
+            concise: If True, return only top 20 items for each category.
+
+        Returns:
+            FileStats object containing detailed statistics.
         """
 
         _LOGGER.info("Getting detailed statistics for all bed files")
@@ -266,11 +268,11 @@ class BedBaseAgent:
         )
 
     def get_detailed_usage(self) -> UsageStats:
-        """
-        Get detailed usage statistics for the bedbase platform.
+        """Get detailed usage statistics for the bedbase platform.
         This method will only return top 20 items for each category.
 
-        :return: UsageStats object containing detailed usage statistics
+        Returns:
+            UsageStats object containing detailed usage statistics.
         """
 
         _LOGGER.info("Getting detailed usage statistics.")
@@ -338,10 +340,10 @@ class BedBaseAgent:
         )
 
     def get_list_genomes(self) -> list[str]:
-        """
-        Get list of genomes from the database
+        """Get list of genomes from the database.
 
-        :return: list of genomes
+        Returns:
+            List of genomes.
         """
         statement = (
             select(Bed.genome_alias)
@@ -353,10 +355,10 @@ class BedBaseAgent:
         return [result[0] for result in genomes if result[0]]
 
     def get_list_assays(self) -> list[str]:
-        """
-        Get list of genomes from the database
+        """Get list of genomes from the database.
 
-        :return: list of genomes
+        Returns:
+            List of genomes.
         """
 
         with Session(self.config.db_engine.engine) as session:
@@ -370,10 +372,10 @@ class BedBaseAgent:
 
     @cached_property
     def list_of_licenses(self) -> list[str]:
-        """
-        Get list of licenses from the database
+        """Get list of licenses from the database.
 
-        :return: list of licenses
+        Returns:
+            List of licenses.
         """
         statement = select(License.id)
         with Session(self.config.db_engine.engine) as session:
@@ -495,12 +497,13 @@ class BedBaseAgent:
             session.commit()
 
     def _stats_comments(self, sa_session: Session) -> dict[str, int]:
-        """
-        Get statistics about comments that are present in bed files.
+        """Get statistics about comments that are present in bed files.
 
-        :param sa_session: SQLAlchemy session
+        Args:
+            sa_session: SQLAlchemy session.
 
-        :return: Dict[str, int]
+        Returns:
+            Dict mapping comment type to count.
         """
         _LOGGER.info("Analyzing bed table for comments in bed files...")
 
@@ -549,11 +552,13 @@ class BedBaseAgent:
         }
 
     def _stats_geo_status(self, sa_session: Session) -> dict[str, int]:
-        """
-        Get statistics about status of GEO bed file processing.
+        """Get statistics about status of GEO bed file processing.
 
-        :param sa_session: SQLAlchemy session
-        :return Dict[str, int]
+        Args:
+            sa_session: SQLAlchemy session.
+
+        Returns:
+            Dict mapping status type to count.
         """
 
         success_statement = select(
@@ -598,23 +603,10 @@ class BedBaseAgent:
         }
 
     def bed_files_info(self) -> AllFilesInfo:
-        """
-        Get information about all bed files in bedbase.
+        """Get information about all bed files in bedbase.
 
-        :param sa_session: SQLAlchemy session
-        :return AllFilesInfo:
-            {
-            "total": int,"
-            "files": [
-                {   id: str
-                    bed_compliance: str
-                    data_format: str
-                    mean_region_width: float
-                    file_size: int
-                    number_of_regions: int
-                },
-                ... ]
-            }
+        Returns:
+            AllFilesInfo containing total count and list of file info objects.
         """
 
         all_files_statement = (
@@ -660,11 +652,13 @@ class BedBaseAgent:
         )
 
     def _bin_number_of_regions(self, number_of_regions: list) -> BinValues:
-        """
-        Create bins for number of regions in bed files
+        """Create bins for number of regions in bed files.
 
-        :param number_of_regions: list of number of regions in bed files
-        :return: BinValues object containing bins and values
+        Args:
+            number_of_regions: List of number of regions in bed files.
+
+        Returns:
+            BinValues object containing bins and values.
         """
 
         max_value_threshold = 400_000  # set a threshold for maximum value to avoid outliers in the histogram
@@ -688,11 +682,13 @@ class BedBaseAgent:
         )
 
     def _bin_mean_region_width(self, mean_region_widths: list) -> BinValues:
-        """
-        Create bins for number of regions in bed files
+        """Create bins for number of regions in bed files.
 
-        :param mean_region_widths: list of mean region widths in bed files
-        :return: BinValues object containing bins and values
+        Args:
+            mean_region_widths: List of mean region widths in bed files.
+
+        Returns:
+            BinValues object containing bins and values.
         """
 
         max_value_threshold = 5_000  # set a threshold for maximum value to avoid outliers in the histogram
@@ -716,11 +712,13 @@ class BedBaseAgent:
         )
 
     def _bin_file_size(self, list_file_size: list) -> BinValues:
-        """
-        Create bins for number of regions in bed files
+        """Create bins for number of regions in bed files.
 
-        :param list_file_size: list of bed file sizes in bytes
-        :return: BinValues object containing bins and values
+        Args:
+            list_file_size: List of bed file sizes in bytes.
+
+        Returns:
+            BinValues object containing bins and values.
         """
 
         max_value_threshold = 10 * 1024 * 1024
@@ -745,10 +743,10 @@ class BedBaseAgent:
         )
 
     def _get_geo_stats(self, sa_session: Session) -> GEOStatistics:
-        """
-        Get GEO statistics for the bedbase platform.
+        """Get GEO statistics for the bedbase platform.
 
-        :return: GEOStatistics
+        Returns:
+            GEOStatistics.
         """
 
         _LOGGER.info("Getting GEO statistics.")
@@ -799,10 +797,10 @@ class BedBaseAgent:
         )
 
     def get_reference_genomes(self) -> dict[str, str]:
-        """
-        Get mapping of genome aliases to reference genome names.
+        """Get mapping of genome aliases to reference genome names.
 
-        :return: dict mapping genome_alias -> reference_genome_name
+        Returns:
+            Dict mapping genome_alias to reference_genome_name.
         """
 
         genomes = {}

@@ -54,11 +54,11 @@ class BedBaseConfig:
     """
 
     def __init__(self, config: Path | str, init_ml: bool = True):
-        """
-        Initialize BedBaseConfig object
+        """Initialize BedBaseConfig object.
 
-        :param config: path to the configuration file
-        :param init_ml: initialize machine learning models used for search
+        Args:
+            config: Path to the configuration file.
+            init_ml: Initialize machine learning models used for search.
         """
 
         self.cfg_path = get_bedbase_cfg(config)
@@ -119,12 +119,16 @@ class BedBaseConfig:
 
     @staticmethod
     def _read_config_file(config_path: str) -> ConfigFile:
-        """
-        Read configuration file and insert default values if not set
+        """Read configuration file and insert default values if not set.
 
-        :param config_path: configuration file path
-        :return: None
-        :raises: raise_missing_key (if config key is missing)
+        Args:
+            config_path: Configuration file path.
+
+        Returns:
+            Parsed ConfigFile object.
+
+        Raises:
+            raise_missing_key: If config key is missing.
         """
         _config = yacman.YAMLConfigManager(filepath=config_path).exp
 
@@ -143,46 +147,46 @@ class BedBaseConfig:
 
     @property
     def config(self) -> ConfigFile:
-        """
-        Get configuration
+        """Get configuration.
 
-        :return: configuration object
+        Returns:
+            Configuration object.
         """
         return self._config
 
     @property
     def db_engine(self) -> BaseEngine:
-        """
-        Get database engine
+        """Get database engine.
 
-        :return: database engine
+        Returns:
+            Database engine.
         """
         return self._db_engine
 
     @property
     def phc(self) -> PEPHubClient:
-        """
-        Get PEPHub client
+        """Get PEPHub client.
 
-        :return: PEPHub client
+        Returns:
+            PEPHub client.
         """
         return self._phc
 
     @property
     def boto3_client(self) -> boto3.client:
-        """
-        Get boto3 client
+        """Get boto3 client.
 
-        :return: boto3 client
+        Returns:
+            Boto3 client.
         """
         return self._boto3_client
 
     @property
     def zarr_root(self) -> Z_GROUP | None:
-        """
-        Get zarr root object (Group)
+        """Get zarr root object (Group).
 
-        :return: zarr root group object
+        Returns:
+            Zarr root group object.
         """
 
         try:
@@ -244,11 +248,13 @@ class BedBaseConfig:
     def _init_qdrant_file_backend(
         self, qdrant_cl: QdrantClient
     ) -> QdrantBackend | None:
-        """
-        Create qdrant client object using credentials provided in config file
+        """Create qdrant client object using credentials provided in config file.
 
-        :param: qdrant_cl: QdrantClient object
-        :return: QdrantClient
+        Args:
+            qdrant_cl: QdrantClient object.
+
+        Returns:
+            QdrantClient.
         """
 
         _LOGGER.info("Initializing qdrant bivec file backend...")
@@ -271,12 +277,14 @@ class BedBaseConfig:
     def _init_qdrant_text_backend(
         self, qdrant_cl: QdrantClient, dense_encoder: TextEmbedding
     ) -> QdrantBackend | None:
-        """
-        Create qdrant client text embedding object using credentials provided in config file
+        """Create qdrant client text embedding object using credentials provided in config file.
 
-        :param: qdrant_cl: QdrantClient object
-        :param: dense_encoder: TextEmbedding model for encoding text queries
-        :return: QdrantClient
+        Args:
+            qdrant_cl: QdrantClient object.
+            dense_encoder: TextEmbedding model for encoding text queries.
+
+        Returns:
+            QdrantClient.
         """
 
         _LOGGER.info("Initializing qdrant bivec text backend...")
@@ -306,12 +314,14 @@ class BedBaseConfig:
     def _init_qdrant_hybrid(
         self, qdrant_cl: QdrantClient, dense_encoder: TextEmbedding
     ) -> None:
-        """
-        Create qdrant client with sparse and text embedding object using credentials provided in config file
+        """Create qdrant client with sparse and text embedding object using credentials provided in config file.
 
-        :param: qdrant_cl: QdrantClient object
-        :param: dense_encoder: TextEmbedding model for encoding text queries
-        :return: QdrantClient
+        Args:
+            qdrant_cl: QdrantClient object.
+            dense_encoder: TextEmbedding model for encoding text queries.
+
+        Returns:
+            QdrantClient.
         """
 
         _LOGGER.info("Initializing qdrant sparse collection...")
@@ -386,13 +396,15 @@ class BedBaseConfig:
         qdrant_text_backend: QdrantBackend,
         text_encoder: TextEmbedding,
     ) -> BiVectorSearchInterface | None:
-        """
-        Create BiVectorSearchInterface object using credentials provided in config file
+        """Create BiVectorSearchInterface object using credentials provided in config file.
 
-        :param: qdrant_file_backend: QdrantBackend for file vectors
-        :param: qdrant_text_backend: QdrantBackend for text vectors
-        :param: text_encoder: TextEmbedding model for encoding text queries
-        :return: BiVectorSearchInterface
+        Args:
+            qdrant_file_backend: QdrantBackend for file vectors.
+            qdrant_text_backend: QdrantBackend for text vectors.
+            text_encoder: TextEmbedding model for encoding text queries.
+
+        Returns:
+            BiVectorSearchInterface.
         """
 
         _LOGGER.info("Initializing BiVectorBackend...")
@@ -411,10 +423,10 @@ class BedBaseConfig:
         qdrant_file_backend: QdrantBackend,
         region_encoder: Region2VecExModel | str,
     ) -> BED2BEDSearchInterface | None:
-        """
-        Create Bed 2 BED search interface and return this object
+        """Create Bed 2 BED search interface and return this object.
 
-        :return: Bed2BEDSearchInterface object
+        Returns:
+            Bed2BEDSearchInterface object.
         """
         try:
             _LOGGER.info("Initializing search bed 2 bed search interfaces...")
@@ -514,10 +526,10 @@ class BedBaseConfig:
     def _init_boto3_client(
         self,
     ) -> BaseClient | None:
-        """
-        Create Pephub client object using credentials provided in config file
+        """Create boto3 client object using credentials provided in config file.
 
-        :return: PephubClient
+        Returns:
+            Boto3 client.
         """
         try:
             return boto3.client(
@@ -532,12 +544,14 @@ class BedBaseConfig:
             return None
 
     def upload_s3(self, file_path: str, s3_path: Path | str) -> None:
-        """
-        Upload file to s3.
+        """Upload file to s3.
 
-        :param file_path: local path to the file
-        :param s3_path: path to the file in s3 with file name
-        :return: None
+        Args:
+            file_path: Local path to the file.
+            s3_path: Path to the file in s3 with file name.
+
+        Returns:
+            None.
         """
         if not self._boto3_client:
             _LOGGER.warning(
@@ -558,14 +572,16 @@ class BedBaseConfig:
         base_path: str,
         type: Literal["files", "plots", "bedsets"] = "files",
     ) -> BedFiles | BedPlots | BedSetPlots:
-        """
-        Upload files to s3.
+        """Upload files to s3.
 
-        :param identifier: bed file identifier
-        :param files: dictionary with files to upload
-        :param base_path: local path to the output files
-        :param type: type of files to upload [files, plots, bedsets]
-        :return: None
+        Args:
+            identifier: Bed file identifier.
+            files: Dictionary with files to upload.
+            base_path: Local path to the output files.
+            type: Type of files to upload [files, plots, bedsets].
+
+        Returns:
+            None.
         """
 
         if type == "files":
@@ -611,11 +627,13 @@ class BedBaseConfig:
         return files
 
     def delete_s3(self, s3_path: str) -> None:
-        """
-        Delete file from s3.
+        """Delete file from s3.
 
-        :param s3_path: path to the file in s3
-        :return: None
+        Args:
+            s3_path: Path to the file in s3.
+
+        Returns:
+            None.
         """
         if not self._boto3_client:
             _LOGGER.warning(
@@ -635,11 +653,13 @@ class BedBaseConfig:
             )
 
     def delete_files_s3(self, files: list[FileModel]) -> None:
-        """
-        Delete files from s3.
+        """Delete files from s3.
 
-        :param files: list of file objects
-        :return: None
+        Args:
+            files: List of file objects.
+
+        Returns:
+            None.
         """
         for file in files:
             self.delete_s3(file.path)
@@ -649,10 +669,10 @@ class BedBaseConfig:
 
     @staticmethod
     def _init_pephubclient() -> PEPHubClient | None:
-        """
-        Create Pephub client object using credentials provided in config file
+        """Create Pephub client object using credentials provided in config file.
 
-        :return: PephubClient
+        Returns:
+            PephubClient.
         """
 
         # try:
@@ -665,12 +685,14 @@ class BedBaseConfig:
         return None
 
     def get_prefixed_uri(self, postfix: str, access_id: str) -> str:
-        """
-        Return uri with correct prefix (schema)
+        """Return uri with correct prefix (schema).
 
-        :param postfix: postfix of the uri (or everything after uri schema)
-        :param access_id: access method name, e.g. http, s3, etc.
-        :return: full uri path
+        Args:
+            postfix: Postfix of the uri (or everything after uri schema).
+            access_id: Access method name, e.g. http, s3, etc.
+
+        Returns:
+            Full uri path.
         """
 
         try:
@@ -681,11 +703,13 @@ class BedBaseConfig:
             raise BadAccessMethodError(f"Access method {access_id} is not defined.")
 
     def construct_access_method_list(self, rel_path: str) -> list[AccessMethod]:
-        """
-        Construct access method list for a given record
+        """Construct access method list for a given record.
 
-        :param rel_path: relative path to the record
-        :return: list of access methods
+        Args:
+            rel_path: Relative path to the record.
+
+        Returns:
+            List of access methods.
         """
         access_methods = []
         for access_id in self.config.access_methods.model_dump().keys():
