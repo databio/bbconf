@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from geniml.io.utils import compute_md5sum_bedset
 from sqlalchemy import Float, Numeric, func, or_, select
@@ -402,7 +402,12 @@ class BedAgentBedSet:
         """
 
         _LOGGER.info("Calculating bedset statistics")
-        numeric_columns = BedStatsModel.model_fields
+        # Only aggregate scalar float columns, skip JSONB fields like distributions
+        numeric_columns = [
+            name
+            for name, field in BedStatsModel.model_fields.items()
+            if field.annotation == Optional[float]
+        ]
 
         bedset_sd = {}
         bedset_mean = {}

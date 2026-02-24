@@ -209,6 +209,60 @@ class BedAgentBedFile:
             ),
         )
 
+    def get_batch(
+        self,
+        identifiers: List[str],
+        full: bool = False,
+    ) -> BedListResult:
+        """
+        Get multiple bed file records by identifiers in a single DB round-trip.
+
+        :param identifiers: list of bed file identifiers
+        :param full: if True, include stats (with distributions) for each record
+        :return: BedListResult with matching records
+        """
+        statement = select(Bed).where(Bed.id.in_(identifiers))
+
+        with Session(self._sa_engine) as session:
+            beds = session.scalars(statement)
+            results = []
+            for bed_object in beds:
+                annotation = StandardMeta(
+                    **(bed_object.annotations.__dict__ if bed_object.annotations else {})
+                )
+                if full and bed_object.stats:
+                    bed_stats = BedStatsModel(**bed_object.stats.__dict__)
+                else:
+                    bed_stats = None
+
+                results.append(
+                    BedMetadataAll(
+                        id=bed_object.id,
+                        name=bed_object.name,
+                        description=bed_object.description,
+                        submission_date=bed_object.submission_date,
+                        last_update_date=bed_object.last_update_date,
+                        genome_alias=bed_object.genome_alias,
+                        genome_digest=bed_object.genome_digest,
+                        bed_compliance=bed_object.bed_compliance,
+                        data_format=bed_object.data_format,
+                        is_universe=bed_object.is_universe,
+                        license_id=bed_object.license_id or DEFAULT_LICENSE,
+                        processed=bed_object.processed,
+                        annotation=annotation,
+                        stats=bed_stats,
+                        compliant_columns=bed_object.compliant_columns,
+                        non_compliant_columns=bed_object.non_compliant_columns,
+                    )
+                )
+
+        return BedListResult(
+            count=len(results),
+            limit=len(identifiers),
+            offset=0,
+            results=results,
+        )
+
     def get_stats(self, identifier: str) -> BedStatsModel:
         """
         Get file statistics by identifier.

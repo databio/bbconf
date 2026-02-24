@@ -254,6 +254,10 @@ class BedStats(Base):
     promotercore_percentage: Mapped[Optional[float]]
     tssdist: Mapped[Optional[float]]
 
+    distributions: Mapped[Optional[dict]] = mapped_column(
+        JSON, nullable=True, comment="Full distribution arrays from gtars genomicdist"
+    )
+
     bed: Mapped["Bed"] = relationship("Bed", back_populates="stats")
 
 
