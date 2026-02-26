@@ -1,6 +1,4 @@
 import os
-import subprocess
-from atexit import register
 
 import pytest
 

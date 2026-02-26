@@ -1,7 +1,6 @@
 import datetime
 import os
 from logging import getLogger
-from typing import Dict, List, Union
 
 import numpy as np
 from geniml.bbclient import BBClient
@@ -10,8 +9,8 @@ from gtars.models import RegionSet as GRegionSet
 from pephubclient.exceptions import ResponseError
 from pydantic import BaseModel
 from qdrant_client import models
-from qdrant_client.http.models import PointStruct
 from qdrant_client.http.exceptions import UnexpectedResponse
+from qdrant_client.http.models import PointStruct
 from qdrant_client.models import PointIdsList
 from sqlalchemy import and_, cast, delete, func, or_, select
 from sqlalchemy.dialects import postgresql
@@ -23,9 +22,9 @@ from tqdm import tqdm
 from bbconf.config_parser.bedbaseconfig import BedBaseConfig
 from bbconf.const import (
     DEFAULT_LICENSE,
+    DEFAULT_QDRANT_GENOME_DIGESTS,
     PKG_NAME,
     ZARR_TOKENIZED_FOLDER,
-    DEFAULT_QDRANT_GENOME_DIGESTS,
 )
 from bbconf.db_utils import (
     Bed,
@@ -368,7 +367,7 @@ class BedAgentBedFile:
 
         return bed_classification
 
-    def get_objects(self, identifier: str) -> Dict[str, FileModel]:
+    def get_objects(self, identifier: str) -> dict[str, FileModel]:
         """
         Get all object related to bedfile
 
@@ -522,7 +521,7 @@ class BedAgentBedFile:
         plots: dict = None,
         files: dict = None,
         classification: dict = None,
-        ref_validation: Union[Dict[str, BaseModel], None] = None,
+        ref_validation: dict[str, BaseModel] | None = None,
         license_id: str = DEFAULT_LICENSE,
         upload_qdrant: bool = False,
         upload_pephub: bool = False,
@@ -690,7 +689,6 @@ class BedAgentBedFile:
             session.add(new_metadata)
 
             if ref_validation:
-
                 new_gen_refs = self._create_ref_validation_models(
                     ref_validation=ref_validation,
                     bed_id=identifier,
@@ -716,12 +714,12 @@ class BedAgentBedFile:
     def update(
         self,
         identifier: str,
-        stats: Union[dict, None] = None,
-        metadata: Union[dict, None] = None,
-        plots: Union[dict, None] = None,
-        files: Union[dict, None] = None,
-        classification: Union[dict, None] = None,
-        ref_validation: Union[Dict[str, BaseModel], None] = None,
+        stats: dict | None = None,
+        metadata: dict | None = None,
+        plots: dict | None = None,
+        files: dict | None = None,
+        classification: dict | None = None,
+        ref_validation: dict[str, BaseModel] | None = None,
         license_id: str = DEFAULT_LICENSE,
         upload_qdrant: bool = False,
         upload_pephub: bool = False,
@@ -1025,7 +1023,7 @@ class BedAgentBedFile:
         self,
         sa_session: Session,
         bed_id: str,
-        ref_validation: Dict[str, BaseModel],
+        ref_validation: dict[str, BaseModel],
         provided_genome: str = "",
     ) -> None:
         """
@@ -1060,7 +1058,7 @@ class BedAgentBedFile:
 
     def _create_ref_validation_models(
         self,
-        ref_validation: Dict[str, BaseModel],
+        ref_validation: dict[str, BaseModel],
         bed_id: str,
         provided_genome: str = None,
     ) -> list[GenomeRefStats]:
@@ -1163,7 +1161,7 @@ class BedAgentBedFile:
     def upload_file_qdrant(
         self,
         bed_id: str,
-        bed_file: Union[str, GRegionSet],
+        bed_file: str | GRegionSet,
         payload: dict = None,
     ) -> None:
         """
@@ -1191,7 +1189,7 @@ class BedAgentBedFile:
         )
         return None
 
-    def _embed_file(self, bed_file: Union[str, GRegionSet]) -> np.ndarray:
+    def _embed_file(self, bed_file: str | GRegionSet) -> np.ndarray:
         """
         Create embedding for bed file
 
@@ -1223,7 +1221,7 @@ class BedAgentBedFile:
         vec_dim = bed_embedding.shape[0]
         return bed_embedding.reshape(1, vec_dim)
 
-    def _get_umap_file(self, bed_file: Union[str, GRegionSet]) -> np.ndarray:
+    def _get_umap_file(self, bed_file: str | GRegionSet) -> np.ndarray:
         """
         Create UMAP for bed file
 
@@ -1452,7 +1450,7 @@ class BedAgentBedFile:
                 .join(BedMetadata, Bed.id == BedMetadata.id)
                 .where(
                     and_(
-                        Bed.file_indexed == False,
+                        Bed.file_indexed.is_(False),
                         # Bed.genome_alias == QDRANT_GENOME,
                         # BedMetadata.global_experiment_id.contains(['encode']) # If we want only encode data
                         Bed.genome_digest.in_(DEFAULT_QDRANT_GENOME_DIGESTS),
@@ -1463,7 +1461,7 @@ class BedAgentBedFile:
 
             annotation_results = session.scalars(statement)
 
-            results: List[Bed] = [result for result in annotation_results]
+            results: list[Bed] = [result for result in annotation_results]
             if not results:
                 _LOGGER.info("No files to reindex in qdrant.")
                 return None
@@ -1554,6 +1552,10 @@ class BedAgentBedFile:
                 points=[identifier],
             ),
         )
+        if result.status == "completed":
+            _LOGGER.info(
+                f"File with id: {identifier} successfully deleted from qdrant."
+            )
         return None
 
     def exists(self, identifier: str) -> bool:
@@ -1817,7 +1819,7 @@ class BedAgentBedFile:
 
     def get_missing_plots(
         self, plot_name: str, limit: int = 1000, offset: int = 0
-    ) -> List[str]:
+    ) -> list[str]:
         """
         Get list of bed files that are missing plot
 
@@ -1855,7 +1857,7 @@ class BedAgentBedFile:
 
         return results
 
-    def get_missing_stats(self, limit: int = 1000, offset: int = 0) -> List[str]:
+    def get_missing_stats(self, limit: int = 1000, offset: int = 0) -> list[str]:
         """
         Get list of bed files that are missing statistics
 
@@ -1879,7 +1881,7 @@ class BedAgentBedFile:
 
         return results
 
-    def get_missing_files(self, limit: int = 1000, offset: int = 0) -> List[str]:
+    def get_missing_files(self, limit: int = 1000, offset: int = 0) -> list[str]:
         """
         Get list of bed files that are missing files (bigBed files)
 
@@ -1911,7 +1913,7 @@ class BedAgentBedFile:
         return results
 
     def get_unprocessed(
-        self, limit: int = 1000, offset: int = 0, genome: Union[str, list, None] = None
+        self, limit: int = 1000, offset: int = 0, genome: str | list | None = None
     ) -> BedListResult:
         """
         Get bed files that are not processed.
@@ -1976,9 +1978,9 @@ class BedAgentBedFile:
 
     def _update_sources(
         self,
-        identifier,
-        global_sample_id: List[str] = None,
-        global_experiment_id: List[str] = None,
+        identifier: str,
+        global_sample_id: list[str] | None = None,
+        global_experiment_id: list[str] | None = None,
     ) -> None:
         """
         Add global sample and experiment ids to the bed file if they are missing
@@ -2030,11 +2032,10 @@ class BedAgentBedFile:
         statement = (
             select(Bed)
             .join(BedMetadata, Bed.id == BedMetadata.id)
-            .where(Bed.indexed == False)
+            .where(Bed.indexed.is_(False))
         )
 
         with Session(self._sa_engine) as session:
-
             if purge:
                 _LOGGER.info("Purging indexed files in the database ...")
                 session.query(Bed).update({Bed.indexed: False})
@@ -2116,7 +2117,7 @@ class BedAgentBedFile:
                         )
                         pbar.write("Uploaded batch to qdrant.")
                         points = []
-                        print(operation_info.status)
+                        _LOGGER.info(operation_info.status)
                         assert (
                             operation_info.status == "completed"
                             or operation_info.status == "acknowledged"
@@ -2294,7 +2295,6 @@ class BedAgentBedFile:
             )
 
         with Session(self._sa_engine) as session:
-
             bed_objects = session.scalars(statement)
             results = [
                 BedMetadataBasic(
