@@ -2,6 +2,34 @@
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) and [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) format.
 
+
+### [0.14.9] - 2026-02-26
+### Changed:
+- Modernized docstrings
+- Type annotation for python 3.10+
+- Updated requirements
+- Updated package installation way to use pyproject.toml and hatchling
+
+### [0.14.8] - 2026-02-17
+### Changed:
+- Updated versions of dependencies
+
+### [0.14.7] - 2026-02-16
+### Changed:
+- Updated requirements
+
+### [0.14.6] - 2026-02-06
+### Fixed:
+- Fixed qdrant upload exception catching
+
+### [0.14.5] - 2026-02-05
+### Changed:
+- Updated reindexing script
+
+### [0.14.4] - 2026-02-04
+### Changed:
+- Updated reindexing of bed files to use only verified genome digests
+
 ### [0.14.3] - 2026-01-31
 ### Added:
 - Cell line to detailed bedbase statistics
@@ -11,7 +39,12 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### [0.14.2] - 2026-01-21
 ### Added:
-- Added method that fetches available reference genomes 
+- Added method that fetches available reference genomes
+
+### [0.14.1] - 2025-12-22
+### Fixed:
+- Fixed hybrid search reindexing
+- Updated limits in reindexing
 
 ### [0.14.0] - 2025-12-18
 ### Fixed:

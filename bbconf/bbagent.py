@@ -2,11 +2,10 @@ import logging
 import statistics
 from functools import cached_property
 from pathlib import Path
-from typing import Dict, List, Union
 
 import numpy as np
-from sqlalchemy.orm import Session
 from sqlalchemy.engine import ScalarResult
+from sqlalchemy.orm import Session
 from sqlalchemy.sql import and_, distinct, func, or_, select
 
 from bbconf.config_parser.bedbaseconfig import BedBaseConfig
@@ -18,11 +17,11 @@ from bbconf.db_utils import (
     Files,
     GeoGsmStatus,
     License,
+    ReferenceGenome,
     UsageBedMeta,
     UsageBedSetMeta,
     UsageFiles,
     UsageSearch,
-    ReferenceGenome,
 )
 from bbconf.models.base_models import (
     AllFilesInfo,
@@ -43,18 +42,19 @@ from .const import PKG_NAME
 _LOGGER = logging.getLogger(PKG_NAME)
 
 
-class BedBaseAgent(object):
+class BedBaseAgent:
     def __init__(
         self,
-        config: Union[Path, str],
+        config: Path | str,
         init_ml: bool = True,
     ):
         """
         Initialize connection to the pep_db database. You can use the basic connection parameters
         or libpq connection string.
 
-        :param config: path to the configuration file
-        :param init_ml: initialize ML models for search (default: True)
+        Args:
+            config: Path to the configuration file.
+            init_ml: Initialize ML models for search (default: True).
         """
 
         self.config = BedBaseConfig(config, init_ml)
@@ -84,9 +84,10 @@ class BedBaseAgent(object):
 
     def get_stats(self) -> StatsReturn:
         """
-        Get statistics for a bed file
+        Get statistics for a bed file.
 
-        :return: statistics
+        Returns:
+            Statistics.
         """
         with Session(self.config.db_engine.engine) as session:
             number_of_bed = session.execute(select(func.count(Bed.id))).one()[0]
@@ -104,16 +105,18 @@ class BedBaseAgent(object):
 
     def get_detailed_stats(self, concise: bool = False) -> FileStats:
         """
-        Get comprehensive statistics for all bed files
+        Get comprehensive statistics for all bed files.
 
-        :param concise: if True, return only top 20 items for each category
-        :return: FileStats object containing detailed statistics
+        Args:
+            concise: If True, return only top 20 items for each category.
+
+        Returns:
+            FileStats object containing detailed statistics.
         """
 
         _LOGGER.info("Getting detailed statistics for all bed files")
 
         with Session(self.config.db_engine.engine) as session:
-
             bed_compliance = {
                 f[0]: f[1]
                 for f in session.execute(
@@ -272,7 +275,8 @@ class BedBaseAgent(object):
         Get detailed usage statistics for the bedbase platform.
         This method will only return top 20 items for each category.
 
-        :return: UsageStats object containing detailed usage statistics
+        Returns:
+            UsageStats object containing detailed usage statistics.
         """
 
         _LOGGER.info("Getting detailed usage statistics.")
@@ -339,11 +343,12 @@ class BedBaseAgent(object):
             bed_downloads=bed_downloads,
         )
 
-    def get_list_genomes(self) -> List[str]:
+    def get_list_genomes(self) -> list[str]:
         """
-        Get list of genomes from the database
+        Get list of genomes from the database.
 
-        :return: list of genomes
+        Returns:
+            List of genomes.
         """
         statement = (
             select(Bed.genome_alias)
@@ -354,11 +359,12 @@ class BedBaseAgent(object):
             genomes = session.execute(statement).all()
         return [result[0] for result in genomes if result[0]]
 
-    def get_list_assays(self):
+    def get_list_assays(self) -> list[str]:
         """
-        Get list of genomes from the database
+        Get list of assays from the database.
 
-        :return: list of genomes
+        Returns:
+            List of assays.
         """
 
         with Session(self.config.db_engine.engine) as session:
@@ -371,11 +377,12 @@ class BedBaseAgent(object):
         return [result[0] for result in results if result[0]]
 
     @cached_property
-    def list_of_licenses(self) -> List[str]:
+    def list_of_licenses(self) -> list[str]:
         """
-        Get list of licenses from the database
+        Get list of licenses from the database.
 
-        :return: list of licenses
+        Returns:
+            List of licenses.
         """
         statement = select(License.id)
         with Session(self.config.db_engine.engine) as session:
@@ -385,7 +392,6 @@ class BedBaseAgent(object):
     def add_usage(self, stats: UsageModel) -> None:
 
         with Session(self.config.db_engine.engine) as session:
-
             # FILES USAGE
             reported_items_files = session.scalars(
                 select(UsageFiles).where(UsageFiles.date_to > func.now())
@@ -497,13 +503,15 @@ class BedBaseAgent(object):
 
             session.commit()
 
-    def _stats_comments(self, sa_session: Session) -> Dict[str, int]:
+    def _stats_comments(self, sa_session: Session) -> dict[str, int]:
         """
         Get statistics about comments that are present in bed files.
 
-        :param sa_session: SQLAlchemy session
+        Args:
+            sa_session: SQLAlchemy session.
 
-        :return: Dict[str, int]
+        Returns:
+            Dict mapping comment type to count.
         """
         _LOGGER.info("Analyzing bed table for comments in bed files...")
 
@@ -551,12 +559,15 @@ class BedBaseAgent(object):
             "header_comments": header_comments,
         }
 
-    def _stats_geo_status(self, sa_session: Session) -> Dict[str, int]:
+    def _stats_geo_status(self, sa_session: Session) -> dict[str, int]:
         """
         Get statistics about status of GEO bed file processing.
 
-        :param sa_session: SQLAlchemy session
-        :return Dict[str, int]
+        Args:
+            sa_session: SQLAlchemy session.
+
+        Returns:
+            Dict mapping status type to count.
         """
 
         success_statement = select(
@@ -604,20 +615,8 @@ class BedBaseAgent(object):
         """
         Get information about all bed files in bedbase.
 
-        :param sa_session: SQLAlchemy session
-        :return AllFilesInfo:
-            {
-            "total": int,"
-            "files": [
-                {   id: str
-                    bed_compliance: str
-                    data_format: str
-                    mean_region_width: float
-                    file_size: int
-                    number_of_regions: int
-                },
-                ... ]
-            }
+        Returns:
+            AllFilesInfo containing total count and list of file info objects.
         """
 
         all_files_statement = (
@@ -664,10 +663,13 @@ class BedBaseAgent(object):
 
     def _bin_number_of_regions(self, number_of_regions: list) -> BinValues:
         """
-        Create bins for number of regions in bed files
+        Create bins for number of regions in bed files.
 
-        :param number_of_regions: list of number of regions in bed files
-        :return: BinValues object containing bins and values
+        Args:
+            number_of_regions: List of number of regions in bed files.
+
+        Returns:
+            BinValues object containing bins and values.
         """
 
         max_value_threshold = 400_000  # set a threshold for maximum value to avoid outliers in the histogram
@@ -692,10 +694,13 @@ class BedBaseAgent(object):
 
     def _bin_mean_region_width(self, mean_region_widths: list) -> BinValues:
         """
-        Create bins for number of regions in bed files
+        Create bins for number of regions in bed files.
 
-        :param mean_region_widths: list of mean region widths in bed files
-        :return: BinValues object containing bins and values
+        Args:
+            mean_region_widths: List of mean region widths in bed files.
+
+        Returns:
+            BinValues object containing bins and values.
         """
 
         max_value_threshold = 5_000  # set a threshold for maximum value to avoid outliers in the histogram
@@ -720,10 +725,13 @@ class BedBaseAgent(object):
 
     def _bin_file_size(self, list_file_size: list) -> BinValues:
         """
-        Create bins for number of regions in bed files
+        Create bins for number of regions in bed files.
 
-        :param list_file_size: list of bed file sizes in bytes
-        :return: BinValues object containing bins and values
+        Args:
+            list_file_size: List of bed file sizes in bytes.
+
+        Returns:
+            BinValues object containing bins and values.
         """
 
         max_value_threshold = 10 * 1024 * 1024
@@ -751,7 +759,8 @@ class BedBaseAgent(object):
         """
         Get GEO statistics for the bedbase platform.
 
-        :return: GEOStatistics
+        Returns:
+            GEOStatistics.
         """
 
         _LOGGER.info("Getting GEO statistics.")
@@ -801,11 +810,12 @@ class BedBaseAgent(object):
             ),
         )
 
-    def get_reference_genomes(self) -> Dict[str, str]:
+    def get_reference_genomes(self) -> dict[str, str]:
         """
         Get mapping of genome aliases to reference genome names.
 
-        :return: dict mapping genome_alias -> reference_genome_name
+        Returns:
+            Dict mapping genome_alias to reference_genome_name.
         """
 
         genomes = {}
