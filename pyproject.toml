@@ -1,6 +1,6 @@
 [project]
 name = "bbconf"
-version = "0.14.7"
+version = "0.14.8"
 description = "Configuration and data management tool for BEDbase"
 readme = "README.md"
 license = "BSD-2-Clause"
@@ -36,6 +36,7 @@ dependencies = [
     "pybiocfilecache == 0.6.1",
     "umap-learn >= 0.5.8",
     "qdrant_client >= 1.16.1",
+    "setuptools < 70.0.0",
 ]
 
 [project.urls]
