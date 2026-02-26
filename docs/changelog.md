@@ -2,6 +2,14 @@
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) and [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) format.
 
+
+### [0.14.9] - 2026-02-26
+### Changed:
+- Modernized docstrings
+- Type annotation for python 3.10+
+- Updated requirements
+- Updated package installation way to use pyproject.toml and hatchling
+
 ### [0.14.8] - 2026-02-17
 ### Changed:
 - Updated versions of dependencies
