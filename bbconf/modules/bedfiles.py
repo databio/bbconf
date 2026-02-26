@@ -103,7 +103,7 @@ class BedAgentBedFile:
             full: If True, return full metadata, including statistics, files, and raw metadata from pephub.
 
         Returns:
-            Project metadata.
+            BED file metadata.
         """
         statement = select(Bed).where(and_(Bed.id == identifier))
 
@@ -355,7 +355,7 @@ class BedAgentBedFile:
             identifier: Bed file identifier.
 
         Returns:
-            Project metadata.
+            BED file raw metadata.
         """
         try:
             bed_metadata = self.config.phc.sample.get(
@@ -1493,7 +1493,7 @@ class BedAgentBedFile:
 
     def reindex_qdrant(self, batch: int = 100, purge: bool = False) -> None:
         """
-        Re-upload all files to quadrant.
+        Re-upload all files to qdrant.
         Warning: only hg38 genome can be added to qdrant!
 
         If you want to fully reindex/reupload to qdrant, first delete collection and create new one.

@@ -45,7 +45,7 @@ def get_bedbase_cfg(cfg: str = None) -> str:
 
 def get_absolute_path(path: str, base_path: str) -> str:
     """
-    Get absolute path to the file and create it if it doesn't exist.
+    Get absolute path to the file.
 
     Args:
         path: Path to the file (abs or relative).

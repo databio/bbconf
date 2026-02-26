@@ -99,7 +99,7 @@ class BBObjects:
             result_id: Column name (result name). e.g. "bigbedfile", "bed_file", "open_chromatin".
 
         Returns:
-            Pipestat result.
+            FileModel instance representing the requested bed/bedset file object.
         """
         if record_type == "bed":
             try:

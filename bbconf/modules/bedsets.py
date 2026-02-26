@@ -56,7 +56,7 @@ class BedAgentBedSet:
             full: Return full record with stats, plots, files and metadata.
 
         Returns:
-            Project metadata.
+            BED file metadata.
         """
 
         statement = select(BedSets).where(BedSets.id == identifier)

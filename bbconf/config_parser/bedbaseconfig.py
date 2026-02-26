@@ -128,10 +128,8 @@ class BedBaseConfig:
 
         Returns:
             Parsed ConfigFile object.
-
-        Raises:
-            raise_missing_key: If config key is missing.
         """
+
         _config = yacman.YAMLConfigManager(filepath=config_path).exp
 
         config_dict = {}
@@ -262,7 +260,7 @@ class BedBaseConfig:
             qdrant_cl: QdrantClient object.
 
         Returns:
-            QdrantClient.
+            QdrantClient or None
         """
 
         _LOGGER.info("Initializing qdrant bivec file backend...")
@@ -293,7 +291,7 @@ class BedBaseConfig:
             dense_encoder: TextEmbedding model for encoding text queries.
 
         Returns:
-            QdrantClient.
+            QdrantClient or None
         """
 
         _LOGGER.info("Initializing qdrant bivec text backend...")
@@ -331,7 +329,7 @@ class BedBaseConfig:
             dense_encoder: TextEmbedding model for encoding text queries.
 
         Returns:
-            QdrantClient.
+            None, Initializes or creates the hybrid collection on the provided QdrantClient.
         """
 
         _LOGGER.info("Initializing qdrant sparse collection...")

@@ -361,10 +361,10 @@ class BedBaseAgent:
 
     def get_list_assays(self) -> list[str]:
         """
-        Get list of genomes from the database.
+        Get list of assays from the database.
 
         Returns:
-            List of genomes.
+            List of assays.
         """
 
         with Session(self.config.db_engine.engine) as session:
