@@ -13,11 +13,16 @@ _LOGGER = logging.getLogger(PKG_NAME)
 
 def config_analyzer(config_path: str) -> bool:
     """
-    Read configuration file and insert default values if not set
+    Read configuration file and insert default values if not set.
 
-    :param config_path: configuration file path
-    :return: None
-    :raises: raise_missing_key (if config key is missing)
+    Args:
+        config_path: Configuration file path.
+
+    Returns:
+        True if the config is valid, False otherwise.
+
+    Raises:
+        raise_missing_key: If config key is missing.
     """
     config_path = get_bedbase_cfg(config_path)
 

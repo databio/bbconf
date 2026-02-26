@@ -139,10 +139,10 @@ class StandardMeta(BaseModel):
     )
 
     global_sample_id: list[str] | None = Field(
-        "", description="Global sample identifier. e.g. GSM000"
+        None, description="Global sample identifier. e.g. GSM000"
     )  # excluded in training
     global_experiment_id: list[str] | None = Field(
-        "", description="Global experiment identifier. e.g. GSE000"
+        None, description="Global experiment identifier. e.g. GSE000"
     )  # excluded in training
 
     original_file_name: str = Field("", description="Original file name")
