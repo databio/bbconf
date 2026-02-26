@@ -12,9 +12,13 @@
 
 ## What is this?
 
-`bbconf` is a configuration and management tool for BEDbase, facilitating the reading of configuration files, 
-setting up connections to PostgreSQL, PEPhub, S3, and Qdrant databases, managing file paths, and storing transformer models. 
-It formalizes communication pathways for pipelines and downstream tools, ensuring seamless interaction."
+`bbconf` is a configuration and data management library for the [BEDbase](https://bedbase.org) platform. It serves as the central backbone for all BEDbase tools and pipelines by:
+
+- Reading and validating YAML configuration files
+- Setting up and managing connections to PostgreSQL, Qdrant, S3, and PEPHub
+- Loading ML models (Region2Vec, text embedders, sparse encoders, UMAP) used for BED file search
+- Providing high-level Python interfaces for querying and managing BED files and BED sets
+- Exposing a unified `BedBaseAgent` object that all downstream tools use to interact with the platform
 
 ---
 
@@ -28,10 +32,27 @@ It formalizes communication pathways for pipelines and downstream tools, ensurin
 
 To install `bbclient` use this command: 
 ```
-pip install bbclient
+pip install bbconf
 ```
 or install the latest version from the GitHub repository:
 ```
 pip install git+https://github.com/databio/bbconf.git
 ```
 
+
+## Quick start
+
+```python
+from bbconf import BedBaseAgent
+
+agent = BedBaseAgent(config="config.yaml")
+
+# Access submodules
+agent.bed        # BED file operations
+agent.bedset     # BED set operations
+agent.objects    # Generic object/file operations
+
+# Get platform statistics
+stats = agent.get_stats()
+print(stats.bedfiles_number, stats.bedsets_number)
+```

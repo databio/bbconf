@@ -3,7 +3,6 @@ import datetime
 import pytest
 
 from bbconf.const import DEFAULT_LICENSE
-from bbconf.exceptions import BedBaseConfError
 from bbconf.models.base_models import UsageModel
 
 from .conftest import SERVICE_UNAVAILABLE
