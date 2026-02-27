@@ -340,6 +340,9 @@ class BedSets(Base):
     bedset_standard_deviation: Mapped[Optional[dict]] = mapped_column(
         JSON, comment="Median values of the bedset"
     )
+    bedset_stats: Mapped[Optional[dict]] = mapped_column(
+        JSON, nullable=True, comment="Pre-aggregated BedSetStats JSONB"
+    )
 
     bedfiles: Mapped[List["BedFileBedSetRelation"]] = relationship(
         "BedFileBedSetRelation", back_populates="bedset", cascade="all, delete-orphan"

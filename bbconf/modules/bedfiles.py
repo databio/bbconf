@@ -15,7 +15,7 @@ from qdrant_client.http.exceptions import UnexpectedResponse
 from qdrant_client.models import PointIdsList
 from sqlalchemy import and_, cast, delete, func, or_, select
 from sqlalchemy.dialects import postgresql
-from sqlalchemy.exc import IntegrityError
+
 from sqlalchemy.orm import Session, aliased
 from sqlalchemy.orm.attributes import flag_modified
 from tqdm import tqdm
@@ -263,11 +263,12 @@ class BedAgentBedFile:
             results=results,
         )
 
-    def get_stats(self, identifier: str) -> BedStatsModel:
+    def get_stats(self, identifier: str, distributions: bool = True) -> BedStatsModel:
         """
         Get file statistics by identifier.
 
         :param identifier: bed file identifier
+        :param distributions: include distribution arrays in the result
 
         :return: project statistics as BedStats object
         """
@@ -279,7 +280,22 @@ class BedAgentBedFile:
                 raise BEDFileNotFoundError(f"Bed file with id: {identifier} not found.")
             bed_stats = BedStatsModel(**bed_object.__dict__)
 
+        if not distributions:
+            bed_stats.distributions = None
+
         return bed_stats
+
+    def aggregate_collection(self, bed_ids: List[str]) -> "BedSetStats":
+        """Aggregate per-file distributions into collection-level stats.
+
+        Thin wrapper around the standalone aggregate_collection() function.
+
+        :param bed_ids: list of bed file identifiers
+        :return: BedSetStats with aggregated distributions
+        """
+        from bbconf.modules.aggregation import aggregate_collection
+
+        return aggregate_collection(self._sa_engine, bed_ids)
 
     def get_plots(self, identifier: str) -> BedPlots:
         """
@@ -687,17 +703,6 @@ class BedAgentBedFile:
         else:
             _LOGGER.info("upload_qdrant set to false. Skipping qdrant..")
 
-        # Upload files to s3
-        if upload_s3:
-            if files:
-                files = self.config.upload_files_s3(
-                    identifier, files=files, base_path=local_path, type="files"
-                )
-
-            if plots:
-                plots = self.config.upload_files_s3(
-                    identifier, files=plots, base_path=local_path, type="plots"
-                )
         with Session(self._sa_engine) as session:
             new_bed = Bed(
                 id=identifier,
@@ -709,31 +714,6 @@ class BedAgentBedFile:
                 processed=processed,
             )
             session.add(new_bed)
-            if upload_s3:
-                for k, v in files:
-                    if v:
-                        new_file = Files(
-                            **v.model_dump(
-                                exclude_none=True,
-                                exclude_unset=True,
-                                exclude={"object_id", "access_methods"},
-                            ),
-                            bedfile_id=identifier,
-                            type="file",
-                        )
-                        session.add(new_file)
-                for k, v in plots:
-                    if v:
-                        new_plot = Files(
-                            **v.model_dump(
-                                exclude_none=True,
-                                exclude_unset=True,
-                                exclude={"object_id", "access_methods"},
-                            ),
-                            bedfile_id=identifier,
-                            type="plot",
-                        )
-                        session.add(new_plot)
 
             new_bedstat = BedStats(**stats.model_dump(), id=identifier)
             new_metadata = BedMetadata(
@@ -779,7 +759,7 @@ class BedAgentBedFile:
         license_id: str = DEFAULT_LICENSE,
         upload_qdrant: bool = False,
         upload_pephub: bool = False,
-        upload_s3: bool = True,
+        upload_s3: bool = False,
         local_path: str = None,
         overwrite: bool = False,
         nofail: bool = False,
@@ -864,20 +844,6 @@ class BedAgentBedFile:
                 bed_metadata=bed_metadata,
             )
             self._update_stats(sa_session=session, bed_object=bed_object, stats=stats)
-
-            if upload_s3:
-                self._update_plots(
-                    sa_session=session,
-                    bed_object=bed_object,
-                    plots=plots,
-                    local_path=local_path,
-                )
-                self._update_files(
-                    sa_session=session,
-                    bed_object=bed_object,
-                    files=files,
-                    local_path=local_path,
-                )
 
             self._update_ref_validation(
                 sa_session=session,
@@ -978,103 +944,6 @@ class BedAgentBedFile:
 
         sa_session.commit()
 
-    def _update_plots(
-        self,
-        sa_session: Session,
-        bed_object: Bed,
-        plots: BedPlots,
-        local_path: str = None,
-    ) -> None:
-        """
-        Update bed file plots
-
-        :param sa_session: sqlalchemy session
-        :param bed_object: bed sqlalchemy object
-        :param plots: bed file plots
-        :param local_path: local path to the output files
-        """
-
-        _LOGGER.info("Updating bed file plots..")
-        if plots:
-            plots = self.config.upload_files_s3(
-                bed_object.id, files=plots, base_path=local_path, type="plots"
-            )
-        plots_dict = plots.model_dump(
-            exclude_defaults=True, exclude_none=True, exclude_unset=True
-        )
-        if not plots_dict:
-            return None
-
-        for k, v in plots:
-            if v:
-                new_plot = Files(
-                    **v.model_dump(
-                        exclude_none=True,
-                        exclude_unset=True,
-                        exclude={"object_id", "access_methods"},
-                    ),
-                    bedfile_id=bed_object.id,
-                    type="plot",
-                )
-                try:
-                    sa_session.add(new_plot)
-                    sa_session.commit()
-                except IntegrityError as _:
-                    sa_session.rollback()
-                    _LOGGER.debug(
-                        f"Plot with name: {v.name} already exists. Updating.."
-                    )
-
-        return None
-
-    def _update_files(
-        self,
-        sa_session: Session,
-        bed_object: Bed,
-        files: BedFiles,
-        local_path: str = None,
-    ) -> None:
-        """
-        Update bed files
-
-        :param sa_session: sqlalchemy session
-        :param bed_object: bed sqlalchemy object
-        :param files: bed file files
-        """
-
-        _LOGGER.info("Updating bed files..")
-        if files:
-            files = self.config.upload_files_s3(
-                bed_object.id, files=files, base_path=local_path, type="files"
-            )
-
-        files_dict = files.model_dump(
-            exclude_defaults=True, exclude_none=True, exclude_unset=True
-        )
-        if not files_dict:
-            return None
-
-        for k, v in files:
-            if v:
-                new_file = Files(
-                    **v.model_dump(
-                        exclude_none=True,
-                        exclude_unset=True,
-                        exclude={"object_id", "access_methods"},
-                    ),
-                    bedfile_id=bed_object.id,
-                    type="file",
-                )
-
-                try:
-                    sa_session.add(new_file)
-                    sa_session.commit()
-                except IntegrityError as _:
-                    sa_session.rollback()
-                    _LOGGER.debug(
-                        f"File with name: {v.name} already exists. Updating.."
-                    )
-
     def _update_ref_validation(
         self,
         sa_session: Session,
@@ -1166,7 +1035,8 @@ class BedAgentBedFile:
             self.delete_pephub_sample(identifier)
         if delete_qdrant:
             self.delete_qdrant_point(identifier)
-        self.config.delete_files_s3(files)
+        if files:
+            self.config.delete_files_s3(files)
 
     def upload_pephub(self, identifier: str, metadata: dict, overwrite: bool = False):
         if not metadata:

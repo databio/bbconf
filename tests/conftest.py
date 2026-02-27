@@ -113,7 +113,7 @@ def example_dict():
         classification=classification,
         upload_qdrant=False,
         upload_pephub=False,
-        upload_s3=True,
+        upload_s3=False,
         local_path=DATA_PATH,
         overwrite=False,
         nofail=False,

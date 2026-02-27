@@ -1,21 +1,27 @@
 import datetime
-from typing import List, Union
+from typing import List, Optional, Union
 
 from pydantic import BaseModel, ConfigDict, model_validator
 
-from .base_models import FileModel
-from .bed_models import BedMetadataBasic, BedStatsModel
+from .bed_models import BedMetadataBasic
 
 
 class BedSetStats(BaseModel):
-    mean: BedStatsModel = None
-    sd: BedStatsModel = None
+    """Collection-level aggregated statistics for a bedset.
 
+    Replaces old mean/sd of scalar columns with full distribution aggregations.
+    """
 
-class BedSetPlots(BaseModel):
-    region_commonality: FileModel = None
-
-    model_config = ConfigDict(extra="ignore")
+    n_files: int = 0
+    composition: Optional[dict] = None
+    scalar_summaries: Optional[dict] = None
+    tss_histogram: Optional[dict] = None
+    widths_histogram: Optional[dict] = None
+    neighbor_distances: Optional[dict] = None
+    gc_content: Optional[dict] = None
+    region_distribution: Optional[dict] = None
+    partitions: Optional[dict] = None
+    chromosome_summaries: Optional[dict] = None
 
 
 class BedSetMetadata(BaseModel):
@@ -25,7 +31,6 @@ class BedSetMetadata(BaseModel):
     submission_date: datetime.datetime = None
     last_update_date: datetime.datetime = None
     statistics: Union[BedSetStats, None] = None
-    plots: Union[BedSetPlots, None] = None
     description: str = None
     summary: str = None
     bed_ids: List[str] = None

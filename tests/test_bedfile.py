@@ -19,33 +19,18 @@ def test_bb_database():
 
 @pytest.mark.skipif(SERVICE_UNAVAILABLE, reason="Database is not available")
 class Test_BedFile_Agent:
-    def test_upload(self, bbagent_obj, example_dict, mocker):
-        upload_s3_mock = mocker.patch(
-            "bbconf.config_parser.bedbaseconfig.BedBaseConfig.upload_s3",
-            return_value=True,
-        )
+    def test_upload(self, bbagent_obj, example_dict):
         with ContextManagerDBTesting(config=bbagent_obj.config, add_data=False):
             bbagent_obj.bed.add(**example_dict)
-
-            assert upload_s3_mock.called
             assert bbagent_obj.bed.exists(example_dict["identifier"])
 
-    def test_upload_exists(self, bbagent_obj, example_dict, mocker):
-        mocker.patch(
-            "bbconf.config_parser.bedbaseconfig.BedBaseConfig.upload_s3",
-            return_value=True,
-        )
+    def test_upload_exists(self, bbagent_obj, example_dict):
         with ContextManagerDBTesting(config=bbagent_obj.config, add_data=False):
             bbagent_obj.bed.add(**example_dict)
             with pytest.raises(BedFIleExistsError):
                 bbagent_obj.bed.add(**example_dict)
 
-    def test_add_nofail(self, bbagent_obj, example_dict, mocker):
-        mocker.patch(
-            "bbconf.config_parser.bedbaseconfig.BedBaseConfig.upload_s3",
-            return_value=True,
-        )
-
+    def test_add_nofail(self, bbagent_obj, example_dict):
         example_dict["nofail"] = True
         with ContextManagerDBTesting(config=bbagent_obj.config, add_data=False):
             bbagent_obj.bed.add(**example_dict)
@@ -98,6 +83,22 @@ class Test_BedFile_Agent:
 
             assert return_result is not None
             assert return_result.number_of_regions == 1
+
+    def test_get_stats_with_distributions(self, bbagent_obj):
+        """Verify distributions blob is included by default."""
+        with ContextManagerDBTesting(config=bbagent_obj.config, add_data=True):
+            result = bbagent_obj.bed.get_stats(BED_TEST_ID)
+            assert result.distributions is not None
+            assert "scalars" in result.distributions
+            assert "distributions" in result.distributions
+
+    def test_get_stats_without_distributions(self, bbagent_obj):
+        """Verify distributions=False strips the blob."""
+        with ContextManagerDBTesting(config=bbagent_obj.config, add_data=True):
+            result = bbagent_obj.bed.get_stats(BED_TEST_ID, distributions=False)
+            assert result is not None
+            assert result.number_of_regions == 1
+            assert result.distributions is None
 
     def test_get_files(self, bbagent_obj):
         with ContextManagerDBTesting(config=bbagent_obj.config, add_data=True):

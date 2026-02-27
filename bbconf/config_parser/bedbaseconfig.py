@@ -41,7 +41,6 @@ from bbconf.exceptions import (
 from bbconf.helpers import get_absolute_path, get_bedbase_cfg
 from bbconf.models.base_models import FileModel
 from bbconf.models.bed_models import BedFiles, BedPlots
-from bbconf.models.bedset_models import BedSetPlots
 from bbconf.models.drs_models import AccessMethod, AccessURL
 
 _LOGGER = logging.getLogger(PKG_NAME)
@@ -555,10 +554,10 @@ class BedBaseConfig(object):
     def upload_files_s3(
         self,
         identifier: str,
-        files: Union[BedFiles, BedPlots, BedSetPlots],
+        files: Union[BedFiles, BedPlots],
         base_path: str,
         type: Literal["files", "plots", "bedsets"] = "files",
-    ) -> Union[BedFiles, BedPlots, BedSetPlots]:
+    ) -> Union[BedFiles, BedPlots]:
         """
         Upload files to s3.
 

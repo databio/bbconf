@@ -2,13 +2,13 @@ import logging
 from typing import Dict, List, Optional
 
 from geniml.io.utils import compute_md5sum_bedset
-from sqlalchemy import Float, Numeric, func, or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from bbconf.config_parser import BedBaseConfig
 from bbconf.const import PKG_NAME
-from bbconf.db_utils import Bed, BedFileBedSetRelation, BedSets, BedStats, Files
+from bbconf.db_utils import Bed, BedFileBedSetRelation, BedSets, Files
 from bbconf.exceptions import (
     BedBaseConfError,
     BEDFileNotFoundError,
@@ -16,17 +16,17 @@ from bbconf.exceptions import (
     BedSetNotFoundError,
     BedSetTrackHubLimitError,
 )
-from bbconf.models.bed_models import BedStatsModel, StandardMeta
+from bbconf.models.base_models import FileModel
+from bbconf.models.bed_models import StandardMeta
 from bbconf.models.bedset_models import (
     BedMetadataBasic,
     BedSetBedFiles,
     BedSetListResult,
     BedSetMetadata,
     BedSetPEP,
-    BedSetPlots,
     BedSetStats,
-    FileModel,
 )
+from bbconf.modules.aggregation import aggregate_collection
 
 _LOGGER = logging.getLogger(PKG_NAME)
 
@@ -64,16 +64,20 @@ class BedAgentBedSet:
                 bedset_obj.bedfile_id for bedset_obj in bedset_obj.bedfiles
             ]
             if full:
-                plots = BedSetPlots()
-                for plot in bedset_obj.files:
-                    setattr(plots, plot.name, FileModel(**plot.__dict__))
-
-                stats = BedSetStats(
-                    mean=BedStatsModel(**bedset_obj.bedset_means),
-                    sd=BedStatsModel(**bedset_obj.bedset_standard_deviation),
-                ).model_dump()
+                # Prefer new bedset_stats column; fall back to old columns
+                if bedset_obj.bedset_stats:
+                    stats = BedSetStats(**bedset_obj.bedset_stats).model_dump()
+                elif bedset_obj.bedset_means:
+                    stats = BedSetStats(
+                        n_files=0,
+                        scalar_summaries=_old_stats_to_scalar_summaries(
+                            bedset_obj.bedset_means,
+                            bedset_obj.bedset_standard_deviation,
+                        ),
+                    ).model_dump()
+                else:
+                    stats = None
             else:
-                plots = None
                 stats = None
 
             bedset_metadata = BedSetMetadata(
@@ -82,7 +86,6 @@ class BedAgentBedSet:
                 description=bedset_obj.description,
                 md5sum=bedset_obj.md5sum,
                 statistics=stats,
-                plots=plots,
                 bed_ids=list_of_bedfiles,
                 submission_date=bedset_obj.submission_date,
                 last_update_date=bedset_obj.last_update_date,
@@ -91,35 +94,6 @@ class BedAgentBedSet:
             )
 
         return bedset_metadata
-
-    def get_plots(self, identifier: str) -> BedSetPlots:
-        """
-        Get plots for bedset by identifier.
-
-        :param identifier: bedset identifier
-        :return: bedset plots
-        """
-        statement = select(BedSets).where(BedSets.id == identifier)
-
-        with Session(self._db_engine.engine) as session:
-            bedset_object = session.scalar(statement)
-            if not bedset_object:
-                raise BedSetNotFoundError(f"Bed file with id: {identifier} not found.")
-            bedset_files = BedSetPlots()
-            for result in bedset_object.files:
-                if result.name in bedset_files.model_fields:
-                    setattr(
-                        bedset_files,
-                        result.name,
-                        FileModel(
-                            **result.__dict__,
-                            object_id=f"bed.{identifier}.{result.name}",
-                            access_methods=self.config.construct_access_method_list(
-                                result.path
-                            ),
-                        ),
-                    )
-        return bedset_files
 
     def get_objects(self, identifier: str) -> Dict[str, FileModel]:
         """
@@ -158,9 +132,15 @@ class BedAgentBedSet:
             bedset_object = session.scalar(statement)
             if not bedset_object:
                 raise BedSetNotFoundError(f"Bedset with id: {identifier} not found.")
+            # Prefer new bedset_stats column; fall back to old columns
+            if bedset_object.bedset_stats:
+                return BedSetStats(**bedset_object.bedset_stats)
             return BedSetStats(
-                mean=BedStatsModel(**bedset_object.bedset_means),
-                sd=BedStatsModel(**bedset_object.bedset_standard_deviation),
+                n_files=0,
+                scalar_summaries=_old_stats_to_scalar_summaries(
+                    bedset_object.bedset_means,
+                    bedset_object.bedset_standard_deviation,
+                ),
             )
 
     def get_bedset_pep(self, identifier: str) -> dict:
@@ -285,7 +265,6 @@ class BedAgentBedSet:
         description: str = None,
         statistics: bool = False,
         annotation: dict = None,
-        plots: dict = None,
         upload_pephub: bool = False,
         upload_s3: bool = False,
         local_path: str = "",
@@ -302,10 +281,9 @@ class BedAgentBedSet:
         :param bedid_list: list of bed file identifiers
         :param statistics: calculate statistics for bedset
         :param annotation: bedset annotation (author, source)
-        :param plots: dictionary with plots
         :param upload_pephub: upload bedset to pephub (create view in pephub)
-        :param upload_s3: upload bedset to s3
-        :param local_path: local path to the output files
+        :param upload_s3: upload bedset to s3 (currently unused, kept for API compat)
+        :param local_path: local path to the output files (currently unused, kept for API compat)
         :param no_fail: do not raise an error if bedset already exists
         :param overwrite: overwrite the record in the database
         :param processed: flag to indicate that bedset is processed. [Default: True]
@@ -314,9 +292,10 @@ class BedAgentBedSet:
         _LOGGER.info(f"Creating bedset '{identifier}'")
 
         if statistics:
-            stats = self._calculate_statistics(bedid_list)
+            bedset_stats = aggregate_collection(self._db_engine.engine, bedid_list)
         else:
-            stats = None
+            bedset_stats = None
+
         if self.exists(identifier):
             if no_fail and not overwrite:
                 _LOGGER.warning(
@@ -347,19 +326,12 @@ class BedAgentBedSet:
             name=name,
             description=description,
             summary=annotation.get("summary"),
-            bedset_means=stats.mean.model_dump() if stats else None,
-            bedset_standard_deviation=stats.sd.model_dump() if stats else None,
+            bedset_stats=bedset_stats.model_dump() if bedset_stats else None,
             md5sum=compute_md5sum_bedset(bedid_list),
             author=annotation.get("author"),
             source=annotation.get("source"),
             processed=processed,
         )
-
-        if upload_s3:
-            plots = BedSetPlots(**plots) if plots else BedSetPlots()
-            plots = self.config.upload_files_s3(
-                identifier, files=plots, base_path=local_path, type="bedsets"
-            )
 
         try:
             with Session(self._db_engine.engine) as session:
@@ -371,15 +343,6 @@ class BedAgentBedSet:
                     session.add(
                         BedFileBedSetRelation(bedset_id=identifier, bedfile_id=bedfile)
                     )
-                if upload_s3:
-                    for k, v in plots:
-                        if v:
-                            new_file = Files(
-                                **v.model_dump(exclude_none=True, exclude_unset=True),
-                                bedset_id=identifier,
-                                type="plot",
-                            )
-                            session.add(new_file)
 
                 session.commit()
         except IntegrityError as _:
@@ -392,52 +355,6 @@ class BedAgentBedSet:
 
         _LOGGER.info(f"Bedset '{identifier}' was created successfully")
         return None
-
-    def _calculate_statistics(self, bed_ids: List[str]) -> BedSetStats:
-        """
-        Calculate statistics for bedset.
-
-        :param bed_ids: list of bed file identifiers
-        :return: statistics
-        """
-
-        _LOGGER.info("Calculating bedset statistics")
-        # Only aggregate scalar float columns, skip JSONB fields like distributions
-        numeric_columns = [
-            name
-            for name, field in BedStatsModel.model_fields.items()
-            if field.annotation == Optional[float]
-        ]
-
-        bedset_sd = {}
-        bedset_mean = {}
-        with Session(self._db_engine.engine) as session:
-            for column_name in numeric_columns:
-                mean_bedset_statement = select(
-                    func.round(
-                        func.avg(getattr(BedStats, column_name)).cast(Numeric), 4
-                    ).cast(Float)
-                ).where(BedStats.id.in_(bed_ids))
-
-                sd_bedset_statement = select(
-                    func.round(
-                        func.stddev(getattr(BedStats, column_name)).cast(Numeric),
-                        4,
-                    ).cast(Float)
-                ).where(BedStats.id.in_(bed_ids))
-
-                bedset_sd[column_name] = session.execute(sd_bedset_statement).one()[0]
-                bedset_mean[column_name] = session.execute(mean_bedset_statement).one()[
-                    0
-                ]
-
-            bedset_stats = BedSetStats(
-                mean=bedset_mean,
-                sd=bedset_sd,
-            )
-
-        _LOGGER.info("Bedset statistics were calculated successfully")
-        return bedset_stats
 
     def _create_pephub_view(
         self,
@@ -567,7 +484,6 @@ class BedAgentBedSet:
 
             bedset_obj = session.scalar(statement)
             files = [FileModel(**k.__dict__) for k in bedset_obj.files]
-
             session.delete(bedset_obj)
             session.commit()
 
@@ -649,7 +565,6 @@ class BedAgentBedSet:
                         description=bedset_obj.description,
                         md5sum=bedset_obj.md5sum,
                         statistics=None,
-                        plots=None,
                         bed_ids=list_of_bedfiles,
                         submission_date=bedset_obj.submission_date,
                         last_update_date=bedset_obj.last_update_date,
@@ -670,3 +585,27 @@ class BedAgentBedSet:
 
     def delete_bedfile(self, identifier: str, bedfile: str) -> None:
         raise NotImplementedError
+
+
+def _old_stats_to_scalar_summaries(
+    bedset_means: dict,
+    bedset_sd: dict,
+) -> Optional[dict]:
+    """Convert old bedset_means/bedset_standard_deviation to scalar_summaries format.
+
+    Used as fallback for records created before the bedset_stats column existed.
+    """
+    if not bedset_means:
+        return None
+
+    scalar_keys = ["number_of_regions", "mean_region_width", "median_tss_dist", "gc_content"]
+    result = {}
+    for k in scalar_keys:
+        mean_val = bedset_means.get(k)
+        if mean_val is not None:
+            entry = {"mean": float(mean_val), "n": 0}
+            if bedset_sd and bedset_sd.get(k) is not None:
+                entry["sd"] = float(bedset_sd[k])
+            result[k] = entry
+
+    return result if result else None
