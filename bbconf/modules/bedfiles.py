@@ -596,7 +596,6 @@ class BedAgentBedFile:
         license_id: str = DEFAULT_LICENSE,
         upload_qdrant: bool = False,
         upload_pephub: bool = False,
-        upload_s3: bool = False,
         local_path: str = None,
         overwrite: bool = False,
         nofail: bool = False,
@@ -616,7 +615,6 @@ class BedAgentBedFile:
             https://raw.githubusercontent.com/EBISPOT/DUO/master/duo.csv
         :param upload_qdrant: add bed file to qdrant indexs
         :param upload_pephub: add bed file to pephub
-        :param upload_s3: upload files to s3
         :param local_path: local path to the output files
         :param overwrite: overwrite bed file if it already exists
         :param nofail: do not raise an error for error in pephub/s3/qdrant or record exsist and not overwrite
@@ -759,7 +757,6 @@ class BedAgentBedFile:
         license_id: str = DEFAULT_LICENSE,
         upload_qdrant: bool = False,
         upload_pephub: bool = False,
-        upload_s3: bool = False,
         local_path: str = None,
         overwrite: bool = False,
         nofail: bool = False,
@@ -778,7 +775,6 @@ class BedAgentBedFile:
         :param license_id: bed file license id (default: 'DUO:0000042').
         :param upload_qdrant: add bed file to qdrant indexs
         :param upload_pephub: add bed file to pephub
-        :param upload_s3: upload files to s3
         :param local_path: local path to the output files
         :param overwrite: overwrite bed file if it already exists
         :param nofail: do not raise an error for error in pephub/s3/qdrant or record exsist and not overwrite

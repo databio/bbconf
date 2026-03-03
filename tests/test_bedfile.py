@@ -227,7 +227,6 @@ class Test_BedFile_Agent:
                 identifier=BED_TEST_ID,
                 metadata=new_metadata,
                 upload_qdrant=False,
-                upload_s3=False,
             )
 
             new_bed_file = bbagent_obj.bed.get(BED_TEST_ID, full=True)

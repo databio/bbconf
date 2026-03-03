@@ -266,8 +266,6 @@ class BedAgentBedSet:
         statistics: bool = False,
         annotation: dict = None,
         upload_pephub: bool = False,
-        upload_s3: bool = False,
-        local_path: str = "",
         no_fail: bool = False,
         overwrite: bool = False,
         processed: bool = True,
@@ -282,8 +280,6 @@ class BedAgentBedSet:
         :param statistics: calculate statistics for bedset
         :param annotation: bedset annotation (author, source)
         :param upload_pephub: upload bedset to pephub (create view in pephub)
-        :param upload_s3: upload bedset to s3 (currently unused, kept for API compat)
-        :param local_path: local path to the output files (currently unused, kept for API compat)
         :param no_fail: do not raise an error if bedset already exists
         :param overwrite: overwrite the record in the database
         :param processed: flag to indicate that bedset is processed. [Default: True]
