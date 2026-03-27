@@ -255,6 +255,12 @@ class BedStats(Base):
     promotercore_percentage: Mapped[Optional[float]]
     tssdist: Mapped[Optional[float]]
 
+    distributions: Mapped[Optional[dict]] = mapped_column(
+        JSON,
+        nullable=True,
+        comment="Full distribution arrays from gtars genomicdist (JSONB)",
+    )
+
     bed: Mapped["Bed"] = relationship("Bed", back_populates="stats")
 
 
@@ -336,6 +342,11 @@ class BedSets(Base):
     )
     bedset_standard_deviation: Mapped[Optional[dict]] = mapped_column(
         JSON, comment="Median values of the bedset"
+    )
+    bedset_stats: Mapped[Optional[dict]] = mapped_column(
+        JSON,
+        nullable=True,
+        comment="Pre-aggregated distribution statistics from gtars (JSONB)",
     )
 
     bedfiles: Mapped[list["BedFileBedSetRelation"]] = relationship(

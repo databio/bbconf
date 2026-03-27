@@ -1,5 +1,6 @@
 import logging
 from pathlib import Path
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, computed_field, field_validator
 from yacman import load_yaml
@@ -126,6 +127,17 @@ class ConfigPepHubClient(BaseModel):
     tag: str | None = DEFAULT_PEPHUB_TAG
 
 
+class ConfigAnalysis(BaseModel):
+    """Analysis backend configuration.
+
+    Controls which statistics engine is used for BED file analysis.
+    """
+
+    backend: Literal["r", "gtars"] = "r"
+
+    model_config = ConfigDict(extra="forbid")
+
+
 class ConfigFile(BaseModel):
     database: ConfigDB
     qdrant: ConfigQdrant = None
@@ -134,6 +146,7 @@ class ConfigFile(BaseModel):
     access_methods: AccessMethods = None
     s3: ConfigS3 = None
     phc: ConfigPepHubClient = None
+    analysis: ConfigAnalysis = ConfigAnalysis()
 
     model_config = ConfigDict(extra="allow")
 

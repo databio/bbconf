@@ -74,6 +74,8 @@ class BedStatsModel(BaseModel):
     promoterprox_frequency: float | None = None
     promoterprox_percentage: float | None = None
 
+    distributions: dict | None = None
+
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
 
