@@ -67,6 +67,7 @@ from bbconf.models.bed_models import (
     UniverseMetadata,
     VectorMetadata,
 )
+from bbconf.models.bedset_models import BedSetDistributions
 
 _LOGGER = getLogger(PKG_NAME)
 
@@ -298,7 +299,7 @@ class BedAgentBedFile:
             results=results,
         )
 
-    def aggregate_collection(self, bed_ids: list) -> "BedSetDistributions":
+    def aggregate_collection(self, bed_ids: list) -> BedSetDistributions:
         """Aggregate per-file distributions into collection-level stats.
 
         Thin wrapper around the standalone aggregate_collection() function.
