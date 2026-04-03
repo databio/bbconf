@@ -427,7 +427,11 @@ class BedAgentBedSet:
         """
 
         _LOGGER.info("Calculating bedset statistics")
-        numeric_columns = BedStatsModel.model_fields
+        numeric_columns = [
+            name
+            for name, field in BedStatsModel.model_fields.items()
+            if field.annotation in (float, float | None)
+        ]
 
         bedset_sd = {}
         bedset_mean = {}
