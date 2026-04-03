@@ -19,6 +19,7 @@ from bbconf.models.bed_models import BedStatsModel, StandardMeta
 from bbconf.models.bedset_models import (
     BedMetadataBasic,
     BedSetBedFiles,
+    BedSetDistributions,
     BedSetListResult,
     BedSetMetadata,
     BedSetPEP,
@@ -26,6 +27,7 @@ from bbconf.models.bedset_models import (
     BedSetStats,
     FileModel,
 )
+from bbconf.modules.aggregation import aggregate_collection
 
 _LOGGER = logging.getLogger(PKG_NAME)
 
@@ -77,9 +79,18 @@ class BedAgentBedSet:
                     mean=BedStatsModel(**bedset_obj.bedset_means),
                     sd=BedStatsModel(**bedset_obj.bedset_standard_deviation),
                 ).model_dump()
+
+                # Include new distribution stats if available
+                if bedset_obj.bedset_stats:
+                    distributions = BedSetDistributions(
+                        **bedset_obj.bedset_stats
+                    ).model_dump()
+                else:
+                    distributions = None
             else:
                 plots = None
                 stats = None
+                distributions = None
 
             bedset_metadata = BedSetMetadata(
                 id=bedset_obj.id,
@@ -87,6 +98,7 @@ class BedAgentBedSet:
                 description=bedset_obj.description,
                 md5sum=bedset_obj.md5sum,
                 statistics=stats,
+                distributions=distributions,
                 plots=plots,
                 bed_ids=list_of_bedfiles,
                 submission_date=bedset_obj.submission_date,
@@ -175,6 +187,35 @@ class BedAgentBedSet:
             return BedSetStats(
                 mean=BedStatsModel(**bedset_object.bedset_means),
                 sd=BedStatsModel(**bedset_object.bedset_standard_deviation),
+            )
+
+    def get_distributions(self, identifier: str) -> BedSetDistributions:
+        """
+        Get distribution statistics for bedset by identifier.
+
+        Returns aggregated distribution data from the JSONB column.
+        Falls back to wrapping old scalar stats if JSONB is not populated.
+
+        Args:
+            identifier: Bedset identifier.
+
+        Returns:
+            BedSetDistributions with aggregated distributions.
+        """
+        statement = select(BedSets).where(BedSets.id == identifier)
+        with Session(self._db_engine.engine) as session:
+            bedset_object = session.scalar(statement)
+            if not bedset_object:
+                raise BedSetNotFoundError(f"Bedset with id: {identifier} not found.")
+            if bedset_object.bedset_stats:
+                return BedSetDistributions(**bedset_object.bedset_stats)
+            # Fallback: wrap old scalar columns
+            return BedSetDistributions(
+                n_files=0,
+                scalar_summaries=_old_stats_to_scalar_summaries(
+                    bedset_object.bedset_means,
+                    bedset_object.bedset_standard_deviation,
+                ),
             )
 
     def get_bedset_pep(self, identifier: str) -> dict:
@@ -337,8 +378,17 @@ class BedAgentBedSet:
 
         if statistics:
             stats = self._calculate_statistics(bedid_list)
+            # Also compute distribution-level aggregation (for gtars-processed beds)
+            try:
+                dist_stats = aggregate_collection(self._db_engine.engine, bedid_list)
+            except Exception as e:
+                _LOGGER.warning(
+                    f"Distribution aggregation failed (beds may lack distributions): {e}"
+                )
+                dist_stats = None
         else:
             stats = None
+            dist_stats = None
         if self.exists(identifier):
             if no_fail and not overwrite:
                 _LOGGER.warning(
@@ -371,6 +421,7 @@ class BedAgentBedSet:
             summary=annotation.get("summary"),
             bedset_means=stats.mean.model_dump() if stats else None,
             bedset_standard_deviation=stats.sd.model_dump() if stats else None,
+            bedset_stats=dist_stats.model_dump() if dist_stats else None,
             md5sum=compute_md5sum_bedset(bedid_list),
             author=annotation.get("author"),
             source=annotation.get("source"),
@@ -711,3 +762,35 @@ class BedAgentBedSet:
 
     def delete_bedfile(self, identifier: str, bedfile: str) -> None:
         raise NotImplementedError
+
+
+def _old_stats_to_scalar_summaries(
+    bedset_means: dict | None,
+    bedset_sd: dict | None,
+) -> dict | None:
+    """Convert old bedset_means/bedset_standard_deviation to scalar_summaries format.
+
+    Maps the 4 key scalar fields from old-style BedSetStats(mean, sd) to the
+    new BedSetDistributions.scalar_summaries format.
+    """
+    if not bedset_means:
+        return None
+
+    scalar_keys = [
+        "number_of_regions",
+        "mean_region_width",
+        "median_tss_dist",
+        "gc_content",
+    ]
+    result = {}
+    for k in scalar_keys:
+        mean_val = bedset_means.get(k)
+        sd_val = (bedset_sd or {}).get(k)
+        if mean_val is not None:
+            result[k] = {
+                "mean": mean_val,
+                "sd": sd_val or 0.0,
+                "n": 0,
+            }
+
+    return result if result else None
