@@ -1,6 +1,6 @@
 [project]
 name = "bbconf"
-version = "0.14.9"
+version = "0.14.10"
 description = "Configuration and data management tool for BEDbase"
 readme = "README.md"
 license = "BSD-2-Clause"
