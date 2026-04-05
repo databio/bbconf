@@ -133,7 +133,7 @@ class ConfigAnalysis(BaseModel):
     Controls which statistics engine is used for BED file analysis.
     """
 
-    backend: Literal["r", "gtars"] = "r"
+    backend: Literal["r", "gtars", "gtars-py"] = "r"
 
     model_config = ConfigDict(extra="forbid")
 
