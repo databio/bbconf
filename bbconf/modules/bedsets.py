@@ -781,6 +781,7 @@ def _old_stats_to_scalar_summaries(
         "mean_region_width",
         "median_tss_dist",
         "gc_content",
+        "median_neighbor_distance",
     ]
     result = {}
     for k in scalar_keys:

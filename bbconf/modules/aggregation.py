@@ -10,7 +10,7 @@ from collections import defaultdict
 from typing import Dict, List, Optional
 
 import numpy as np
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
@@ -20,9 +20,7 @@ from bbconf.models.bedset_models import BedSetDistributions
 
 _LOGGER = logging.getLogger(PKG_NAME)
 
-# Number of bins for re-binned histograms and interpolated KDEs
-_COMMON_GRID_SIZE = 256
-# Number of bins when compressing scalar arrays to histograms
+# Number of bins when building histograms of per-file scalar means
 _SCALAR_HIST_BINS = 25
 # Default decimal precision for stored floats
 DEFAULT_PRECISION = 3
@@ -46,6 +44,11 @@ def aggregate_collection(
 ) -> BedSetDistributions:
     """Aggregate per-file distributions into collection-level stats.
 
+    Uses SQL aggregation where distributions have stable axes (scalars,
+    region_distribution with reference-aligned bin widths from gtars ≥#248,
+    and fixed-axis tss_histogram). Partitions aggregation stays in Python
+    (small nested JSONB).
+
     :param engine: SQLAlchemy engine
     :param bed_ids: list of bed file identifiers
     :param precision: decimal places for stored floats (default 3)
@@ -57,16 +60,8 @@ def aggregate_collection(
     n = len(bed_ids)
 
     with Session(engine) as session:
-        # 1. Fetch full distributions for all matching IDs
-        dist_stmt = (
-            select(BedStats.id, BedStats.distributions)
-            .where(BedStats.id.in_(bed_ids))
-            .where(BedStats.distributions.isnot(None))
-        )
-        dist_rows = session.execute(dist_stmt).all()
-
-        # 2. Fetch composition metadata
-        comp_stmt = (
+        # 1. Composition metadata (join Bed + BedMetadata)
+        comp_rows = session.execute(
             select(
                 Bed.id,
                 Bed.genome_alias,
@@ -77,45 +72,40 @@ def aggregate_collection(
             )
             .outerjoin(BedMetadata, BedMetadata.id == Bed.id)
             .where(Bed.id.in_(bed_ids))
-        )
-        comp_rows = session.execute(comp_stmt).all()
+        ).all()
 
-        # 3. Fallback scalars for old records without distributions
-        ids_with_dist = {row[0] for row in dist_rows}
-        ids_without_dist = [bid for bid in bed_ids if bid not in ids_with_dist]
-        fallback_rows = []
-        if ids_without_dist:
-            fb_stmt = select(
-                BedStats.id,
+        # 2. Scalar columns — pulled directly from BedStats (SQL-side agg)
+        scalar_rows = session.execute(
+            select(
                 BedStats.number_of_regions,
                 BedStats.mean_region_width,
                 BedStats.median_tss_dist,
                 BedStats.gc_content,
-            ).where(BedStats.id.in_(ids_without_dist))
-            fallback_rows = session.execute(fb_stmt).all()
+                BedStats.median_neighbor_distance,
+            ).where(BedStats.id.in_(bed_ids))
+        ).all()
 
-    # Parse distributions from JSONB
-    distributions_list = []
-    for _id, dist in dist_rows:
-        if dist:
-            distributions_list.append(dist)
+        # 3. region_distribution aggregation via SQL JSONB unnest
+        region_distribution = _sql_aggregate_region_distribution(session, bed_ids)
 
-    # Build the stats object
+        # 4. tss_histogram aggregation via SQL JSONB unnest
+        tss_histogram = _sql_aggregate_tss_histogram(session, bed_ids)
+
+        # 5. partitions (kept in Python — small nested JSONB)
+        partitions_rows = session.execute(
+            select(BedStats.distributions["partitions"])
+            .where(BedStats.id.in_(bed_ids))
+            .where(BedStats.distributions.isnot(None))
+        ).all()
+
+    # Assemble result
     stats = BedSetDistributions(
         n_files=n,
         composition=_aggregate_composition(comp_rows),
-        scalar_summaries=_aggregate_scalars(distributions_list, fallback_rows),
-        tss_histogram=_aggregate_fixed_axis_from_dists(
-            distributions_list, "tss_distances"
-        ),
-        widths_histogram=_aggregate_variable_histogram(distributions_list, "widths"),
-        neighbor_distances=_aggregate_variable_kde(
-            distributions_list, "neighbor_distances"
-        ),
-        gc_content=_aggregate_variable_kde(distributions_list, "gc_content"),
-        region_distribution=_aggregate_region_distribution(distributions_list),
-        partitions=_aggregate_partitions(distributions_list),
-        chromosome_summaries=_aggregate_chromosome_stats(distributions_list),
+        scalar_summaries=_aggregate_scalars_from_columns(scalar_rows),
+        tss_histogram=tss_histogram,
+        region_distribution=region_distribution,
+        partitions=_aggregate_partitions_from_rows(partitions_rows),
     )
 
     if precision is not None:
@@ -148,33 +138,24 @@ def _aggregate_composition(rows: list) -> Optional[dict]:
     return result if result else None
 
 
-def _aggregate_scalars(
-    distributions_list: List[dict],
-    fallback_rows: list,
-) -> Optional[dict]:
-    """Extract scalar values from distributions, compute mean + sd + histogram."""
+def _aggregate_scalars_from_columns(scalar_rows: list) -> Optional[dict]:
+    """Compute mean/sd/histogram for per-file scalar columns.
+
+    Input: list of tuples (number_of_regions, mean_region_width,
+    median_tss_dist, gc_content, median_neighbor_distance) from BedStats.
+    """
     scalar_keys = [
         "number_of_regions",
         "mean_region_width",
         "median_tss_dist",
         "gc_content",
+        "median_neighbor_distance",
     ]
 
     per_key: Dict[str, list] = {k: [] for k in scalar_keys}
-
-    # From distributions JSONB
-    for dist in distributions_list:
-        scalars = dist.get("scalars", {})
-        if scalars:
-            for k in scalar_keys:
-                val = scalars.get(k)
-                if val is not None:
-                    per_key[k].append(float(val))
-
-    # From fallback rows (old records)
-    for row in fallback_rows:
+    for row in scalar_rows:
         for i, k in enumerate(scalar_keys):
-            val = row[i + 1]
+            val = row[i]
             if val is not None:
                 per_key[k].append(float(val))
 
@@ -200,233 +181,147 @@ def _aggregate_scalars(
     return result if result else None
 
 
-def _aggregate_fixed_axis_from_dists(
-    distributions_list: List[dict],
-    key: str,
+def _sql_aggregate_region_distribution(
+    session: Session, bed_ids: List[str]
 ) -> Optional[dict]:
-    """Aggregate fixed-axis histograms (e.g. TSS distances) from distributions."""
-    arrays = []
-    metadata = None
+    """Aggregate per-chromosome region_distribution via SQL JSONB unnest.
 
-    for dist in distributions_list:
-        dists = dist.get("distributions", {})
-        obj = dists.get(key)
-        if not obj:
-            continue
-        counts = obj.get("counts")
-        if counts is None:
-            continue
-        arrays.append(counts)
-        if metadata is None:
-            metadata = {
-                "x_min": obj.get("x_min"),
-                "x_max": obj.get("x_max"),
-                "bins": obj.get("bins"),
-            }
+    Requires that member files used gtars ≥ PR #248 with --chrom-sizes so that
+    bin widths are reference-aligned across files (same bin_idx → same bp
+    range on a given chromosome, regardless of file).
 
-    if not arrays:
-        return None
-
-    return _aggregate_fixed_axis(arrays, metadata)
-
-
-def _aggregate_fixed_axis(
-    arrays: List[list],
-    metadata: Optional[dict] = None,
-) -> Optional[dict]:
-    """Stack equal-length arrays, compute element-wise mean + sd."""
-    if not arrays:
-        return None
-
-    lengths = [len(a) for a in arrays]
-    target_len = max(set(lengths), key=lengths.count)
-    filtered = [np.array(a, dtype=float) for a in arrays if len(a) == target_len]
-
-    if not filtered:
-        return None
-
-    stacked = np.stack(filtered)
-    result = {
-        "mean": np.mean(stacked, axis=0).tolist(),
-        "sd": (
-            np.std(stacked, axis=0, ddof=1).tolist()
-            if len(filtered) > 1
-            else [0.0] * target_len
+    Returns {chrom: {mean: [...], sd: [...], n: int}} or None if no data.
+    """
+    sql = text(
+        """
+        WITH per_file AS (
+            SELECT distributions->'distributions'->'region_distribution' AS rd
+            FROM bed_stats
+            WHERE id = ANY(:bed_ids)
+              AND distributions IS NOT NULL
+              AND distributions->'distributions'->'region_distribution' IS NOT NULL
         ),
-        "n": len(filtered),
-    }
-    if metadata:
-        result.update(metadata)
-    return result
-
-
-def _aggregate_variable_histogram(
-    distributions_list: List[dict],
-    key: str,
-) -> Optional[dict]:
-    """Aggregate variable-range histograms by re-binning to a common grid."""
-    histograms = []
-    for dist in distributions_list:
-        dists = dist.get("distributions", {})
-        obj = dists.get(key)
-        if not obj:
-            continue
-        counts = obj.get("counts")
-        x_min = obj.get("x_min")
-        x_max = obj.get("x_max")
-        if counts is None or x_min is None or x_max is None:
-            continue
-        histograms.append({"counts": counts, "x_min": x_min, "x_max": x_max})
-
-    if not histograms:
-        return None
-
-    global_x_min = min(h["x_min"] for h in histograms)
-    global_x_max = max(h["x_max"] for h in histograms)
-
-    common_edges = np.linspace(global_x_min, global_x_max, _COMMON_GRID_SIZE + 1)
-
-    rebinned = []
-    for h in histograms:
-        counts = np.array(h["counts"], dtype=float)
-        n_bins = len(counts)
-        orig_edges = np.linspace(h["x_min"], h["x_max"], n_bins + 1)
-
-        cdf = np.concatenate([[0.0], np.cumsum(counts)])
-        total = cdf[-1]
-        if total == 0:
-            rebinned.append(np.zeros(_COMMON_GRID_SIZE))
-            continue
-
-        cdf_interp = np.interp(common_edges, orig_edges, cdf)
-        new_counts = np.diff(cdf_interp)
-        new_counts = (
-            new_counts * (total / new_counts.sum())
-            if new_counts.sum() > 0
-            else new_counts
+        unnested AS (
+            SELECT
+                chrom,
+                ordinality - 1 AS bin_idx,
+                (val)::float AS count
+            FROM per_file,
+                 jsonb_each(rd) AS per_chrom(chrom, counts),
+                 jsonb_array_elements_text(counts) WITH ORDINALITY AS t(val, ordinality)
         )
-        rebinned.append(new_counts)
+        SELECT
+            chrom,
+            bin_idx,
+            AVG(count) AS mean,
+            COALESCE(STDDEV(count), 0.0) AS sd,
+            COUNT(*) AS n
+        FROM unnested
+        GROUP BY chrom, bin_idx
+        ORDER BY chrom, bin_idx
+        """
+    )
 
-    stacked = np.stack(rebinned)
-    result = {
-        "x_min": float(global_x_min),
-        "x_max": float(global_x_max),
-        "bins": _COMMON_GRID_SIZE,
-        "mean": np.mean(stacked, axis=0).tolist(),
-        "sd": (
-            np.std(stacked, axis=0, ddof=1).tolist()
-            if len(rebinned) > 1
-            else [0.0] * _COMMON_GRID_SIZE
-        ),
-        "n": len(rebinned),
-    }
-    return result
-
-
-def _aggregate_variable_kde(
-    distributions_list: List[dict],
-    key: str,
-) -> Optional[dict]:
-    """Aggregate variable-range KDE density curves by interpolating to common x-axis."""
-    kdes = []
-    for dist in distributions_list:
-        dists = dist.get("distributions", {})
-        obj = dists.get(key)
-        if not obj:
-            continue
-        densities = obj.get("densities")
-        x_min = obj.get("x_min")
-        x_max = obj.get("x_max")
-        if densities is None or x_min is None or x_max is None:
-            continue
-        kdes.append({"densities": densities, "x_min": x_min, "x_max": x_max})
-
-    if not kdes:
+    rows = session.execute(sql, {"bed_ids": bed_ids}).all()
+    if not rows:
         return None
 
-    global_x_min = min(k["x_min"] for k in kdes)
-    global_x_max = max(k["x_max"] for k in kdes)
-
-    common_x = np.linspace(global_x_min, global_x_max, _COMMON_GRID_SIZE)
-
-    interpolated = []
-    for k in kdes:
-        dens = np.array(k["densities"], dtype=float)
-        orig_x = np.linspace(k["x_min"], k["x_max"], len(dens))
-        interp_dens = np.interp(common_x, orig_x, dens, left=0.0, right=0.0)
-        interpolated.append(interp_dens)
-
-    stacked = np.stack(interpolated)
-
-    result = {
-        "x_min": float(global_x_min),
-        "x_max": float(global_x_max),
-        "n_points": _COMMON_GRID_SIZE,
-        "mean": np.mean(stacked, axis=0).tolist(),
-        "sd": (
-            np.std(stacked, axis=0, ddof=1).tolist()
-            if len(interpolated) > 1
-            else [0.0] * _COMMON_GRID_SIZE
-        ),
-        "n": len(interpolated),
-    }
-
-    # Include per-file summary stat if available (e.g. gc_content mean)
-    file_means = []
-    for dist in distributions_list:
-        dists = dist.get("distributions", {})
-        obj = dists.get(key, {})
-        m = obj.get("mean")
-        if m is not None:
-            file_means.append(float(m))
-    if file_means:
-        result["file_mean"] = {
-            "mean": float(np.mean(file_means)),
-            "sd": float(np.std(file_means, ddof=1)) if len(file_means) > 1 else 0.0,
-        }
-
-    return result
-
-
-def _aggregate_region_distribution(
-    distributions_list: List[dict],
-) -> Optional[dict]:
-    """Aggregate per-chromosome region distributions."""
-    chrom_data: Dict[str, List[list]] = defaultdict(list)
-    for dist in distributions_list:
-        dists = dist.get("distributions", {})
-        rd = dists.get("region_distribution")
-        if not rd:
-            continue
-        for chrom, counts in rd.items():
-            if isinstance(counts, list):
-                chrom_data[chrom].append(counts)
-
-    if not chrom_data:
-        return None
-
-    result = {}
-    for chrom, arrays in chrom_data.items():
-        max_len = max(len(a) for a in arrays)
-        padded = []
-        for a in arrays:
-            arr = np.array(a, dtype=float)
-            if len(arr) < max_len:
-                arr = np.pad(arr, (0, max_len - len(arr)))
-            padded.append(arr)
-
-        stacked = np.stack(padded)
-        result[chrom] = {
-            "mean": np.mean(stacked, axis=0).tolist(),
-            "sd": (
-                np.std(stacked, axis=0, ddof=1).tolist()
-                if len(padded) > 1
-                else [0.0] * max_len
-            ),
-            "n": len(padded),
-        }
+    # Reshape flat rows → {chrom: {mean: [...], sd: [...], n: int}}
+    result: Dict[str, dict] = {}
+    for chrom, bin_idx, mean_val, sd_val, n_val in rows:
+        if chrom not in result:
+            result[chrom] = {"mean": [], "sd": [], "n": int(n_val)}
+        # Ensure arrays are long enough (bin_idx is 0-indexed, ordered by SQL)
+        while len(result[chrom]["mean"]) <= bin_idx:
+            result[chrom]["mean"].append(0.0)
+            result[chrom]["sd"].append(0.0)
+        result[chrom]["mean"][bin_idx] = float(mean_val)
+        result[chrom]["sd"][bin_idx] = float(sd_val)
 
     return result if result else None
+
+
+def _sql_aggregate_tss_histogram(
+    session: Session, bed_ids: List[str]
+) -> Optional[dict]:
+    """Aggregate fixed-axis tss_distances histogram via SQL.
+
+    TSS distances use a fixed 100-bin axis (±100 kb), so element-wise summation
+    across files is valid without re-binning.
+
+    Returns {mean: [...], sd: [...], n: int, x_min, x_max, bins} or None.
+    """
+    sql = text(
+        """
+        WITH per_file AS (
+            SELECT
+                distributions->'distributions'->'tss_distances'->'counts' AS counts,
+                distributions->'distributions'->'tss_distances'->>'x_min' AS x_min,
+                distributions->'distributions'->'tss_distances'->>'x_max' AS x_max,
+                distributions->'distributions'->'tss_distances'->>'bins' AS bins
+            FROM bed_stats
+            WHERE id = ANY(:bed_ids)
+              AND distributions IS NOT NULL
+              AND distributions->'distributions'->'tss_distances'->'counts' IS NOT NULL
+        ),
+        unnested AS (
+            SELECT
+                ordinality - 1 AS bin_idx,
+                (val)::float AS count,
+                x_min, x_max, bins
+            FROM per_file,
+                 jsonb_array_elements_text(counts) WITH ORDINALITY AS t(val, ordinality)
+        )
+        SELECT
+            bin_idx,
+            AVG(count) AS mean,
+            COALESCE(STDDEV(count), 0.0) AS sd,
+            COUNT(*) AS n,
+            MAX(x_min) AS x_min,
+            MAX(x_max) AS x_max,
+            MAX(bins) AS bins
+        FROM unnested
+        GROUP BY bin_idx
+        ORDER BY bin_idx
+        """
+    )
+
+    rows = session.execute(sql, {"bed_ids": bed_ids}).all()
+    if not rows:
+        return None
+
+    n_bins = len(rows)
+    result = {
+        "mean": [0.0] * n_bins,
+        "sd": [0.0] * n_bins,
+        "n": int(rows[0][3]),
+    }
+    x_min, x_max, bins_str = rows[0][4], rows[0][5], rows[0][6]
+    if x_min is not None:
+        try:
+            result["x_min"] = float(x_min)
+            result["x_max"] = float(x_max)
+            result["bins"] = int(bins_str) if bins_str else n_bins
+        except (ValueError, TypeError):
+            pass
+
+    for bin_idx, mean_val, sd_val, _n, _xmin, _xmax, _bins in rows:
+        result["mean"][bin_idx] = float(mean_val)
+        result["sd"][bin_idx] = float(sd_val)
+
+    return result
+
+
+def _aggregate_partitions_from_rows(partitions_rows: list) -> Optional[dict]:
+    """Aggregate partitions from JSONB rows pulled from the DB.
+
+    Each row is a single-element tuple containing the partitions sub-dict
+    (or None). Partitions structure: {counts: [[name, count], ...], total: int}.
+    """
+    dists = [{"partitions": row[0]} for row in partitions_rows if row[0] is not None]
+    if not dists:
+        return None
+    return _aggregate_partitions(dists)
 
 
 def _aggregate_partitions(
@@ -461,54 +356,5 @@ def _aggregate_partitions(
             "sd_pct": float(np.std(arr, ddof=1)) if len(arr) > 1 else 0.0,
             "n": len(vals),
         }
-
-    return result if result else None
-
-
-def _aggregate_chromosome_stats(
-    distributions_list: List[dict],
-) -> Optional[dict]:
-    """Aggregate chromosome-level stats across files."""
-    chrom_data: Dict[str, List[dict]] = defaultdict(list)
-    for dist in distributions_list:
-        chrom_stats = dist.get("chromosome_stats") or dist.get("distributions", {}).get(
-            "chromosome_stats"
-        )
-        if not chrom_stats:
-            continue
-        if isinstance(chrom_stats, dict):
-            for chrom, entry in chrom_stats.items():
-                if isinstance(entry, dict):
-                    chrom_data[chrom].append(entry)
-        else:
-            for entry in chrom_stats:
-                chrom = entry.get("chromosome")
-                if chrom:
-                    chrom_data[chrom].append(entry)
-
-    if not chrom_data:
-        return None
-
-    numeric_fields = set()
-    for entries in chrom_data.values():
-        for entry in entries:
-            for k, v in entry.items():
-                if k != "chromosome" and isinstance(v, (int, float)):
-                    numeric_fields.add(k)
-            break
-        break
-
-    result = {}
-    for chrom, entries in sorted(chrom_data.items()):
-        chrom_result = {"n": len(entries)}
-        for field in sorted(numeric_fields):
-            vals = [e.get(field) for e in entries if e.get(field) is not None]
-            if vals:
-                arr = np.array(vals, dtype=float)
-                chrom_result[field] = {
-                    "mean": float(np.mean(arr)),
-                    "sd": float(np.std(arr, ddof=1)) if len(arr) > 1 else 0.0,
-                }
-        result[chrom] = chrom_result
 
     return result if result else None

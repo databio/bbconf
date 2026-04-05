@@ -253,7 +253,7 @@ class BedStats(Base):
     intron_percentage: Mapped[Optional[float]]
     intergenic_percentage: Mapped[Optional[float]]
     promotercore_percentage: Mapped[Optional[float]]
-    tssdist: Mapped[Optional[float]]
+    median_neighbor_distance: Mapped[Optional[float]]
 
     distributions: Mapped[Optional[dict]] = mapped_column(
         JSON,
