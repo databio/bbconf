@@ -243,12 +243,14 @@ class BedAgentBedFile:
         self,
         identifiers: list,
         full: bool = False,
+        distributions: bool = False,
     ) -> "BedListResult":
         """
         Get multiple bed file records by identifiers in a single DB round-trip.
 
         :param identifiers: list of bed file identifiers
-        :param full: if True, include stats (with distributions) for each record
+        :param full: if True, include scalar stats for each record
+        :param distributions: if True, include distribution arrays in stats
         :return: BedListResult with matching records
         """
         from bbconf.models.bed_models import BedListResult, BedMetadataAll
@@ -268,6 +270,8 @@ class BedAgentBedFile:
                 )
                 if full and bed_object.stats:
                     bed_stats = BedStatsModel(**bed_object.stats.__dict__)
+                    if not distributions:
+                        bed_stats.distributions = None
                 else:
                     bed_stats = None
 

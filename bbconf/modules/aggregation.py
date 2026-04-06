@@ -1,21 +1,17 @@
 """Collection-level aggregation of per-file genomic distributions.
 
-Core logic for computing mean + sd across files for every distribution curve
-stored in bed_stats.distributions JSONB. Used by both BedAgentBedSet.create()
-and BedAgentBedFile.aggregate_collection().
+All aggregation is pushed to SQL (PostgreSQL). No per-row Python loops.
+Used by both BedAgentBedSet.create() and BedAgentBedFile.aggregate_collection().
 """
 
 import logging
-from collections import defaultdict
 from typing import Dict, List, Optional
 
-import numpy as np
-from sqlalchemy import select, text
+from sqlalchemy import text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
 from bbconf.const import PKG_NAME
-from bbconf.db_utils import Bed, BedMetadata, BedStats
 from bbconf.models.bedset_models import BedSetDistributions
 
 _LOGGER = logging.getLogger(PKG_NAME)
@@ -44,10 +40,8 @@ def aggregate_collection(
 ) -> BedSetDistributions:
     """Aggregate per-file distributions into collection-level stats.
 
-    Uses SQL aggregation where distributions have stable axes (scalars,
-    region_distribution with reference-aligned bin widths from gtars ≥#248,
-    and fixed-axis tss_histogram). Partitions aggregation stays in Python
-    (small nested JSONB).
+    All aggregation is done in SQL. Python only reshapes query results
+    into the BedSetDistributions model.
 
     :param engine: SQLAlchemy engine
     :param bed_ids: list of bed file identifiers
@@ -60,52 +54,19 @@ def aggregate_collection(
     n = len(bed_ids)
 
     with Session(engine) as session:
-        # 1. Composition metadata (join Bed + BedMetadata)
-        comp_rows = session.execute(
-            select(
-                Bed.id,
-                Bed.genome_alias,
-                BedMetadata.assay,
-                BedMetadata.cell_type,
-                BedMetadata.tissue,
-                BedMetadata.target,
-            )
-            .outerjoin(BedMetadata, BedMetadata.id == Bed.id)
-            .where(Bed.id.in_(bed_ids))
-        ).all()
-
-        # 2. Scalar columns — pulled directly from BedStats (SQL-side agg)
-        scalar_rows = session.execute(
-            select(
-                BedStats.number_of_regions,
-                BedStats.mean_region_width,
-                BedStats.median_tss_dist,
-                BedStats.gc_content,
-                BedStats.median_neighbor_distance,
-            ).where(BedStats.id.in_(bed_ids))
-        ).all()
-
-        # 3. region_distribution aggregation via SQL JSONB unnest
+        composition = _sql_aggregate_composition(session, bed_ids)
+        scalar_summaries = _sql_aggregate_scalars(session, bed_ids)
         region_distribution = _sql_aggregate_region_distribution(session, bed_ids)
-
-        # 4. tss_histogram aggregation via SQL JSONB unnest
         tss_histogram = _sql_aggregate_tss_histogram(session, bed_ids)
+        partitions = _sql_aggregate_partitions(session, bed_ids)
 
-        # 5. partitions (kept in Python — small nested JSONB)
-        partitions_rows = session.execute(
-            select(BedStats.distributions["partitions"])
-            .where(BedStats.id.in_(bed_ids))
-            .where(BedStats.distributions.isnot(None))
-        ).all()
-
-    # Assemble result
     stats = BedSetDistributions(
         n_files=n,
-        composition=_aggregate_composition(comp_rows),
-        scalar_summaries=_aggregate_scalars_from_columns(scalar_rows),
+        composition=composition,
+        scalar_summaries=scalar_summaries,
         tss_histogram=tss_histogram,
         region_distribution=region_distribution,
-        partitions=_aggregate_partitions_from_rows(partitions_rows),
+        partitions=partitions,
     )
 
     if precision is not None:
@@ -115,36 +76,55 @@ def aggregate_collection(
 
 
 # ---------------------------------------------------------------------------
-# Private aggregation helpers
+# SQL aggregation helpers
 # ---------------------------------------------------------------------------
 
 
-def _aggregate_composition(rows: list) -> Optional[dict]:
-    """Count distinct values per metadata column."""
-    if not rows:
-        return None
-
+def _sql_aggregate_composition(
+    session: Session, bed_ids: List[str]
+) -> Optional[dict]:
+    """Count distinct values per metadata column via SQL GROUP BY."""
     fields = ["genome_alias", "assay", "cell_type", "tissue", "target"]
     result = {}
-    for i, field in enumerate(fields):
-        counts: Dict[str, int] = defaultdict(int)
-        for row in rows:
-            val = row[i + 1]  # offset by 1 because row[0] is id
-            if val:
-                counts[val] += 1
-        if counts:
-            result[field] = dict(counts)
+
+    for field in fields:
+        if field == "genome_alias":
+            sql = text(
+                """
+                SELECT genome_alias AS val, COUNT(*) AS cnt
+                FROM bed
+                WHERE id = ANY(:bed_ids) AND genome_alias IS NOT NULL
+                GROUP BY genome_alias
+                ORDER BY cnt DESC
+                """
+            )
+        else:
+            sql = text(
+                f"""
+                SELECT m.{field} AS val, COUNT(*) AS cnt
+                FROM bed b
+                JOIN bed_metadata m ON m.id = b.id
+                WHERE b.id = ANY(:bed_ids) AND m.{field} IS NOT NULL
+                GROUP BY m.{field}
+                ORDER BY cnt DESC
+                """
+            )
+        rows = session.execute(sql, {"bed_ids": bed_ids}).all()
+        if rows:
+            result[field] = {row.val: row.cnt for row in rows}
 
     return result if result else None
 
 
-def _aggregate_scalars_from_columns(scalar_rows: list) -> Optional[dict]:
-    """Compute mean/sd/histogram for per-file scalar columns.
+def _sql_aggregate_scalars(
+    session: Session, bed_ids: List[str]
+) -> Optional[dict]:
+    """Compute mean, sd, and histogram for scalar columns in SQL.
 
-    Input: list of tuples (number_of_regions, mean_region_width,
-    median_tss_dist, gc_content, median_neighbor_distance) from BedStats.
+    Uses a single query for mean/sd/min/max/count, then width_bucket
+    for histogram binning.
     """
-    scalar_keys = [
+    scalar_columns = [
         "number_of_regions",
         "mean_region_width",
         "median_tss_dist",
@@ -152,33 +132,92 @@ def _aggregate_scalars_from_columns(scalar_rows: list) -> Optional[dict]:
         "median_neighbor_distance",
     ]
 
-    per_key: Dict[str, list] = {k: [] for k in scalar_keys}
-    for row in scalar_rows:
-        for i, k in enumerate(scalar_keys):
-            val = row[i]
-            if val is not None:
-                per_key[k].append(float(val))
+    # 1. Mean, sd, min, max, count in one query
+    agg_exprs = ", ".join(
+        f"AVG({col}) AS {col}_mean, "
+        f"STDDEV({col}) AS {col}_sd, "
+        f"MIN({col}) AS {col}_min, "
+        f"MAX({col}) AS {col}_max, "
+        f"COUNT({col}) AS {col}_n"
+        for col in scalar_columns
+    )
+    sql = text(f"SELECT {agg_exprs} FROM bed_stats WHERE id = ANY(:bed_ids)")
+    row = session.execute(sql, {"bed_ids": bed_ids}).one()
 
     result = {}
-    for k in scalar_keys:
-        vals = per_key[k]
-        if not vals:
+    for col in scalar_columns:
+        n = getattr(row, f"{col}_n")
+        if not n:
             continue
-        arr = np.array(vals)
-        hist_counts, hist_edges = np.histogram(
-            arr, bins=min(_SCALAR_HIST_BINS, len(vals))
+        mean_val = float(getattr(row, f"{col}_mean"))
+        sd_val = float(getattr(row, f"{col}_sd") or 0.0)
+        col_min = float(getattr(row, f"{col}_min"))
+        col_max = float(getattr(row, f"{col}_max"))
+
+        # 2. Histogram via width_bucket (PostgreSQL)
+        histogram = _sql_histogram(
+            session, bed_ids, col, col_min, col_max, n
         )
-        result[k] = {
-            "mean": float(np.mean(arr)),
-            "sd": float(np.std(arr, ddof=1)) if len(arr) > 1 else 0.0,
-            "n": len(vals),
-            "histogram": {
-                "counts": hist_counts.tolist(),
-                "edges": hist_edges.tolist(),
-            },
+
+        result[col] = {
+            "mean": mean_val,
+            "sd": sd_val,
+            "n": n,
+            "histogram": histogram,
         }
 
     return result if result else None
+
+
+def _sql_histogram(
+    session: Session,
+    bed_ids: List[str],
+    column: str,
+    col_min: float,
+    col_max: float,
+    n: int,
+) -> dict:
+    """Build a histogram for a single scalar column using width_bucket."""
+    num_bins = min(_SCALAR_HIST_BINS, n)
+
+    if col_min == col_max:
+        # All values identical — single bin
+        return {
+            "counts": [n],
+            "edges": [col_min, col_max],
+        }
+
+    sql = text(
+        f"""
+        SELECT
+            width_bucket({column}, :lo, :hi, :bins) AS bucket,
+            COUNT(*) AS cnt
+        FROM bed_stats
+        WHERE id = ANY(:bed_ids) AND {column} IS NOT NULL
+        GROUP BY bucket
+        ORDER BY bucket
+        """
+    )
+    rows = session.execute(
+        sql,
+        {"bed_ids": bed_ids, "lo": col_min, "hi": col_max, "bins": num_bins},
+    ).all()
+
+    # width_bucket returns 1..num_bins (in-range) plus 0 (below) and num_bins+1 (above/equal to hi)
+    counts = [0] * num_bins
+    for bucket, cnt in rows:
+        if bucket == 0:
+            counts[0] += cnt
+        elif bucket > num_bins:
+            counts[-1] += cnt
+        else:
+            counts[bucket - 1] += cnt
+
+    # Compute edges
+    step = (col_max - col_min) / num_bins
+    edges = [col_min + i * step for i in range(num_bins + 1)]
+
+    return {"counts": counts, "edges": edges}
 
 
 def _sql_aggregate_region_distribution(
@@ -186,8 +225,8 @@ def _sql_aggregate_region_distribution(
 ) -> Optional[dict]:
     """Aggregate per-chromosome region_distribution via SQL JSONB unnest.
 
-    Requires that member files used gtars ≥ PR #248 with --chrom-sizes so that
-    bin widths are reference-aligned across files (same bin_idx → same bp
+    Requires that member files used gtars >= PR #248 with --chrom-sizes so that
+    bin widths are reference-aligned across files (same bin_idx -> same bp
     range on a given chromosome, regardless of file).
 
     Returns {chrom: {mean: [...], sd: [...], n: int}} or None if no data.
@@ -226,12 +265,10 @@ def _sql_aggregate_region_distribution(
     if not rows:
         return None
 
-    # Reshape flat rows → {chrom: {mean: [...], sd: [...], n: int}}
     result: Dict[str, dict] = {}
     for chrom, bin_idx, mean_val, sd_val, n_val in rows:
         if chrom not in result:
             result[chrom] = {"mean": [], "sd": [], "n": int(n_val)}
-        # Ensure arrays are long enough (bin_idx is 0-indexed, ordered by SQL)
         while len(result[chrom]["mean"]) <= bin_idx:
             result[chrom]["mean"].append(0.0)
             result[chrom]["sd"].append(0.0)
@@ -246,8 +283,8 @@ def _sql_aggregate_tss_histogram(
 ) -> Optional[dict]:
     """Aggregate fixed-axis tss_distances histogram via SQL.
 
-    TSS distances use a fixed 100-bin axis (±100 kb), so element-wise summation
-    across files is valid without re-binning.
+    TSS distances use a fixed 100-bin axis (+/-100 kb), so element-wise
+    AVG/STDDEV across files is valid without re-binning.
 
     Returns {mean: [...], sd: [...], n: int, x_min, x_max, bins} or None.
     """
@@ -312,49 +349,45 @@ def _sql_aggregate_tss_histogram(
     return result
 
 
-def _aggregate_partitions_from_rows(partitions_rows: list) -> Optional[dict]:
-    """Aggregate partitions from JSONB rows pulled from the DB.
-
-    Each row is a single-element tuple containing the partitions sub-dict
-    (or None). Partitions structure: {counts: [[name, count], ...], total: int}.
-    """
-    dists = [{"partitions": row[0]} for row in partitions_rows if row[0] is not None]
-    if not dists:
-        return None
-    return _aggregate_partitions(dists)
-
-
-def _aggregate_partitions(
-    distributions_list: List[dict],
+def _sql_aggregate_partitions(
+    session: Session, bed_ids: List[str]
 ) -> Optional[dict]:
-    """Aggregate genomic partitions across files as percentages."""
-    file_partitions = []
-    for dist in distributions_list:
-        parts = dist.get("partitions")
-        if not parts:
-            continue
-        total = parts.get("total", 0)
-        counts = parts.get("counts")
-        if not counts or total <= 0:
-            continue
-        pcts = {name: count / total * 100 for name, count in counts}
-        file_partitions.append(pcts)
+    """Aggregate genomic partitions from flat percentage columns.
 
-    if not file_partitions:
-        return None
+    Uses the pre-computed *_percentage columns on bed_stats, which are
+    populated by both R and gtars backends for all beds.
+    """
+    partition_columns = [
+        ("exon", "exon_percentage"),
+        ("intron", "intron_percentage"),
+        ("intergenic", "intergenic_percentage"),
+        ("promoterprox", "promoterprox_percentage"),
+        ("promotercore", "promotercore_percentage"),
+        ("fiveutr", "fiveutr_percentage"),
+        ("threeutr", "threeutr_percentage"),
+    ]
 
-    all_cats = set()
-    for fp in file_partitions:
-        all_cats.update(fp.keys())
+    agg_exprs = ", ".join(
+        f"AVG({col}) * 100 AS {name}_mean, "
+        f"COALESCE(STDDEV({col}) * 100, 0.0) AS {name}_sd, "
+        f"COUNT({col}) AS {name}_n"
+        for name, col in partition_columns
+    )
+    sql = text(
+        f"SELECT {agg_exprs} FROM bed_stats WHERE id = ANY(:bed_ids)"
+    )
+
+    row = session.execute(sql, {"bed_ids": bed_ids}).one()
 
     result = {}
-    for cat in sorted(all_cats):
-        vals = [fp.get(cat, 0.0) for fp in file_partitions]
-        arr = np.array(vals)
-        result[cat] = {
-            "mean_pct": float(np.mean(arr)),
-            "sd_pct": float(np.std(arr, ddof=1)) if len(arr) > 1 else 0.0,
-            "n": len(vals),
+    for name, _col in partition_columns:
+        n = getattr(row, f"{name}_n")
+        if not n:
+            continue
+        result[name] = {
+            "mean_pct": float(getattr(row, f"{name}_mean")),
+            "sd_pct": float(getattr(row, f"{name}_sd")),
+            "n": int(n),
         }
 
     return result if result else None
