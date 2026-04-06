@@ -1,8 +1,8 @@
 import logging
+from importlib.metadata import version
 
 import coloredlogs
 
-from importlib.metadata import version
 from bbconf.bbagent import BedBaseAgent
 
 from .const import PKG_NAME
