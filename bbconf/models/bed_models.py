@@ -96,8 +96,10 @@ class BedPEPHub(BaseModel):
     )
     tissue: str | None = Field("", description="Tissue type")
     global_sample_id: str | None = Field("", description="Global sample identifier")
-    global_experiment_id: str | None = Field("", description="Global experiment identifier")
-    description: str | None  = Field("", description="Description of the sample")
+    global_experiment_id: str | None = Field(
+        "", description="Global experiment identifier"
+    )
+    description: str | None = Field("", description="Description of the sample")
 
     model_config = ConfigDict(extra="allow", populate_by_name=True)
 
@@ -108,7 +110,9 @@ class StandardMeta(BaseModel):
     """
 
     species_name: str | None = Field(
-        default=None, description="Name of species. e.g. Homo sapiens.", alias="organism"
+        default=None,
+        description="Name of species. e.g. Homo sapiens.",
+        alias="organism",
     )
     species_id: str = ""
     genotype: str = Field("", description="Genotype of the sample")
@@ -125,11 +129,15 @@ class StandardMeta(BaseModel):
     )
     tissue: str | None = Field(None, description="Tissue type")
 
-    library_source: str | None = Field(None, description="Library source (e.g. genomic, transcriptomic)")
+    library_source: str | None = Field(
+        None, description="Library source (e.g. genomic, transcriptomic)"
+    )
     assay: str | None = Field(None, description="Experimental protocol (e.g. ChIP-seq)")
     antibody: str | None = Field(None, description="Antibody used in the assay")
     target: str | None = Field(None, description="Target of the assay (e.g. H3K4me3)")
-    treatment: str | None = Field(None, description="Treatment of the sample (e.g. drug treatment)")
+    treatment: str | None = Field(
+        None, description="Treatment of the sample (e.g. drug treatment)"
+    )
 
     global_sample_id: list[str] | None = Field(
         None, description="Global sample identifier. e.g. GSM000"
