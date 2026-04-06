@@ -110,13 +110,13 @@ class StandardMeta(BaseModel):
     """
 
     species_name: str | None = Field(
-        default=None,
+        default="",
         description="Name of species. e.g. Homo sapiens.",
         alias="organism",
     )
-    species_id: str = ""
-    genotype: str = Field("", description="Genotype of the sample")
-    phenotype: str = Field("", description="Phenotype of the sample")
+    species_id: str | None = ""
+    genotype: str | None = Field("", description="Genotype of the sample")
+    phenotype: str | None = Field("", description="Phenotype of the sample")
     description: str | None = ""
 
     cell_type: str | None = Field(
