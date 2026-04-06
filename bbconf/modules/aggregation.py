@@ -80,9 +80,7 @@ def aggregate_collection(
 # ---------------------------------------------------------------------------
 
 
-def _sql_aggregate_composition(
-    session: Session, bed_ids: List[str]
-) -> Optional[dict]:
+def _sql_aggregate_composition(session: Session, bed_ids: List[str]) -> Optional[dict]:
     """Count distinct values per metadata column via SQL GROUP BY."""
     fields = ["genome_alias", "assay", "cell_type", "tissue", "target"]
     result = {}
@@ -116,9 +114,7 @@ def _sql_aggregate_composition(
     return result if result else None
 
 
-def _sql_aggregate_scalars(
-    session: Session, bed_ids: List[str]
-) -> Optional[dict]:
+def _sql_aggregate_scalars(session: Session, bed_ids: List[str]) -> Optional[dict]:
     """Compute mean, sd, and histogram for scalar columns in SQL.
 
     Uses a single query for mean/sd/min/max/count, then width_bucket
@@ -155,9 +151,7 @@ def _sql_aggregate_scalars(
         col_max = float(getattr(row, f"{col}_max"))
 
         # 2. Histogram via width_bucket (PostgreSQL)
-        histogram = _sql_histogram(
-            session, bed_ids, col, col_min, col_max, n
-        )
+        histogram = _sql_histogram(session, bed_ids, col, col_min, col_max, n)
 
         result[col] = {
             "mean": mean_val,
@@ -349,9 +343,7 @@ def _sql_aggregate_tss_histogram(
     return result
 
 
-def _sql_aggregate_partitions(
-    session: Session, bed_ids: List[str]
-) -> Optional[dict]:
+def _sql_aggregate_partitions(session: Session, bed_ids: List[str]) -> Optional[dict]:
     """Aggregate genomic partitions from flat percentage columns.
 
     Uses the pre-computed *_percentage columns on bed_stats, which are
@@ -373,9 +365,7 @@ def _sql_aggregate_partitions(
         f"COUNT({col}) AS {name}_n"
         for name, col in partition_columns
     )
-    sql = text(
-        f"SELECT {agg_exprs} FROM bed_stats WHERE id = ANY(:bed_ids)"
-    )
+    sql = text(f"SELECT {agg_exprs} FROM bed_stats WHERE id = ANY(:bed_ids)")
 
     row = session.execute(sql, {"bed_ids": bed_ids}).one()
 
