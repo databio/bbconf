@@ -215,7 +215,7 @@ class Test_BedFile_Agent:
         with ContextManagerDBTesting(config=bbagent_obj.config, add_data=True):
             bed_file = bbagent_obj.bed.get(BED_TEST_ID, full=True)
             # assert bed_file.annotation.model_dump(exclude_defaults=True) == {}
-            assert bed_file.annotation.cell_line == ""
+            assert bed_file.annotation.cell_line is None
 
             new_metadata = {
                 "cell_line": "K562",

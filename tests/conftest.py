@@ -105,7 +105,11 @@ def example_dict():
             "promoterprox_frequency": 16,
             "promoterprox_percentage": 17,
         },
-        metadata={"sample_name": "sample_name_1"},
+        metadata={
+            "sample_name": "sample_name_1",
+            "species_name": "species_name",
+            "species_id": "123",
+        },
         plots=plots,
         files=files,
         classification=classification,
