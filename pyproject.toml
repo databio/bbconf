@@ -1,6 +1,6 @@
 [project]
 name = "bbconf"
-version = "0.14.9"
+version = "0.14.10"
 description = "Configuration and data management tool for BEDbase"
 readme = "README.md"
 license = "BSD-2-Clause"
@@ -32,7 +32,7 @@ dependencies = [
     "zarr < 3.0.0",
     "pyyaml >= 6.0.1",
     "s3fs >= 2024.3.1",
-    "pandas < 3.0.0",
+    "pandas>2.0.0, < 3.0.0",
     "pybiocfilecache == 0.6.1",
     "umap-learn >= 0.5.8",
     "qdrant_client >= 1.16.1",
