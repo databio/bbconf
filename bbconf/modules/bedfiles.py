@@ -45,6 +45,7 @@ from bbconf.exceptions import (
     UniverseNotFoundError,
 )
 from bbconf.models.bed_models import (
+    BedBatchResult,
     BedClassification,
     BedEmbeddingResult,
     BedFiles,
@@ -253,8 +254,6 @@ class BedAgentBedFile:
         :param distributions: if True, include distribution arrays in stats
         :return: BedListResult with matching records
         """
-        from bbconf.models.bed_models import BedBatchResult, BedMetadataAll
-
         statement = select(Bed).where(Bed.id.in_(identifiers))
 
         with Session(self._sa_engine) as session:
