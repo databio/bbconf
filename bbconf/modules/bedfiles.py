@@ -244,7 +244,7 @@ class BedAgentBedFile:
         identifiers: list,
         full: bool = False,
         distributions: bool = False,
-    ) -> "BedListResult":
+    ) -> "BedBatchResult":
         """
         Get multiple bed file records by identifiers in a single DB round-trip.
 
@@ -253,7 +253,7 @@ class BedAgentBedFile:
         :param distributions: if True, include distribution arrays in stats
         :return: BedListResult with matching records
         """
-        from bbconf.models.bed_models import BedListResult, BedMetadataAll
+        from bbconf.models.bed_models import BedBatchResult, BedMetadataAll
 
         statement = select(Bed).where(Bed.id.in_(identifiers))
 
@@ -296,7 +296,7 @@ class BedAgentBedFile:
                     )
                 )
 
-        return BedListResult(
+        return BedBatchResult(
             count=len(results),
             limit=len(identifiers),
             offset=0,

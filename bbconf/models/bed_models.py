@@ -210,6 +210,13 @@ class BedListResult(BaseModel):
     results: list[BedMetadataBasic]
 
 
+class BedBatchResult(BaseModel):
+    count: int
+    limit: int
+    offset: int
+    results: list[BedMetadataAll]
+
+
 class QdrantSearchResult(BaseModel):
     id: str
     payload: dict = None
