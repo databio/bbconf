@@ -45,6 +45,7 @@ from bbconf.exceptions import (
     UniverseNotFoundError,
 )
 from bbconf.models.bed_models import (
+    BedBatchResult,
     BedClassification,
     BedEmbeddingResult,
     BedFiles,
@@ -67,6 +68,7 @@ from bbconf.models.bed_models import (
     UniverseMetadata,
     VectorMetadata,
 )
+from bbconf.models.bedset_models import BedSetDistributions
 
 _LOGGER = getLogger(PKG_NAME)
 
@@ -214,12 +216,13 @@ class BedAgentBedFile:
             ),
         )
 
-    def get_stats(self, identifier: str) -> BedStatsModel:
+    def get_stats(self, identifier: str, distributions: bool = True) -> BedStatsModel:
         """
         Get file statistics by identifier.
 
         Args:
             identifier: Bed file identifier.
+            distributions: include distribution arrays in the result.
 
         Returns:
             Project statistics as BedStats object.
@@ -232,7 +235,84 @@ class BedAgentBedFile:
                 raise BEDFileNotFoundError(f"Bed file with id: {identifier} not found.")
             bed_stats = BedStatsModel(**bed_object.__dict__)
 
+        if not distributions:
+            bed_stats.distributions = None
+
         return bed_stats
+
+    def get_batch(
+        self,
+        identifiers: list,
+        full: bool = False,
+        distributions: bool = False,
+    ) -> "BedBatchResult":
+        """
+        Get multiple bed file records by identifiers in a single DB round-trip.
+
+        :param identifiers: list of bed file identifiers
+        :param full: if True, include scalar stats for each record
+        :param distributions: if True, include distribution arrays in stats
+        :return: BedListResult with matching records
+        """
+        statement = select(Bed).where(Bed.id.in_(identifiers))
+
+        with Session(self._sa_engine) as session:
+            beds = session.scalars(statement)
+            results = []
+            for bed_object in beds:
+                annotation = StandardMeta(
+                    **(
+                        bed_object.annotations.__dict__
+                        if bed_object.annotations
+                        else {}
+                    )
+                )
+                if full and bed_object.stats:
+                    bed_stats = BedStatsModel(**bed_object.stats.__dict__)
+                    if not distributions:
+                        bed_stats.distributions = None
+                else:
+                    bed_stats = None
+
+                results.append(
+                    BedMetadataAll(
+                        id=bed_object.id,
+                        name=bed_object.name,
+                        description=bed_object.description,
+                        submission_date=bed_object.submission_date,
+                        last_update_date=bed_object.last_update_date,
+                        genome_alias=bed_object.genome_alias,
+                        genome_digest=bed_object.genome_digest,
+                        bed_compliance=bed_object.bed_compliance,
+                        data_format=bed_object.data_format,
+                        is_universe=bed_object.is_universe,
+                        license_id=bed_object.license_id or DEFAULT_LICENSE,
+                        processed=bed_object.processed,
+                        annotation=annotation,
+                        stats=bed_stats,
+                        compliant_columns=bed_object.compliant_columns,
+                        non_compliant_columns=bed_object.non_compliant_columns,
+                    )
+                )
+
+        return BedBatchResult(
+            count=len(results),
+            limit=len(identifiers),
+            offset=0,
+            results=results,
+        )
+
+    def aggregate_collection(self, bed_ids: list) -> BedSetDistributions:
+        """Aggregate per-file distributions into collection-level stats.
+
+        Thin wrapper around the standalone aggregate_collection() function.
+
+        :param bed_ids: list of bed file identifiers
+        :return: BedSetDistributions with aggregated distributions
+        """
+        from bbconf.modules.aggregation import aggregate_collection
+
+        return aggregate_collection(self._sa_engine, bed_ids)
 
     def get_plots(self, identifier: str) -> BedPlots:
         """

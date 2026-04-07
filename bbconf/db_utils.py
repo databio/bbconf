@@ -14,7 +14,7 @@ from sqlalchemy import (
     event,
     select,
 )
-from sqlalchemy.dialects.postgresql import ARRAY, JSON
+from sqlalchemy.dialects.postgresql import ARRAY, JSON, JSONB
 from sqlalchemy.engine import URL, Engine, create_engine
 from sqlalchemy.event import listens_for
 from sqlalchemy.exc import IntegrityError, ProgrammingError
@@ -253,10 +253,10 @@ class BedStats(Base):
     intron_percentage: Mapped[Optional[float]]
     intergenic_percentage: Mapped[Optional[float]]
     promotercore_percentage: Mapped[Optional[float]]
-    tssdist: Mapped[Optional[float]]
+    median_neighbor_distance: Mapped[Optional[float]]
 
     distributions: Mapped[Optional[dict]] = mapped_column(
-        JSON,
+        JSONB,
         nullable=True,
         comment="Full distribution arrays from gtars genomicdist (JSONB)",
     )
@@ -344,7 +344,7 @@ class BedSets(Base):
         JSON, comment="Median values of the bedset"
     )
     bedset_stats: Mapped[Optional[dict]] = mapped_column(
-        JSON,
+        JSONB,
         nullable=True,
         comment="Pre-aggregated distribution statistics from gtars (JSONB)",
     )

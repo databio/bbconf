@@ -51,6 +51,7 @@ class BedStatsModel(BaseModel):
     number_of_regions: float | None = None
     gc_content: float | None = None
     median_tss_dist: float | None = None
+    median_neighbor_distance: float | None = None
     mean_region_width: float | None = None
 
     exon_frequency: float | None = None
@@ -207,6 +208,13 @@ class BedListResult(BaseModel):
     limit: int
     offset: int
     results: list[BedMetadataBasic]
+
+
+class BedBatchResult(BaseModel):
+    count: int
+    limit: int
+    offset: int
+    results: list[BedMetadataAll]
 
 
 class QdrantSearchResult(BaseModel):
