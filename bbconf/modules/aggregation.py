@@ -5,6 +5,7 @@ Used by both BedAgentBedSet.create() and BedAgentBedFile.aggregate_collection().
 """
 
 import logging
+import math
 from typing import Dict, List, Optional
 
 from sqlalchemy import text
@@ -172,7 +173,7 @@ def _sql_histogram(
     n: int,
 ) -> dict:
     """Build a histogram for a single scalar column using width_bucket."""
-    num_bins = min(_SCALAR_HIST_BINS, n)
+    num_bins = min(_SCALAR_HIST_BINS, max(3, math.ceil(math.sqrt(n))))
 
     if col_min == col_max:
         # All values identical — single bin
