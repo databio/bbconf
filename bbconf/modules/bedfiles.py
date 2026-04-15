@@ -2374,6 +2374,7 @@ class BedAgentBedFile:
         Returns:
             List of bed file metadata.
         """
+
         if source not in ["geo", "encode"]:
             raise BedBaseConfError(
                 f"Source {source} is not supported. Supported sources are: 'geo', 'encode'."
@@ -2392,6 +2393,34 @@ class BedAgentBedFile:
                     )
                 )
             )
+        elif source == "geo" and accession.upper().startswith("GSM"):
+            statement = (
+                select(Bed)
+                .join(BedMetadata, Bed.id == BedMetadata.id)
+                .where(
+                    BedMetadata.global_sample_id.contains(
+                        cast(
+                            [f"{source}:{accession}"],
+                            postgresql.ARRAY(postgresql.VARCHAR),
+                        )
+                    )
+                )
+            )
+        elif source == "encode" and accession.upper().startswith("ENCSR"):
+            accession = accession.upper()
+            statement = (
+                select(Bed)
+                .join(BedMetadata, Bed.id == BedMetadata.id)
+                .where(
+                    BedMetadata.global_experiment_id.contains(
+                        cast(
+                            [f"{source}:{accession}"],
+                            postgresql.ARRAY(postgresql.VARCHAR),
+                        )
+                    )
+                )
+            )
+            print(statement)
         else:
             statement = (
                 select(Bed)
