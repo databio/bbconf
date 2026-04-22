@@ -130,7 +130,7 @@ class BedBaseConfig:
             Parsed ConfigFile object.
         """
 
-        _config = yacman.YAMLConfigManager(filepath=config_path).exp
+        _config = yacman.YAMLConfigManager.from_yaml_file(filepath=config_path).exp
 
         config_dict = {}
         for field_name, annotation in ConfigFile.model_fields.items():

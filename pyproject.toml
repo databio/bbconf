@@ -18,7 +18,7 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Bio-Informatics",
 ]
 dependencies = [
-    "yacman == 0.9.4",
+    "yacman >= 1.0.0",
     "sqlalchemy >= 2.0.0",
     "gtars >= 0.5.3",
     "geniml[ml] >= 0.8.4",
