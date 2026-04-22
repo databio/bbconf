@@ -1,6 +1,6 @@
 [project]
 name = "bbconf"
-version = "0.14.11"
+version = "0.14.12"
 description = "Configuration and data management tool for BEDbase"
 readme = "README.md"
 license = "BSD-2-Clause"
@@ -18,7 +18,7 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Bio-Informatics",
 ]
 dependencies = [
-    "yacman == 0.9.4",
+    "yacman >= 1.0.0",
     "sqlalchemy >= 2.0.0",
     "gtars >= 0.5.3",
     "geniml[ml] >= 0.8.4",
