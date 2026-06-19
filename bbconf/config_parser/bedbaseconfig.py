@@ -14,15 +14,12 @@ import yacman
 import zarr
 from botocore.client import BaseClient
 from botocore.exceptions import BotoCoreError, EndpointConnectionError
-from fastembed import TextEmbedding
-from geniml.region2vec.main import Region2VecExModel
 from geniml.search import BED2BEDSearchInterface
 from geniml.search.backends import BiVectorBackend, QdrantBackend
 from geniml.search.interfaces import BiVectorSearchInterface
 from geniml.search.query2vec import BED2Vec
 from pephubclient import PEPHubClient
 from qdrant_client import QdrantClient, models
-from sentence_transformers import SparseEncoder
 from umap import UMAP
 from zarr import Group as Z_GROUP
 
@@ -33,6 +30,14 @@ from bbconf.config_parser.const import (
 )
 from bbconf.config_parser.models import ConfigFile
 from bbconf.const import PKG_NAME, ZARR_TOKENIZED_FOLDER
+from bbconf.encoders import (
+    DenseEncoder,
+    LocalDenseEncoder,
+    LocalRegionEncoder,
+    LocalSparseEncoder,
+    RegionEncoder,
+    SparseEncoder,
+)
 from bbconf.db_utils import BaseEngine
 from bbconf.exceptions import (
     BadAccessMethodError,
@@ -75,10 +80,10 @@ class BedBaseConfig:
             init_ml = False
 
         if init_ml:
-            self.dense_encoder: TextEmbedding = self._init_dense_encoder()
+            self.dense_encoder: DenseEncoder | None = self._init_dense_encoder()
             self.sparse_encoder: SparseEncoder | None = self._init_sparce_model()
             self.umap_encoder: UMAP | None = self._init_umap_model()
-            self.r2v_encoder: Region2VecExModel | None = self._init_r2v_encoder()
+            self.r2v_encoder: RegionEncoder | None = self._init_r2v_encoder()
 
             self._init_qdrant_hybrid(
                 qdrant_cl=self.qdrant_client,
@@ -281,14 +286,14 @@ class BedBaseConfig:
             return None
 
     def _init_qdrant_text_backend(
-        self, qdrant_cl: QdrantClient, dense_encoder: TextEmbedding
+        self, qdrant_cl: QdrantClient, dense_encoder: DenseEncoder | None
     ) -> QdrantBackend | None:
         """
         Create qdrant client text embedding object using credentials provided in config file.
 
         Args:
             qdrant_cl: QdrantClient object.
-            dense_encoder: TextEmbedding model for encoding text queries.
+            dense_encoder: DenseEncoder for encoding text queries.
 
         Returns:
             QdrantClient or None
@@ -301,7 +306,7 @@ class BedBaseConfig:
                 "Unable to create Qdrant bivec text collection, qdrant client is None."
             )
             return None
-        if not isinstance(dense_encoder, TextEmbedding):
+        if dense_encoder is None:
             _LOGGER.error(
                 "Unable to create Qdrant bivec text collection, dense encoder is None."
             )
@@ -319,14 +324,14 @@ class BedBaseConfig:
             return None
 
     def _init_qdrant_hybrid(
-        self, qdrant_cl: QdrantClient, dense_encoder: TextEmbedding
+        self, qdrant_cl: QdrantClient, dense_encoder: DenseEncoder | None
     ) -> None:
         """
         Create qdrant client with sparse and text embedding object using credentials provided in config file.
 
         Args:
             qdrant_cl: QdrantClient object.
-            dense_encoder: TextEmbedding model for encoding text queries.
+            dense_encoder: DenseEncoder for encoding text queries.
 
         Returns:
             None, Initializes or creates the hybrid collection on the provided QdrantClient.
@@ -339,7 +344,7 @@ class BedBaseConfig:
                 "Unable to create Qdrant hybrid collection, qdrant client is None."
             )
             return None
-        if not isinstance(dense_encoder, TextEmbedding):
+        if dense_encoder is None:
             _LOGGER.error(
                 "Unable to create Qdrant hybrid collection, dense encoder is None."
             )
@@ -402,7 +407,7 @@ class BedBaseConfig:
         self,
         qdrant_file_backend: QdrantBackend,
         qdrant_text_backend: QdrantBackend,
-        text_encoder: TextEmbedding,
+        text_encoder: DenseEncoder,
     ) -> BiVectorSearchInterface | None:
         """
         Create BiVectorSearchInterface object using credentials provided in config file.
@@ -410,7 +415,7 @@ class BedBaseConfig:
         Args:
             qdrant_file_backend: QdrantBackend for file vectors.
             qdrant_text_backend: QdrantBackend for text vectors.
-            text_encoder: TextEmbedding model for encoding text queries.
+            text_encoder: DenseEncoder for encoding text queries.
 
         Returns:
             BiVectorSearchInterface.
@@ -430,7 +435,7 @@ class BedBaseConfig:
     def _init_b2b_search_interface(
         self,
         qdrant_file_backend: QdrantBackend,
-        region_encoder: Region2VecExModel | str,
+        region_encoder: RegionEncoder | str | None,
     ) -> BED2BEDSearchInterface | None:
         """
         Create Bed 2 BED search interface and return this object.
@@ -440,9 +445,19 @@ class BedBaseConfig:
         """
         try:
             _LOGGER.info("Initializing search bed 2 bed search interfaces...")
+            # Phase-2 stopgap: geniml.search.query2vec.BED2Vec performs an
+            # isinstance(model, Region2VecExModel) check, so when we hold a
+            # LocalRegionEncoder wrapper we have to pass the underlying impl
+            # through to BED2Vec. Phase 3 will replace this with a
+            # Protocol-aware BED2Vec equivalent.
+            bed2vec_model = (
+                region_encoder._impl
+                if isinstance(region_encoder, LocalRegionEncoder)
+                else region_encoder
+            )
             return BED2BEDSearchInterface(
                 backend=qdrant_file_backend,
-                query2vec=BED2Vec(model=region_encoder),
+                query2vec=BED2Vec(model=bed2vec_model),
             )
         except Exception as e:
             _LOGGER.error("Error in creating BED2BEDSearchInterface object: " + str(e))
@@ -452,15 +467,16 @@ class BedBaseConfig:
             )
             return None
 
-    def _init_r2v_encoder(self) -> Region2VecExModel | None:
+    def _init_r2v_encoder(self) -> RegionEncoder | None:
         """
-        Create Region2VecExModel object using credentials provided in config file
+        Create region encoder (LocalRegionEncoder) using credentials
+        provided in config file.
         """
         try:
             _LOGGER.info(
                 f"Initializing region2vec encoder... Model used: {self.config.path.region2vec}"
             )
-            return Region2VecExModel(self.config.path.region2vec)
+            return LocalRegionEncoder(self.config.path.region2vec)
         except Exception as e:
             _LOGGER.error(f"Error in creating Region2VecExModel object: {e}")
             warnings.warn(
@@ -468,26 +484,27 @@ class BedBaseConfig:
             )
             return None
 
-    def _init_dense_encoder(self) -> TextEmbedding | None:
+    def _init_dense_encoder(self) -> DenseEncoder | None:
         """
-        Initialize dense model from the specified path or huggingface model hub
+        Initialize dense encoder (LocalDenseEncoder) from the specified
+        path or huggingface model hub.
         """
 
         _LOGGER.info(
             f"Initializing dense encoder... Model used: {self.config.path.text2vec}"
         )
-        dense_encoder = TextEmbedding(self.config.path.text2vec)
-        return dense_encoder
+        return LocalDenseEncoder(self.config.path.text2vec)
 
     def _init_sparce_model(self) -> SparseEncoder | None:
         """
-        Initialize SparseEncoder model from the specified path or huggingface model hub
+        Initialize sparse encoder (LocalSparseEncoder) from the
+        specified path or huggingface model hub.
         """
         try:
             _LOGGER.info(
                 f"Initializing sparse encoder... Model used: {self.config.path.sparse_model}"
             )
-            sparse_encoder = SparseEncoder(self.config.path.sparse_model)
+            sparse_encoder = LocalSparseEncoder(self.config.path.sparse_model)
         except Exception as e:
             _LOGGER.error(f"Error in creating SparseEncoder object: {e}")
             warnings.warn(f"Error in creating SparseEncoder object: {e}", UserWarning)
