@@ -3,6 +3,11 @@
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) and [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) format.
 
 
+### [0.14.13] - 2026-07-13
+### Fixed:
+- Cache `get_stats()` with a TTL to avoid running uncached COUNT queries on the bed table on every request to hot API paths (stats, neighbours, list, search)
+
+
 ### [0.14.12] - 2026-04-22
 ### Changed:
 - Updated yacman version to 2.0.0

@@ -1,9 +1,11 @@
 import logging
 import statistics
+import threading
 from functools import cached_property
 from pathlib import Path
 
 import numpy as np
+from cachetools import TTLCache
 from sqlalchemy.engine import ScalarResult
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import and_, distinct, func, or_, select
@@ -63,6 +65,14 @@ class BedBaseAgent:
         self._bedset = BedAgentBedSet(self.config)
         self._objects = BBObjects(self.config)
 
+        # get_stats() runs three uncached COUNT queries on the multi-hundred-
+        # thousand-row bed table and is called on hot paths (the stats endpoint
+        # plus the neighbours/list/search result builders). Cache the result
+        # with a TTL so those paths do not hit the database on every request.
+        # The lock guards the cache dict only, never the DB query itself.
+        self._stats_cache = TTLCache(maxsize=1, ttl=3600)
+        self._stats_lock = threading.Lock()
+
     @property
     def bed(self) -> BedAgentBedFile:
         return self._bed
@@ -86,9 +96,17 @@ class BedBaseAgent:
         """
         Get statistics for a bed file.
 
+        The result is cached with a TTL because this runs three COUNT queries
+        against the large bed table and is called on hot API paths.
+
         Returns:
             Statistics.
         """
+        with self._stats_lock:
+            cached = self._stats_cache.get("stats")
+        if cached is not None:
+            return cached
+
         with Session(self.config.db_engine.engine) as session:
             number_of_bed = session.execute(select(func.count(Bed.id))).one()[0]
             number_of_bedset = session.execute(select(func.count(BedSets.id))).one()[0]
@@ -97,11 +115,16 @@ class BedBaseAgent:
                 select(func.count(distinct(Bed.genome_alias)))
             ).one()[0]
 
-        return StatsReturn(
+        stats = StatsReturn(
             bedfiles_number=number_of_bed,
             bedsets_number=number_of_bedset,
             genomes_number=number_of_genomes,
         )
+
+        with self._stats_lock:
+            self._stats_cache["stats"] = stats
+
+        return stats
 
     def get_detailed_stats(self, concise: bool = False) -> FileStats:
         """
