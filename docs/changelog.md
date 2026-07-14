@@ -3,6 +3,11 @@
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) and [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) format.
 
 
+### [0.14.14] - 2026-07-13
+### Fixed:
+- Eliminated an N+1 query in `get_neighbours()` by fetching all neighbour metadata in a single batched query (with annotations eager-loaded) instead of one query per neighbour; stale Qdrant points are now skipped rather than raising
+
+
 ### [0.14.13] - 2026-07-13
 ### Fixed:
 - Cache `get_stats()` with a TTL to avoid running uncached COUNT queries on the bed table on every request to hot API paths (stats, neighbours, list, search)
