@@ -182,6 +182,7 @@ class BedAgentBedFile:
                         id=relation.bedset.id,
                         description=relation.bedset.description,
                         name=relation.bedset.name,
+                        bedfile_count=relation.bedset.bedfile_count,
                     )
                 )
 

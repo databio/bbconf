@@ -190,6 +190,7 @@ class BedSetMinimal(BaseModel):
     id: str
     name: str | None = None
     description: str | None = None
+    bedfile_count: int = 0
 
 
 class BedMetadataAll(BedMetadataBasic):

@@ -3,6 +3,16 @@
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) and [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) format.
 
 
+### [0.14.16] - 2026-07-31
+### Added:
+- Added a denormalized `bedfile_count` column to `bedsets`, exposed as `BedSetMetadata.bedfile_count`. Set once at bedset creation time (membership is write-once; `add_bedfile`/`delete_bedfile` are unimplemented), so reads never need to touch `bedfile_bedset_relation` to know a bedset's size. Requires a DB migration -- see `scripts/migrations/2026_07_31_add_bedset_bedfile_count.sql`
+
+
+### [0.14.15] - 2026-07-31
+### Fixed:
+- Eliminated an N+1 in `BedAgentBedSet.get_ids_list()`: it was refetching each bedset by id and lazy-loading its full bedfile membership just to build the list page. Now builds results directly from the paginated query; `bed_ids` is left unpopulated on list results (use `get(identifier)` for a single bedset's member ids)
+
+
 ### [0.14.14] - 2026-07-13
 ### Fixed:
 - Eliminated an N+1 query in `get_neighbours()` by fetching all neighbour metadata in a single batched query (with annotations eager-loaded) instead of one query per neighbour; stale Qdrant points are now skipped rather than raising

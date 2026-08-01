@@ -338,6 +338,10 @@ class BedSets(Base):
         JSON, comment="Median values of the bedset"
     )
 
+    bedfile_count: Mapped[int] = mapped_column(
+        default=0, comment="Number of bedfiles in the bedset (denormalized count)"
+    )
+
     bedfiles: Mapped[list["BedFileBedSetRelation"]] = relationship(
         "BedFileBedSetRelation", back_populates="bedset", cascade="all, delete-orphan"
     )
