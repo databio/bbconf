@@ -161,6 +161,7 @@ class BedBaseAgent:
                 f[0]: f[1]
                 for f in session.execute(
                     select(Bed.bed_compliance, func.count(Bed.bed_compliance))
+                    .where(Bed.bed_compliance.is_not(None))
                     .group_by(Bed.bed_compliance)
                     .order_by(func.count(Bed.bed_compliance).desc())
                 ).all()
@@ -169,6 +170,7 @@ class BedBaseAgent:
                 f[0]: f[1]
                 for f in session.execute(
                     select(Bed.data_format, func.count(Bed.data_format))
+                    .where(Bed.data_format.is_not(None))
                     .group_by(Bed.data_format)
                     .order_by(func.count(Bed.data_format).desc())
                 ).all()
@@ -177,6 +179,7 @@ class BedBaseAgent:
                 f[0]: f[1]
                 for f in session.execute(
                     select(Bed.genome_alias, func.count(Bed.genome_alias))
+                    .where(Bed.genome_alias.is_not(None))
                     .group_by(Bed.genome_alias)
                     .order_by(func.count(Bed.genome_alias).desc())
                 ).all()
@@ -187,6 +190,7 @@ class BedBaseAgent:
                     select(
                         BedMetadata.species_name, func.count(BedMetadata.species_name)
                     )
+                    .where(BedMetadata.species_name.is_not(None))
                     .group_by(BedMetadata.species_name)
                     .order_by(func.count(BedMetadata.species_name).desc())
                 ).all()
@@ -195,6 +199,7 @@ class BedBaseAgent:
                 f[0]: f[1]
                 for f in session.execute(
                     select(BedMetadata.assay, func.count(BedMetadata.assay))
+                    .where(BedMetadata.assay.is_not(None))
                     .group_by(BedMetadata.assay)
                     .order_by(func.count(BedMetadata.assay).desc())
                 ).all()
@@ -203,6 +208,7 @@ class BedBaseAgent:
                 f[0]: f[1]
                 for f in session.execute(
                     select(BedMetadata.cell_line, func.count(BedMetadata.cell_line))
+                    .where(BedMetadata.cell_line.is_not(None))
                     .group_by(BedMetadata.cell_line)
                     .order_by(func.count(BedMetadata.cell_line).desc())
                 ).all()

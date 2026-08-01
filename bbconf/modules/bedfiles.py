@@ -510,7 +510,7 @@ class BedAgentBedFile:
                 and_(Bed.bed_compliance == bed_compliance)
             )
 
-        statement = statement.limit(limit).offset(offset)
+        statement = statement.order_by(Bed.id).limit(limit).offset(offset)
 
         result_list = []
         with Session(self._sa_engine) as session:
