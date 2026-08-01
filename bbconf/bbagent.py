@@ -139,6 +139,23 @@ class BedBaseAgent:
 
         _LOGGER.info("Getting detailed statistics for all bed files")
 
+        numeric_stats_statement = (
+            select(
+                BedStats.number_of_regions,
+                BedStats.mean_region_width,
+                Files.size,
+            )
+            .select_from(Bed)
+            .join(BedStats, BedStats.id == Bed.id)
+            .join(Files, Files.bedfile_id == Bed.id)
+            .where(
+                Files.name == "bed_file",
+                BedStats.number_of_regions.is_not(None),
+                BedStats.mean_region_width.is_not(None),
+                Files.size.is_not(None),
+            )
+        )
+
         with Session(self.config.db_engine.engine) as session:
             bed_compliance = {
                 f[0]: f[1]
@@ -191,22 +208,22 @@ class BedBaseAgent:
                 ).all()
             }
 
+            bed_comments = self._stats_comments(session)
+            geo_status = self._stats_geo_status(session)
+
+            numeric_rows = session.execute(numeric_stats_statement).all()
+
+            geo_stats = self._get_geo_stats(session)
+
         slice_value = 20
 
-        bed_comments = self._stats_comments(session)
-        geo_status = self._stats_geo_status(session)
-
-        bedfiles_info = self.bed_files_info()
-
-        number_of_regions = [bed.number_of_regions for bed in bedfiles_info.files]
-        list_mean_width = [bed.mean_region_width for bed in bedfiles_info.files]
-        list_file_size = [bed.file_size for bed in bedfiles_info.files]
+        number_of_regions = [row[0] for row in numeric_rows]
+        list_mean_width = [row[1] for row in numeric_rows]
+        list_file_size = [row[2] for row in numeric_rows]
 
         number_of_regions_bins = self._bin_number_of_regions(number_of_regions)
         list_mean_width_bins = self._bin_mean_region_width(list_mean_width)
         list_file_size_bins = self._bin_file_size(list_file_size)
-
-        geo_stats = self._get_geo_stats(session)
 
         if concise:
             bed_compliance_concise = dict(list(bed_compliance.items())[0:slice_value])

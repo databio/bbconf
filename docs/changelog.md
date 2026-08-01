@@ -3,6 +3,12 @@
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) and [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) format.
 
 
+### [0.14.17] - 2026-07-31
+### Fixed:
+- `get_detailed_stats()` no longer reuses a `Session` after its `with` block has closed (was forcing 3 extra connection checkouts for `_stats_comments`/`_stats_geo_status`/`_get_geo_stats`); all queries now share one session/transaction
+- Replaced the `bed_files_info()` call inside `get_detailed_stats()` with a targeted 3-column query, avoiding a full-table `FileInfo` Pydantic construction (with per-row try/except) for every bed record just to extract `number_of_regions`/`mean_region_width`/`file_size` for histogram binning
+
+
 ### [0.14.16] - 2026-07-31
 ### Added:
 - Added a denormalized `bedfile_count` column to `bedsets`, exposed as `BedSetMetadata.bedfile_count`. Set once at bedset creation time (membership is write-once; `add_bedfile`/`delete_bedfile` are unimplemented), so reads never need to touch `bedfile_bedset_relation` to know a bedset's size. Requires a DB migration -- see `scripts/migrations/2026_07_31_add_bedset_bedfile_count.sql`
