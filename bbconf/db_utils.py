@@ -597,6 +597,42 @@ class UsageSearch(Base):
     date_to: Mapped[datetime.datetime] = mapped_column(comment="Date to")
 
 
+class BedSnapshot(Base):
+    """
+    Index of bulk metadata exports published to S3.
+
+    One row per published artifact (metadata / bedsets / membership / manifest).
+    The exporter writes a row after a successful upload; the /v1/bed/exports
+    endpoint reads them newest-first. This is a new table, so
+    Base.metadata.create_all() creates it on the next connection.
+    """
+
+    __tablename__ = "bed_snapshots"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True, autoincrement=True)
+    file_path: Mapped[str] = mapped_column(
+        nullable=False, comment="S3 object key, relative to the bucket root"
+    )
+    file_type: Mapped[str] = mapped_column(
+        nullable=False, comment="metadata | bedsets | bedset_membership | manifest"
+    )
+    creation_date: Mapped[datetime.datetime] = mapped_column(
+        default=deliver_update_date, comment="Build date of the export"
+    )
+    record_count: Mapped[Optional[int]] = mapped_column(
+        nullable=True, comment="Rows actually written to the file"
+    )
+    file_size: Mapped[Optional[int]] = mapped_column(
+        nullable=True, comment="Size of the file in bytes"
+    )
+    checksum: Mapped[Optional[str]] = mapped_column(
+        nullable=True, comment="SHA256 of the file"
+    )
+    schema_version: Mapped[Optional[int]] = mapped_column(
+        nullable=True, comment="Export schema version"
+    )
+
+
 class BaseEngine:
     """
     A class with base methods, that are used in several classes.
