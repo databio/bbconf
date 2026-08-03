@@ -114,9 +114,7 @@ class BedAgentBedFile:
 
             return self._build_metadata(bed_object, full=full)
 
-    def _build_metadata(
-        self, bed_object: Bed, full: bool = False
-    ) -> BedMetadataAll:
+    def _build_metadata(self, bed_object: Bed, full: bool = False) -> BedMetadataAll:
         """
         Build a BedMetadataAll model from a Bed ORM object.
 

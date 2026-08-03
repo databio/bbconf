@@ -48,9 +48,9 @@ from bbconf import BedBaseAgent
 agent = BedBaseAgent(config="config.yaml")
 
 # Access submodules
-agent.bed        # BED file operations
-agent.bedset     # BED set operations
-agent.objects    # Generic object/file operations
+agent.bed  # BED file operations
+agent.bedset  # BED set operations
+agent.objects  # Generic object/file operations
 
 # Get platform statistics
 stats = agent.get_stats()
