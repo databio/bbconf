@@ -15,7 +15,7 @@ from qdrant_client.models import PointIdsList
 from sqlalchemy import and_, cast, delete, func, or_, select
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session, aliased
+from sqlalchemy.orm import Session, aliased, selectinload
 from sqlalchemy.orm.attributes import flag_modified
 from tqdm import tqdm
 
@@ -107,20 +107,56 @@ class BedAgentBedFile:
         """
         statement = select(Bed).where(and_(Bed.id == identifier))
 
-        bed_plots = BedPlots()
-        bed_files = BedFiles()
-
         with Session(self._sa_engine) as session:
             bed_object = session.scalar(statement)
             if not bed_object:
                 raise BEDFileNotFoundError(f"Bed file with id: {identifier} not found.")
 
-            if full:
-                for result in bed_object.files:
-                    # PLOTS
-                    if result.name in BedPlots.model_fields:
+            return self._build_metadata(bed_object, full=full)
+
+    def _build_metadata(self, bed_object: Bed, full: bool = False) -> BedMetadataAll:
+        """
+        Build a BedMetadataAll model from a Bed ORM object.
+
+        For ``full=True`` this assembles plots, files, stats, bedsets, and
+        universe metadata (which lazy-load relationships, so the caller must
+        keep the SQLAlchemy session open). For ``full=False`` only scalar
+        columns and the (joined-loaded) annotations are accessed, so the
+        Bed object may be detached from its session.
+
+        Args:
+            bed_object: Bed ORM object to build metadata from.
+            full: If True, return full metadata, including statistics, files,
+                and raw metadata from pephub.
+
+        Returns:
+            BED file metadata.
+        """
+        identifier = bed_object.id
+
+        bed_plots = BedPlots()
+        bed_files = BedFiles()
+
+        if full:
+            for result in bed_object.files:
+                # PLOTS
+                if result.name in BedPlots.model_fields:
+                    setattr(
+                        bed_plots,
+                        result.name,
+                        FileModel(
+                            **result.__dict__,
+                            object_id=f"bed.{identifier}.{result.name}",
+                            access_methods=self.config.construct_access_method_list(
+                                result.path
+                            ),
+                        ),
+                    )
+                # FILES
+                elif result.name in BedFiles.model_fields:
+                    (
                         setattr(
-                            bed_plots,
+                            bed_files,
                             result.name,
                             FileModel(
                                 **result.__dict__,
@@ -129,48 +165,35 @@ class BedAgentBedFile:
                                     result.path
                                 ),
                             ),
-                        )
-                    # FILES
-                    elif result.name in BedFiles.model_fields:
-                        (
-                            setattr(
-                                bed_files,
-                                result.name,
-                                FileModel(
-                                    **result.__dict__,
-                                    object_id=f"bed.{identifier}.{result.name}",
-                                    access_methods=self.config.construct_access_method_list(
-                                        result.path
-                                    ),
-                                ),
-                            ),
-                        )
-
-                    else:
-                        _LOGGER.error(
-                            f"Unknown file type: {result.name}. And is not in the model fields. Skipping.."
-                        )
-                bed_stats = BedStatsModel(**bed_object.stats.__dict__)
-                bed_bedsets = []
-                for relation in bed_object.bedsets:
-                    bed_bedsets.append(
-                        BedSetMinimal(
-                            id=relation.bedset.id,
-                            description=relation.bedset.description,
-                            name=relation.bedset.name,
-                        )
+                        ),
                     )
 
-                if bed_object.universe:
-                    universe_meta = UniverseMetadata(**bed_object.universe.__dict__)
                 else:
-                    universe_meta = UniverseMetadata()
+                    _LOGGER.error(
+                        f"Unknown file type: {result.name}. And is not in the model fields. Skipping.."
+                    )
+            bed_stats = BedStatsModel(**bed_object.stats.__dict__)
+            bed_bedsets = []
+            for relation in bed_object.bedsets:
+                bed_bedsets.append(
+                    BedSetMinimal(
+                        id=relation.bedset.id,
+                        description=relation.bedset.description,
+                        name=relation.bedset.name,
+                        bedfile_count=relation.bedset.bedfile_count,
+                    )
+                )
+
+            if bed_object.universe:
+                universe_meta = UniverseMetadata(**bed_object.universe.__dict__)
             else:
-                bed_plots = None
-                bed_files = None
-                bed_stats = None
-                universe_meta = None
-                bed_bedsets = []
+                universe_meta = UniverseMetadata()
+        else:
+            bed_plots = None
+            bed_files = None
+            bed_stats = None
+            universe_meta = None
+            bed_bedsets = []
 
         try:
             if full:
@@ -290,17 +313,32 @@ class BedAgentBedFile:
                 limit=limit,
                 offset=offset,
             )
-            result_list = []
-            for result in results.points:
-                result_id = result.id.replace("-", "")
-                result_list.append(
-                    QdrantSearchResult(
-                        id=result_id,
-                        payload=result.payload,
-                        score=result.score,
-                        metadata=self.get(result_id, full=False),
-                    )
+            # Hydrate all neighbours with a single batched query instead of one
+            # SELECT per neighbour (was an N+1). annotations is joined-loaded,
+            # but selectinload keeps that explicit for this detached-object path.
+            ids = [result.id.replace("-", "") for result in results.points]
+            with Session(self._sa_engine) as session:
+                beds = {
+                    bed.id: bed
+                    for bed in session.scalars(
+                        select(Bed)
+                        .where(Bed.id.in_(ids))
+                        .options(selectinload(Bed.annotations))
+                    ).all()
+                }
+            result_list = [
+                QdrantSearchResult(
+                    id=result.id.replace("-", ""),
+                    payload=result.payload,
+                    score=result.score,
+                    metadata=self._build_metadata(
+                        beds[result.id.replace("-", "")], full=False
+                    ),
                 )
+                for result in results.points
+                # skip stale Qdrant points that no longer exist in the database
+                if result.id.replace("-", "") in beds
+            ]
         except UnexpectedResponse as err:
             _LOGGER.error(
                 f"Qdrant request failed. Error: {err}. Returning empty result set."
@@ -470,7 +508,7 @@ class BedAgentBedFile:
                 and_(Bed.bed_compliance == bed_compliance)
             )
 
-        statement = statement.limit(limit).offset(offset)
+        statement = statement.order_by(Bed.id).limit(limit).offset(offset)
 
         result_list = []
         with Session(self._sa_engine) as session:

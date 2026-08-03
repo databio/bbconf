@@ -89,6 +89,7 @@ class BedAgentBedSet:
                 statistics=stats,
                 plots=plots,
                 bed_ids=list_of_bedfiles,
+                bedfile_count=bedset_obj.bedfile_count,
                 submission_date=bedset_obj.submission_date,
                 last_update_date=bedset_obj.last_update_date,
                 author=bedset_obj.author,
@@ -364,6 +365,9 @@ class BedAgentBedSet:
                 if not no_fail:
                     raise e
 
+        if no_fail:
+            bedid_list = list(set(bedid_list))
+
         new_bedset = BedSets(
             id=identifier,
             name=name,
@@ -375,6 +379,7 @@ class BedAgentBedSet:
             author=annotation.get("author"),
             source=annotation.get("source"),
             processed=processed,
+            bedfile_count=len(bedid_list),
         )
 
         if upload_s3:
@@ -387,8 +392,6 @@ class BedAgentBedSet:
             with Session(self._db_engine.engine) as session:
                 session.add(new_bedset)
 
-                if no_fail:
-                    bedid_list = list(set(bedid_list))
                 for bedfile in bedid_list:
                     session.add(
                         BedFileBedSetRelation(bedset_id=identifier, bedfile_id=bedfile)
@@ -459,47 +462,51 @@ class BedAgentBedSet:
         _LOGGER.info("Bedset statistics were calculated successfully")
         return bedset_stats
 
-    def _create_pephub_view(
-        self,
-        bedset_id: str,
-        description: str = None,
-        bed_ids: list = None,
-        nofail: bool = False,
-    ) -> None:
-        """
-        Create view in pephub for bedset.
-
-        Args:
-            bedset_id: Bedset identifier.
-            description: Bedset description.
-            bed_ids: List of bed file identifiers.
-            nofail: Do not raise an error if sample not found.
-
-        Returns:
-            None.
-        """
-
-        _LOGGER.info(f"Creating view in pephub for bedset '{bedset_id}'")
-        try:
-            self.config.phc.view.create(
-                namespace=self.config.config.phc.namespace,
-                name=self.config.config.phc.name,
-                tag=self.config.config.phc.tag,
-                view_name=bedset_id,
-                # description=description,
-                sample_list=bed_ids,
-            )
-        except Exception as e:
-            _LOGGER.error(f"Failed to create view in pephub: {e}")
-            if not nofail:
-                raise e
-        return None
+    # def _create_pephub_view(
+    #     self,
+    #     bedset_id: str,
+    #     description: str = None,
+    #     bed_ids: list = None,
+    #     nofail: bool = False,
+    # ) -> None:
+    #     """
+    #     Create view in pephub for bedset.
+    #
+    #     Args:
+    #         bedset_id: Bedset identifier.
+    #         description: Bedset description.
+    #         bed_ids: List of bed file identifiers.
+    #         nofail: Do not raise an error if sample not found.
+    #
+    #     Returns:
+    #         None.
+    #     """
+    #
+    #     _LOGGER.info(f"Creating view in pephub for bedset '{bedset_id}'")
+    #     try:
+    #         self.config.phc.view.create(
+    #             namespace=self.config.config.phc.namespace,
+    #             name=self.config.config.phc.name,
+    #             tag=self.config.config.phc.tag,
+    #             view_name=bedset_id,
+    #             # description=description,
+    #             sample_list=bed_ids,
+    #         )
+    #     except Exception as e:
+    #         _LOGGER.error(f"Failed to create view in pephub: {e}")
+    #         if not nofail:
+    #             raise e
+    #     return None
 
     def get_ids_list(
-        self, query: str = None, limit: int = 10, offset: int = 0
+        self, query: str | None = None, limit: int = 10, offset: int = 0
     ) -> BedSetListResult:
         """
-        Get list of bedsets from the database.
+        Find (search) bedsets from the database.
+
+        Use `get(identifier)` to
+            fetch a single bedset's member ids. `bedfile_count` is populated
+            directly from the denormalized column, so it's free.
 
         Args:
             query: Search query.
@@ -509,7 +516,7 @@ class BedAgentBedSet:
         Returns:
             List of bedsets.
         """
-        statement = select(BedSets.id)
+        statement = select(BedSets)
         count_statement = select(func.count(BedSets.id))
         if query:
             query = query.strip()
@@ -528,12 +535,24 @@ class BedAgentBedSet:
             )
 
         with Session(self._db_engine.engine) as session:
-            bedset_list = session.execute(statement.limit(limit).offset(offset))
+            bedset_list = session.scalars(statement.limit(limit).offset(offset))
             bedset_count = session.execute(count_statement).one()
 
-        result_list = []
-        for bedset_id in bedset_list:
-            result_list.append(self.get(bedset_id[0]))
+            result_list = [
+                BedSetMetadata(
+                    id=bedset_obj.id,
+                    name=bedset_obj.name,
+                    description=bedset_obj.description,
+                    md5sum=bedset_obj.md5sum,
+                    bedfile_count=bedset_obj.bedfile_count,
+                    submission_date=bedset_obj.submission_date,
+                    last_update_date=bedset_obj.last_update_date,
+                    author=bedset_obj.author,
+                    source=bedset_obj.source,
+                )
+                for bedset_obj in bedset_list
+            ]
+
         return BedSetListResult(
             count=bedset_count[0],
             limit=limit,
@@ -601,34 +620,33 @@ class BedAgentBedSet:
             session.delete(bedset_obj)
             session.commit()
 
-        self.delete_phc_view(identifier, nofail=True)
         if files:
             self.config.delete_files_s3(files)
 
-    def delete_phc_view(self, identifier: str, nofail: bool = False) -> None:
-        """
-        Delete view in pephub.
-
-        Args:
-            identifier: Bedset identifier.
-            nofail: Do not raise an error if view not found.
-
-        Returns:
-            None.
-        """
-        _LOGGER.info(f"Deleting view in pephub for bedset '{identifier}'")
-        try:
-            self.config.phc.view.delete(
-                namespace=self.config.config.phc.namespace,
-                name=self.config.config.phc.name,
-                tag=self.config.config.phc.tag,
-                view_name=identifier,
-            )
-        except Exception as e:
-            _LOGGER.error(f"Failed to delete view in pephub: {e}")
-            if not nofail:
-                raise e
-        return None
+    # def delete_phc_view(self, identifier: str, nofail: bool = False) -> None:
+    #     """
+    #     Delete view in pephub.
+    #
+    #     Args:
+    #         identifier: Bedset identifier.
+    #         nofail: Do not raise an error if view not found.
+    #
+    #     Returns:
+    #         None.
+    #     """
+    #     _LOGGER.info(f"Deleting view in pephub for bedset '{identifier}'")
+    #     try:
+    #         self.config.phc.view.delete(
+    #             namespace=self.config.config.phc.namespace,
+    #             name=self.config.config.phc.name,
+    #             tag=self.config.config.phc.tag,
+    #             view_name=identifier,
+    #         )
+    #     except Exception as e:
+    #         _LOGGER.error(f"Failed to delete view in pephub: {e}")
+    #         if not nofail:
+    #             raise e
+    #     return None
 
     def exists(self, identifier: str) -> bool:
         """
@@ -688,6 +706,7 @@ class BedAgentBedSet:
                         statistics=None,
                         plots=None,
                         bed_ids=list_of_bedfiles,
+                        bedfile_count=bedset_obj.bedfile_count,
                         submission_date=bedset_obj.submission_date,
                         last_update_date=bedset_obj.last_update_date,
                         author=bedset_obj.author,

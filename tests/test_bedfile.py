@@ -8,7 +8,7 @@ from bbconf.db_utils import Bed, Files
 from bbconf.exceptions import BedFIleExistsError, BEDFileNotFoundError
 
 from .conftest import SERVICE_UNAVAILABLE, get_bbagent
-from .utils import BED_TEST_ID, ContextManagerDBTesting
+from .utils import BED_TEST_ID, BEDSET_TEST_ID, ContextManagerDBTesting
 
 
 @pytest.mark.skipif(SERVICE_UNAVAILABLE, reason="Database is not available")
@@ -68,6 +68,16 @@ class Test_BedFile_Agent:
             assert return_result.files.bed_file is not None
             assert return_result.plots.chrombins is not None
             assert return_result.license_id == DEFAULT_LICENSE
+
+    def test_get_all_bedsets_bedfile_count(self, bbagent_obj, mocked_phc):
+        with ContextManagerDBTesting(
+            config=bbagent_obj.config, add_data=True, bedset=True
+        ):
+            return_result = bbagent_obj.bed.get(BED_TEST_ID, full=True)
+
+            assert len(return_result.bedsets) == 1
+            assert return_result.bedsets[0].id == BEDSET_TEST_ID
+            assert return_result.bedsets[0].bedfile_count == 1
 
     def test_get_all_not_found(self, bbagent_obj):
         with ContextManagerDBTesting(config=bbagent_obj.config, add_data=True):
