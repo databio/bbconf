@@ -209,23 +209,6 @@ class BedListResult(BaseModel):
     results: list[BedMetadataBasic]
 
 
-class BedSnapshotResult(BaseModel):
-    """One published bulk-export artifact."""
-
-    file_path: str
-    file_type: str
-    creation_date: datetime.datetime
-    record_count: int | None = None
-    file_size: int | None = None
-    checksum: str | None = None
-    schema_version: int | None = None
-
-
-class BedSnapshotListResult(BaseModel):
-    count: int
-    results: list[BedSnapshotResult]
-
-
 class QdrantSearchResult(BaseModel):
     id: str
     payload: dict = None

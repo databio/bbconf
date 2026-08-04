@@ -38,6 +38,7 @@ from bbconf.models.base_models import (
 from bbconf.modules.bedfiles import BedAgentBedFile
 from bbconf.modules.bedsets import BedAgentBedSet
 from bbconf.modules.objects import BBObjects
+from bbconf.modules.snapshots import BedAgentSnapshot
 
 from .const import PKG_NAME
 
@@ -64,6 +65,7 @@ class BedBaseAgent:
         self._bed = BedAgentBedFile(self.config, self)
         self._bedset = BedAgentBedSet(self.config)
         self._objects = BBObjects(self.config)
+        self._snapshot = BedAgentSnapshot(self.config)
 
         # get_stats() runs three uncached COUNT queries on the multi-hundred-
         # thousand-row bed table and is called on hot paths (the stats endpoint
@@ -84,6 +86,10 @@ class BedBaseAgent:
     @property
     def objects(self) -> BBObjects:
         return self._objects
+
+    @property
+    def snapshot(self) -> BedAgentSnapshot:
+        return self._snapshot
 
     def __repr__(self) -> str:
         repr = f"BedBaseAgent(config={self.config})"

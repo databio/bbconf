@@ -103,3 +103,31 @@ class FileStats(BaseModel):
     file_size: BinValues
     number_of_regions: BinValues
     geo: GEOStatistics
+
+
+class BedSnapshotArtifact(BaseModel):
+    """A built snapshot file to publish (upload to S3 + record in the database)."""
+
+    path: str  # local file path to upload
+    file_type: str
+    record_count: int | None = None
+    file_size: int | None = None
+    checksum: str | None = None
+    schema_version: int | None = None
+
+
+class BedSnapshotResult(BaseModel):
+    """One published bulk-export artifact."""
+
+    file_path: str
+    file_type: str
+    creation_date: datetime.datetime
+    record_count: int | None = None
+    file_size: int | None = None
+    checksum: str | None = None
+    schema_version: int | None = None
+
+
+class BedSnapshotListResult(BaseModel):
+    count: int
+    results: list[BedSnapshotResult]
