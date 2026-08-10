@@ -481,6 +481,8 @@ class BedAgentBedFile:
         offset: int = 0,
         genome: str = None,
         bed_compliance: str = None,
+        order_by: str = "id",
+        order_desc: bool = False,
     ) -> BedListResult:
         """
         Get list of bed file identifiers.
@@ -490,10 +492,22 @@ class BedAgentBedFile:
             offset: Offset to start from.
             genome: Filter by genome.
             bed_compliance: Filter by bed type. e.g. 'bed6+4'.
+            order_by: Column to order by. One of 'id', 'submission_date',
+                'last_update_date', 'name'. Unknown values fall back to 'id'.
+            order_desc: If True, order in descending order.
 
         Returns:
             List of bed file identifiers.
         """
+
+        order_columns = {
+            "id": Bed.id,
+            "submission_date": Bed.submission_date,
+            "last_update_date": Bed.last_update_date,
+            "name": Bed.name,
+        }
+        order_column = order_columns.get(order_by, Bed.id)
+
         statement = select(Bed)
         count_statement = select(func.count(Bed.id))
 
@@ -508,7 +522,14 @@ class BedAgentBedFile:
                 and_(Bed.bed_compliance == bed_compliance)
             )
 
-        statement = statement.order_by(Bed.id).limit(limit).offset(offset)
+        primary_order = order_column.desc() if order_desc else order_column.asc()
+        # Bed.id is a deterministic tiebreaker so paging stays stable when the
+        # primary sort key (e.g. submission_date) has ties.
+        if order_column is Bed.id:
+            statement = statement.order_by(primary_order)
+        else:
+            statement = statement.order_by(primary_order, Bed.id.asc())
+        statement = statement.limit(limit).offset(offset)
 
         result_list = []
         with Session(self._sa_engine) as session:
@@ -528,6 +549,34 @@ class BedAgentBedFile:
             limit=limit,
             offset=offset,
             results=result_list,
+        )
+
+    def get_recent_beds(
+        self,
+        limit: int = 25,
+        offset: int = 0,
+        genome: str = None,
+        bed_compliance: str = None,
+    ) -> BedListResult:
+        """
+        Get list of the most recently added bed files (newest first).
+
+        Args:
+            limit: Number of results to return.
+            offset: Offset to start from.
+            genome: Filter by genome.
+            bed_compliance: Filter by bed type. e.g. 'bed6+4'.
+
+        Returns:
+            List of bed file metadata, ordered by submission date descending.
+        """
+        return self.get_ids_list(
+            limit=limit,
+            offset=offset,
+            genome=genome,
+            bed_compliance=bed_compliance,
+            order_by="submission_date",
+            order_desc=True,
         )
 
     def get_reference_validation(self, identifier: str) -> RefGenValidReturnModel:
