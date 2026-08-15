@@ -66,6 +66,9 @@ root) is used for local CLI work. The first (baseline) revision is
 builds, including the `pg_trgm` extension and the trigram / partial / expression
 indexes.
 
+To update schema for desirable database, use different database url in `alembic.ini`, 
+otherwise run test database
+
 ### Creating a new revision
 
 After changing the models in `bbconf/db_utils.py`:
