@@ -4,6 +4,7 @@ from typing import Optional
 
 import pandas as pd
 from sqlalchemy import (
+    DDL,
     TIMESTAMP,
     BigInteger,
     ForeignKey,
@@ -155,6 +156,15 @@ class Bed(Base):
     )
 
     __table_args__ = (
+        # Backs the genome filter (Bed.genome_alias == genome) and the
+        # GROUP BY genome_alias aggregations. Historically created by hand in the
+        # live DB; declared here so a fresh create_all() reproduces it exactly
+        # (name and btree deduplication included).
+        Index(
+            "genome_alias_index",
+            "genome_alias",
+            postgresql_with={"deduplicate_items": "true"},
+        ),
         # Backs get_recent_beds / list_beds(order_by="submission_date"):
         # ORDER BY submission_date DESC, id ASC LIMIT n.
         Index("ix_bed_submission_date", text("submission_date DESC"), text("id")),
@@ -386,7 +396,34 @@ class BedSets(Base):
         Index(
             "ix_bedsets_unprocessed", "id", postgresql_where=text("processed = false")
         ),
+        # Trigram GIN indexes for the bedset search (get_ids_list), which filters
+        # on name/description with ILIKE '%query%'. A leading-wildcard ILIKE
+        # cannot use a btree index at all, so pg_trgm is the only thing that
+        # avoids a full table scan here. Needs the pg_trgm extension, which the
+        # before_create listener below creates on first creation of this table.
+        Index(
+            "ix_bedsets_name_trgm",
+            "name",
+            postgresql_using="gin",
+            postgresql_ops={"name": "gin_trgm_ops"},
+        ),
+        Index(
+            "ix_bedsets_description_trgm",
+            "description",
+            postgresql_using="gin",
+            postgresql_ops={"description": "gin_trgm_ops"},
+        ),
     )
+
+
+# Make the pg_trgm extension available before the bedsets trigram GIN indexes are
+# built. Scoped to this table's creation so it runs only on first-time schema
+# creation (not on every startup) and only on PostgreSQL.
+event.listen(
+    BedSets.__table__,
+    "before_create",
+    DDL("CREATE EXTENSION IF NOT EXISTS pg_trgm").execute_if(dialect="postgresql"),
+)
 
 
 class Universes(Base):
