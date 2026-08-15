@@ -1,8 +1,11 @@
 import datetime
 import logging
+import os
 from typing import Optional
 
 import pandas as pd
+from alembic import command
+from alembic.config import Config
 from sqlalchemy import (
     DDL,
     TIMESTAMP,
@@ -723,6 +726,7 @@ class BaseEngine:
         drivername: str = POSTGRES_DIALECT,
         dsn: str | None = None,
         echo: bool = False,
+        run_migrations: bool = False,
     ):
         """
         Initialize connection to the bedbase database. You can use the basic connection parameters
@@ -737,6 +741,9 @@ class BaseEngine:
             drivername: Driver used in connection.
             dsn: Libpq connection string using the dsn parameter
                 (e.g. 'postgresql://user_name:password@host_name:port/db_name').
+            run_migrations: Upgrade the database to the latest Alembic revision
+                (``head``) before connecting. Safe on an already-migrated or
+                pre-existing database (the initial revision is idempotent).
         """
         if not dsn:
             dsn = URL.create(
@@ -747,6 +754,13 @@ class BaseEngine:
                 password=password,
                 drivername=drivername,
             )
+
+        if run_migrations:
+            if isinstance(dsn, str):
+                migration_url = dsn
+            else:
+                migration_url = dsn.render_as_string(hide_password=False)
+            self.run_db_migration(migration_url)
 
         self._engine = create_engine(dsn, echo=echo)
         self.create_schema(self._engine)
@@ -788,6 +802,25 @@ class BaseEngine:
             engine = self._engine
         Base.metadata.drop_all(engine)
         return None
+
+    def run_db_migration(self, database_url: str) -> None:
+        """
+        Upgrade the database to the latest Alembic revision (``head``).
+
+        The Alembic config is built programmatically so the package does not
+        depend on the repo-root ``alembic.ini`` at runtime.
+
+        Args:
+            database_url: SQLAlchemy connection URL (with password) to migrate.
+        """
+        script_location = os.path.join(os.path.dirname(__file__), "alembic")
+
+        alembic_cfg = Config()
+        alembic_cfg.set_main_option("script_location", script_location)
+        alembic_cfg.set_main_option("sqlalchemy.url", database_url)
+
+        _LOGGER.info("Running database migrations to the latest revision...")
+        command.upgrade(alembic_cfg, "head")
 
     def session_execute(self, statement: Select) -> Result:
         """

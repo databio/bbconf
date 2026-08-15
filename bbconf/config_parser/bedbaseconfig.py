@@ -227,6 +227,7 @@ class BedBaseConfig:
             user=self._config.database.user,
             password=self._config.database.password,
             drivername=f"{self._config.database.dialect}+{self._config.database.driver}",
+            run_migrations=self._config.database.run_migrations,
         )
 
     def _init_qdrant_client(self) -> QdrantClient:

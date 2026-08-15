@@ -50,6 +50,7 @@ class BedBaseAgent:
         self,
         config: Path | str,
         init_ml: bool = True,
+        migrate_db: bool = False,
     ):
         """
         Initialize connection to the pep_db database. You can use the basic connection parameters

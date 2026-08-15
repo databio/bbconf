@@ -35,6 +35,7 @@ class ConfigDB(BaseModel):
     database: str = DEFAULT_DB_NAME
     dialect: str = DEFAULT_DB_DIALECT
     driver: str | None = DEFAULT_DB_DRIVER
+    run_migrations: bool = False
 
     model_config = ConfigDict(extra="forbid")
 
