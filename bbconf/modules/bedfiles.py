@@ -1420,8 +1420,15 @@ class BedAgentBedFile:
                 continue
             if result_meta:
                 results_list.append(QdrantSearchResult(**result, metadata=result_meta))
+
+        # Count of the searchable pool (indexed bed vectors), not the total number
+        # of bed files in the database (which overcounts unindexed genomes).
+        count = self.config.qdrant_client.count(
+            collection_name=self.config.config.qdrant.file_collection,
+            exact=True,
+        ).count
         return BedListSearchResult(
-            count=self.bb_agent.get_stats().bedfiles_number,
+            count=count,
             limit=limit,
             offset=offset,
             results=results_list,
