@@ -7,12 +7,14 @@ from sqlalchemy import (
     TIMESTAMP,
     BigInteger,
     ForeignKey,
+    Index,
     Result,
     Select,
     String,
     UniqueConstraint,
     event,
     select,
+    text,
 )
 from sqlalchemy.dialects.postgresql import ARRAY, JSON
 from sqlalchemy.engine import URL, Engine, create_engine
@@ -152,6 +154,21 @@ class Bed(Base):
         default=False, comment="Whether the bed file was processed"
     )
 
+    __table_args__ = (
+        # Backs get_recent_beds / list_beds(order_by="submission_date"):
+        # ORDER BY submission_date DESC, id ASC LIMIT n.
+        Index("ix_bed_submission_date", text("submission_date DESC"), text("id")),
+        # Partial indexes for the background-worker backlog scans. They stay
+        # small and get faster as each queue drains toward empty.
+        Index("ix_bed_unprocessed", "id", postgresql_where=text("processed = false")),
+        Index("ix_bed_not_indexed", "id", postgresql_where=text("indexed = false")),
+        Index(
+            "ix_bed_not_file_indexed",
+            "id",
+            postgresql_where=text("file_indexed = false"),
+        ),
+    )
+
 
 class BedMetadata(Base):
     __tablename__ = "bed_metadata"
@@ -257,6 +274,15 @@ class BedStats(Base):
 
     bed: Mapped["Bed"] = relationship("Bed", back_populates="stats")
 
+    __table_args__ = (
+        # Backs the "beds missing computed stats" worker scan.
+        Index(
+            "ix_bed_stats_missing_regions",
+            "id",
+            postgresql_where=text("number_of_regions IS NULL"),
+        ),
+    )
+
 
 class Files(Base):
     __tablename__ = "files"
@@ -304,7 +330,7 @@ class BedFileBedSetRelation(Base):
         ForeignKey("bedsets.id", ondelete="CASCADE"), primary_key=True
     )
     bedfile_id: Mapped[str] = mapped_column(
-        ForeignKey("bed.id", ondelete="CASCADE"), primary_key=True
+        ForeignKey("bed.id", ondelete="CASCADE"), primary_key=True, index=True
     )
 
     bedset: Mapped["BedSets"] = relationship("BedSets", back_populates="bedfiles")
@@ -353,6 +379,13 @@ class BedSets(Base):
 
     processed: Mapped[bool] = mapped_column(
         default=False, comment="Whether the bedset was processed"
+    )
+
+    __table_args__ = (
+        # Backs the "unprocessed bedsets" worker scan.
+        Index(
+            "ix_bedsets_unprocessed", "id", postgresql_where=text("processed = false")
+        ),
     )
 
 
