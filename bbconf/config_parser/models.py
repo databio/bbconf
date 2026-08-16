@@ -73,14 +73,14 @@ class ConfigPath(BaseModel):
 
 class AccessMethodsStruct(BaseModel):
     type: str
-    description: str = None
+    description: str | None = None
     prefix: str
 
 
 class AccessMethods(BaseModel):
-    http: AccessMethodsStruct = None
-    s3: AccessMethodsStruct = None
-    local: AccessMethodsStruct = None
+    http: AccessMethodsStruct | None = None
+    s3: AccessMethodsStruct | None = None
+    local: AccessMethodsStruct | None = None
 
 
 class ConfigS3(BaseModel):
@@ -118,13 +118,6 @@ class ConfigS3(BaseModel):
         )
         return False
 
-
-class ConfigPepHubClient(BaseModel):
-    namespace: str | None = DEFAULT_PEPHUB_NAMESPACE
-    name: str | None = DEFAULT_PEPHUB_NAME
-    tag: str | None = DEFAULT_PEPHUB_TAG
-
-
 class ConfigAnalysis(BaseModel):
     """Analysis backend configuration.
 
@@ -137,11 +130,11 @@ class ConfigAnalysis(BaseModel):
 
 class ConfigFile(BaseModel):
     database: ConfigDB
-    qdrant: ConfigQdrant = None
+    qdrant: ConfigQdrant | None = None
     server: ConfigServer
     path: ConfigPath
-    access_methods: AccessMethods = None
-    s3: ConfigS3 = None
+    access_methods: AccessMethods | None = None
+    s3: ConfigS3 | None = None
     analysis: ConfigAnalysis = ConfigAnalysis()
 
     model_config = ConfigDict(extra="allow")
