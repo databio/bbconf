@@ -1,10 +1,11 @@
 """Initial migration
 
 Revision ID: 8b0b706d0827
-Revises: 
+Revises:
 Create Date: 2026-08-14 23:09:22.903899
 
 """
+
 from typing import Sequence, Union
 
 import sqlalchemy as sa
@@ -12,7 +13,7 @@ from alembic import op
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision: str = '8b0b706d0827'
+revision: str = "8b0b706d0827"
 down_revision: Union[str, None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -26,327 +27,716 @@ def upgrade() -> None:
     # DDL event on the bedsets table; autogenerate does not emit it, so it is
     # added here by hand. Must run before those indexes are created.
     op.execute("CREATE EXTENSION IF NOT EXISTS pg_trgm")
-    op.create_table('bed_snapshots',
-    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
-    sa.Column('file_path', sa.String(), nullable=False, comment='S3 object key, relative to the bucket root'),
-    sa.Column('file_type', sa.String(), nullable=False, comment='metadata | bedsets | bedset_membership | manifest'),
-    sa.Column('creation_date', sa.TIMESTAMP(timezone=True), nullable=False, comment='Build date of the export'),
-    sa.Column('record_count', sa.Integer(), nullable=True, comment='Rows actually written to the file'),
-    sa.Column('file_size', sa.Integer(), nullable=True, comment='Size of the file in bytes'),
-    sa.Column('checksum', sa.String(), nullable=True, comment='SHA256 of the file'),
-    sa.Column('schema_version', sa.Integer(), nullable=True, comment='Export schema version'),
-    sa.PrimaryKeyConstraint('id')
+    op.create_table(
+        "bed_snapshots",
+        sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
+        sa.Column(
+            "file_path",
+            sa.String(),
+            nullable=False,
+            comment="S3 object key, relative to the bucket root",
+        ),
+        sa.Column(
+            "file_type",
+            sa.String(),
+            nullable=False,
+            comment="metadata | bedsets | bedset_membership | manifest",
+        ),
+        sa.Column(
+            "creation_date",
+            sa.TIMESTAMP(timezone=True),
+            nullable=False,
+            comment="Build date of the export",
+        ),
+        sa.Column(
+            "record_count",
+            sa.Integer(),
+            nullable=True,
+            comment="Rows actually written to the file",
+        ),
+        sa.Column(
+            "file_size",
+            sa.Integer(),
+            nullable=True,
+            comment="Size of the file in bytes",
+        ),
+        sa.Column("checksum", sa.String(), nullable=True, comment="SHA256 of the file"),
+        sa.Column(
+            "schema_version",
+            sa.Integer(),
+            nullable=True,
+            comment="Export schema version",
+        ),
+        sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index(op.f('ix_bed_snapshots_id'), 'bed_snapshots', ['id'], unique=False)
-    op.create_table('bedsets',
-    sa.Column('id', sa.String(), nullable=False),
-    sa.Column('name', sa.String(), nullable=False, comment='Name of the bedset'),
-    sa.Column('description', sa.String(), nullable=True, comment='Description of the bedset'),
-    sa.Column('summary', sa.String(), nullable=True, comment='Summary of the bedset'),
-    sa.Column('submission_date', sa.TIMESTAMP(timezone=True), nullable=False),
-    sa.Column('last_update_date', sa.TIMESTAMP(timezone=True), nullable=True),
-    sa.Column('md5sum', sa.String(), nullable=True, comment='MD5 sum of the bedset'),
-    sa.Column('bedset_means', postgresql.JSON(astext_type=sa.Text()), nullable=True, comment='Mean values of the bedset'),
-    sa.Column('bedset_standard_deviation', postgresql.JSON(astext_type=sa.Text()), nullable=True, comment='Median values of the bedset'),
-    sa.Column('bedfile_count', sa.Integer(), nullable=False, comment='Number of bedfiles in the bedset (denormalized count)'),
-    sa.Column('author', sa.String(), nullable=True, comment='Author of the bedset'),
-    sa.Column('source', sa.String(), nullable=True, comment='Source of the bedset'),
-    sa.Column('processed', sa.Boolean(), nullable=False, comment='Whether the bedset was processed'),
-    sa.PrimaryKeyConstraint('id')
+    op.create_index(op.f("ix_bed_snapshots_id"), "bed_snapshots", ["id"], unique=False)
+    op.create_table(
+        "bedsets",
+        sa.Column("id", sa.String(), nullable=False),
+        sa.Column("name", sa.String(), nullable=False, comment="Name of the bedset"),
+        sa.Column(
+            "description",
+            sa.String(),
+            nullable=True,
+            comment="Description of the bedset",
+        ),
+        sa.Column(
+            "summary", sa.String(), nullable=True, comment="Summary of the bedset"
+        ),
+        sa.Column("submission_date", sa.TIMESTAMP(timezone=True), nullable=False),
+        sa.Column("last_update_date", sa.TIMESTAMP(timezone=True), nullable=True),
+        sa.Column(
+            "md5sum", sa.String(), nullable=True, comment="MD5 sum of the bedset"
+        ),
+        sa.Column(
+            "bedset_means",
+            postgresql.JSON(astext_type=sa.Text()),
+            nullable=True,
+            comment="Mean values of the bedset",
+        ),
+        sa.Column(
+            "bedset_standard_deviation",
+            postgresql.JSON(astext_type=sa.Text()),
+            nullable=True,
+            comment="Median values of the bedset",
+        ),
+        sa.Column(
+            "bedfile_count",
+            sa.Integer(),
+            nullable=False,
+            comment="Number of bedfiles in the bedset (denormalized count)",
+        ),
+        sa.Column("author", sa.String(), nullable=True, comment="Author of the bedset"),
+        sa.Column("source", sa.String(), nullable=True, comment="Source of the bedset"),
+        sa.Column(
+            "processed",
+            sa.Boolean(),
+            nullable=False,
+            comment="Whether the bedset was processed",
+        ),
+        sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index('ix_bedsets_description_trgm', 'bedsets', ['description'], unique=False, postgresql_using='gin', postgresql_ops={'description': 'gin_trgm_ops'})
-    op.create_index(op.f('ix_bedsets_id'), 'bedsets', ['id'], unique=False)
-    op.create_index('ix_bedsets_name_trgm', 'bedsets', ['name'], unique=False, postgresql_using='gin', postgresql_ops={'name': 'gin_trgm_ops'})
-    op.create_index('ix_bedsets_unprocessed', 'bedsets', ['id'], unique=False, postgresql_where=sa.text('processed = false'))
-    op.create_table('geo_gse_status',
-    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
-    sa.Column('gse', sa.String(), nullable=False, comment='GSE number'),
-    sa.Column('status', sa.String(), nullable=False, comment='Status of the GEO project'),
-    sa.Column('submission_date', sa.TIMESTAMP(timezone=True), nullable=False),
-    sa.Column('number_of_files', sa.Integer(), nullable=False, comment='Number of files'),
-    sa.Column('number_of_success', sa.Integer(), nullable=False, comment='Number of success'),
-    sa.Column('number_of_skips', sa.Integer(), nullable=False, comment='Number of skips'),
-    sa.Column('number_of_fails', sa.Integer(), nullable=False, comment='Number of fails'),
-    sa.Column('error', sa.String(), nullable=True, comment='Error message'),
-    sa.PrimaryKeyConstraint('id'),
-    sa.UniqueConstraint('gse')
+    op.create_index(
+        "ix_bedsets_description_trgm",
+        "bedsets",
+        ["description"],
+        unique=False,
+        postgresql_using="gin",
+        postgresql_ops={"description": "gin_trgm_ops"},
     )
-    op.create_index(op.f('ix_geo_gse_status_id'), 'geo_gse_status', ['id'], unique=False)
-    op.create_table('licenses',
-    sa.Column('id', sa.String(), nullable=False),
-    sa.Column('shorthand', sa.String(), nullable=True, comment='License shorthand'),
-    sa.Column('label', sa.String(), nullable=False, comment='License label'),
-    sa.Column('description', sa.String(), nullable=False, comment='License description'),
-    sa.PrimaryKeyConstraint('id')
+    op.create_index(op.f("ix_bedsets_id"), "bedsets", ["id"], unique=False)
+    op.create_index(
+        "ix_bedsets_name_trgm",
+        "bedsets",
+        ["name"],
+        unique=False,
+        postgresql_using="gin",
+        postgresql_ops={"name": "gin_trgm_ops"},
     )
-    op.create_index(op.f('ix_licenses_id'), 'licenses', ['id'], unique=False)
-    op.create_table('reference_genomes',
-    sa.Column('digest', sa.String(), nullable=False),
-    sa.Column('alias', sa.String(), nullable=False, comment='Name of the reference genome'),
-    sa.PrimaryKeyConstraint('digest')
+    op.create_index(
+        "ix_bedsets_unprocessed",
+        "bedsets",
+        ["id"],
+        unique=False,
+        postgresql_where=sa.text("processed = false"),
     )
-    op.create_index(op.f('ix_reference_genomes_digest'), 'reference_genomes', ['digest'], unique=False)
-    op.create_table('usage_files',
-    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
-    sa.Column('file_path', sa.String(), nullable=False, comment='Path to the file'),
-    sa.Column('count', sa.Integer(), nullable=False, comment='Number of downloads'),
-    sa.Column('date_from', sa.TIMESTAMP(timezone=True), nullable=False, comment='Date from'),
-    sa.Column('date_to', sa.TIMESTAMP(timezone=True), nullable=False, comment='Date to'),
-    sa.PrimaryKeyConstraint('id')
+    op.create_table(
+        "geo_gse_status",
+        sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
+        sa.Column("gse", sa.String(), nullable=False, comment="GSE number"),
+        sa.Column(
+            "status", sa.String(), nullable=False, comment="Status of the GEO project"
+        ),
+        sa.Column("submission_date", sa.TIMESTAMP(timezone=True), nullable=False),
+        sa.Column(
+            "number_of_files", sa.Integer(), nullable=False, comment="Number of files"
+        ),
+        sa.Column(
+            "number_of_success",
+            sa.Integer(),
+            nullable=False,
+            comment="Number of success",
+        ),
+        sa.Column(
+            "number_of_skips", sa.Integer(), nullable=False, comment="Number of skips"
+        ),
+        sa.Column(
+            "number_of_fails", sa.Integer(), nullable=False, comment="Number of fails"
+        ),
+        sa.Column("error", sa.String(), nullable=True, comment="Error message"),
+        sa.PrimaryKeyConstraint("id"),
+        sa.UniqueConstraint("gse"),
     )
-    op.create_index(op.f('ix_usage_files_id'), 'usage_files', ['id'], unique=False)
-    op.create_table('usage_search',
-    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
-    sa.Column('query', sa.String(), nullable=False, comment='Search query'),
-    sa.Column('type', sa.String(), nullable=False, comment='Type of the search. Bed/Bedset'),
-    sa.Column('count', sa.Integer(), nullable=False, comment='Number of searches'),
-    sa.Column('date_from', sa.TIMESTAMP(timezone=True), nullable=False, comment='Date from'),
-    sa.Column('date_to', sa.TIMESTAMP(timezone=True), nullable=False, comment='Date to'),
-    sa.PrimaryKeyConstraint('id')
+    op.create_index(
+        op.f("ix_geo_gse_status_id"), "geo_gse_status", ["id"], unique=False
     )
-    op.create_index(op.f('ix_usage_search_id'), 'usage_search', ['id'], unique=False)
-    op.create_table('bed',
-    sa.Column('id', sa.String(), nullable=False),
-    sa.Column('name', sa.String(), nullable=True),
-    sa.Column('genome_alias', sa.String(), nullable=True),
-    sa.Column('genome_digest', sa.String(), nullable=True),
-    sa.Column('description', sa.String(), nullable=True),
-    sa.Column('bed_compliance', sa.String(), nullable=False),
-    sa.Column('data_format', sa.String(), nullable=False),
-    sa.Column('compliant_columns', sa.Integer(), nullable=False),
-    sa.Column('non_compliant_columns', sa.Integer(), nullable=False),
-    sa.Column('header', sa.String(), nullable=True, comment='Header of the bed file, it if was provided.'),
-    sa.Column('indexed', sa.Boolean(), nullable=False, comment='Whether sample was added to qdrant'),
-    sa.Column('file_indexed', sa.Boolean(), nullable=False, comment='Whether file was tokenized and added to the vector database'),
-    sa.Column('pephub', sa.Boolean(), nullable=False, comment='Whether sample was added to pephub'),
-    sa.Column('submission_date', sa.TIMESTAMP(timezone=True), nullable=False),
-    sa.Column('last_update_date', sa.TIMESTAMP(timezone=True), nullable=True),
-    sa.Column('is_universe', sa.Boolean(), nullable=True),
-    sa.Column('license_id', sa.String(), nullable=True),
-    sa.Column('processed', sa.Boolean(), nullable=False, comment='Whether the bed file was processed'),
-    sa.ForeignKeyConstraint(['license_id'], ['licenses.id'], ondelete='CASCADE'),
-    sa.PrimaryKeyConstraint('id')
+    op.create_table(
+        "licenses",
+        sa.Column("id", sa.String(), nullable=False),
+        sa.Column("shorthand", sa.String(), nullable=True, comment="License shorthand"),
+        sa.Column("label", sa.String(), nullable=False, comment="License label"),
+        sa.Column(
+            "description", sa.String(), nullable=False, comment="License description"
+        ),
+        sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index('genome_alias_index', 'bed', ['genome_alias'], unique=False, postgresql_with={'deduplicate_items': 'true'})
-    op.create_index(op.f('ix_bed_id'), 'bed', ['id'], unique=False)
-    op.create_index(op.f('ix_bed_license_id'), 'bed', ['license_id'], unique=False)
-    op.create_index('ix_bed_not_file_indexed', 'bed', ['id'], unique=False, postgresql_where=sa.text('file_indexed = false'))
-    op.create_index('ix_bed_not_indexed', 'bed', ['id'], unique=False, postgresql_where=sa.text('indexed = false'))
-    op.create_index('ix_bed_submission_date', 'bed', [sa.literal_column('submission_date DESC'), sa.literal_column('id')], unique=False)
-    op.create_index('ix_bed_unprocessed', 'bed', ['id'], unique=False, postgresql_where=sa.text('processed = false'))
-    op.create_table('geo_gsm_status',
-    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
-    sa.Column('gse_status_id', sa.Integer(), nullable=False),
-    sa.Column('gsm', sa.String(), nullable=False, comment='GSM number'),
-    sa.Column('sample_name', sa.String(), nullable=False),
-    sa.Column('status', sa.String(), nullable=False, comment='Status of the GEO sample'),
-    sa.Column('error', sa.String(), nullable=True, comment='Error message'),
-    sa.Column('source_submission_date', sa.TIMESTAMP(timezone=True), nullable=True, comment='Submission date of the source'),
-    sa.Column('submission_date', sa.TIMESTAMP(timezone=True), nullable=False),
-    sa.Column('bed_id', sa.String(), nullable=True, comment='Bed identifier'),
-    sa.Column('file_size', sa.BigInteger(), nullable=False, comment='Size of the file'),
-    sa.Column('genome', sa.String(), nullable=True, comment='Genome'),
-    sa.ForeignKeyConstraint(['gse_status_id'], ['geo_gse_status.id'], ondelete='CASCADE'),
-    sa.PrimaryKeyConstraint('id')
+    op.create_index(op.f("ix_licenses_id"), "licenses", ["id"], unique=False)
+    op.create_table(
+        "reference_genomes",
+        sa.Column("digest", sa.String(), nullable=False),
+        sa.Column(
+            "alias", sa.String(), nullable=False, comment="Name of the reference genome"
+        ),
+        sa.PrimaryKeyConstraint("digest"),
     )
-    op.create_index(op.f('ix_geo_gsm_status_bed_id'), 'geo_gsm_status', ['bed_id'], unique=False)
-    op.create_index(op.f('ix_geo_gsm_status_gse_status_id'), 'geo_gsm_status', ['gse_status_id'], unique=False)
-    op.create_index(op.f('ix_geo_gsm_status_id'), 'geo_gsm_status', ['id'], unique=False)
-    op.create_table('usage_bedset_meta',
-    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
-    sa.Column('bedset_id', sa.String(), nullable=True),
-    sa.Column('count', sa.Integer(), nullable=False, comment='Number of visits'),
-    sa.Column('date_from', sa.TIMESTAMP(timezone=True), nullable=False, comment='Date from'),
-    sa.Column('date_to', sa.TIMESTAMP(timezone=True), nullable=False, comment='Date to'),
-    sa.ForeignKeyConstraint(['bedset_id'], ['bedsets.id'], ondelete='CASCADE'),
-    sa.PrimaryKeyConstraint('id')
+    op.create_index(
+        op.f("ix_reference_genomes_digest"),
+        "reference_genomes",
+        ["digest"],
+        unique=False,
     )
-    op.create_index(op.f('ix_usage_bedset_meta_bedset_id'), 'usage_bedset_meta', ['bedset_id'], unique=False)
-    op.create_index(op.f('ix_usage_bedset_meta_id'), 'usage_bedset_meta', ['id'], unique=False)
-    op.create_table('bed_metadata',
-    sa.Column('species_name', sa.String(), nullable=False, comment='Organism name'),
-    sa.Column('species_id', sa.String(), nullable=True, comment='Organism taxon id'),
-    sa.Column('genotype', sa.String(), nullable=True, comment='Genotype of the sample'),
-    sa.Column('phenotype', sa.String(), nullable=True, comment='Phenotype of the sample'),
-    sa.Column('cell_type', sa.String(), nullable=True, comment='Specific kind of cell with distinct characteristics found in an organism. e.g. Neurons, Hepatocytes, Adipocytes'),
-    sa.Column('cell_line', sa.String(), nullable=True, comment='Population of cells derived from a single cell and cultured in the lab for extended use, e.g. HeLa, HepG2, k562'),
-    sa.Column('tissue', sa.String(), nullable=True, comment='Tissue type'),
-    sa.Column('library_source', sa.String(), nullable=True, comment='Library source (e.g. genomic, transcriptomic)'),
-    sa.Column('assay', sa.String(), nullable=True, comment='Experimental protocol (e.g. ChIP-seq)'),
-    sa.Column('antibody', sa.String(), nullable=True, comment='Antibody used in the assay'),
-    sa.Column('target', sa.String(), nullable=True, comment='Target of the assay (e.g. H3K4me3)'),
-    sa.Column('treatment', sa.String(), nullable=True, comment='Treatment of the sample (e.g. drug treatment)'),
-    sa.Column('original_file_name', sa.String(), nullable=True, comment='Original file name'),
-    sa.Column('global_sample_id', postgresql.ARRAY(sa.String()), nullable=True, comment='Global sample identifier. e.g. GSM000'),
-    sa.Column('global_experiment_id', postgresql.ARRAY(sa.String()), nullable=True, comment='Global experiment identifier. e.g. GSE000'),
-    sa.Column('id', sa.String(), nullable=False),
-    sa.ForeignKeyConstraint(['id'], ['bed.id'], ondelete='CASCADE'),
-    sa.PrimaryKeyConstraint('id')
+    op.create_table(
+        "usage_files",
+        sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
+        sa.Column("file_path", sa.String(), nullable=False, comment="Path to the file"),
+        sa.Column("count", sa.Integer(), nullable=False, comment="Number of downloads"),
+        sa.Column(
+            "date_from",
+            sa.TIMESTAMP(timezone=True),
+            nullable=False,
+            comment="Date from",
+        ),
+        sa.Column(
+            "date_to", sa.TIMESTAMP(timezone=True), nullable=False, comment="Date to"
+        ),
+        sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index(op.f('ix_bed_metadata_id'), 'bed_metadata', ['id'], unique=False)
-    op.create_table('bed_stats',
-    sa.Column('id', sa.String(), nullable=False),
-    sa.Column('number_of_regions', sa.Float(), nullable=True),
-    sa.Column('gc_content', sa.Float(), nullable=True),
-    sa.Column('median_tss_dist', sa.Float(), nullable=True),
-    sa.Column('mean_region_width', sa.Float(), nullable=True),
-    sa.Column('exon_frequency', sa.Float(), nullable=True),
-    sa.Column('intron_frequency', sa.Float(), nullable=True),
-    sa.Column('promoterprox_frequency', sa.Float(), nullable=True),
-    sa.Column('intergenic_frequency', sa.Float(), nullable=True),
-    sa.Column('promotercore_frequency', sa.Float(), nullable=True),
-    sa.Column('fiveutr_frequency', sa.Float(), nullable=True),
-    sa.Column('threeutr_frequency', sa.Float(), nullable=True),
-    sa.Column('fiveutr_percentage', sa.Float(), nullable=True),
-    sa.Column('threeutr_percentage', sa.Float(), nullable=True),
-    sa.Column('promoterprox_percentage', sa.Float(), nullable=True),
-    sa.Column('exon_percentage', sa.Float(), nullable=True),
-    sa.Column('intron_percentage', sa.Float(), nullable=True),
-    sa.Column('intergenic_percentage', sa.Float(), nullable=True),
-    sa.Column('promotercore_percentage', sa.Float(), nullable=True),
-    sa.Column('tssdist', sa.Float(), nullable=True),
-    sa.ForeignKeyConstraint(['id'], ['bed.id'], ondelete='CASCADE'),
-    sa.PrimaryKeyConstraint('id')
+    op.create_index(op.f("ix_usage_files_id"), "usage_files", ["id"], unique=False)
+    op.create_table(
+        "usage_search",
+        sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
+        sa.Column("query", sa.String(), nullable=False, comment="Search query"),
+        sa.Column(
+            "type",
+            sa.String(),
+            nullable=False,
+            comment="Type of the search. Bed/Bedset",
+        ),
+        sa.Column("count", sa.Integer(), nullable=False, comment="Number of searches"),
+        sa.Column(
+            "date_from",
+            sa.TIMESTAMP(timezone=True),
+            nullable=False,
+            comment="Date from",
+        ),
+        sa.Column(
+            "date_to", sa.TIMESTAMP(timezone=True), nullable=False, comment="Date to"
+        ),
+        sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index(op.f('ix_bed_stats_id'), 'bed_stats', ['id'], unique=False)
-    op.create_index('ix_bed_stats_missing_regions', 'bed_stats', ['id'], unique=False, postgresql_where=sa.text('number_of_regions IS NULL'))
-    op.create_table('bedfile_bedset_relation',
-    sa.Column('bedset_id', sa.String(), nullable=False),
-    sa.Column('bedfile_id', sa.String(), nullable=False),
-    sa.ForeignKeyConstraint(['bedfile_id'], ['bed.id'], ondelete='CASCADE'),
-    sa.ForeignKeyConstraint(['bedset_id'], ['bedsets.id'], ondelete='CASCADE'),
-    sa.PrimaryKeyConstraint('bedset_id', 'bedfile_id')
+    op.create_index(op.f("ix_usage_search_id"), "usage_search", ["id"], unique=False)
+    op.create_table(
+        "bed",
+        sa.Column("id", sa.String(), nullable=False),
+        sa.Column("name", sa.String(), nullable=True),
+        sa.Column("genome_alias", sa.String(), nullable=True),
+        sa.Column("genome_digest", sa.String(), nullable=True),
+        sa.Column("description", sa.String(), nullable=True),
+        sa.Column("bed_compliance", sa.String(), nullable=False),
+        sa.Column("data_format", sa.String(), nullable=False),
+        sa.Column("compliant_columns", sa.Integer(), nullable=False),
+        sa.Column("non_compliant_columns", sa.Integer(), nullable=False),
+        sa.Column(
+            "header",
+            sa.String(),
+            nullable=True,
+            comment="Header of the bed file, it if was provided.",
+        ),
+        sa.Column(
+            "indexed",
+            sa.Boolean(),
+            nullable=False,
+            comment="Whether sample was added to qdrant",
+        ),
+        sa.Column(
+            "file_indexed",
+            sa.Boolean(),
+            nullable=False,
+            comment="Whether file was tokenized and added to the vector database",
+        ),
+        sa.Column(
+            "pephub",
+            sa.Boolean(),
+            nullable=False,
+            comment="Whether sample was added to pephub",
+        ),
+        sa.Column("submission_date", sa.TIMESTAMP(timezone=True), nullable=False),
+        sa.Column("last_update_date", sa.TIMESTAMP(timezone=True), nullable=True),
+        sa.Column("is_universe", sa.Boolean(), nullable=True),
+        sa.Column("license_id", sa.String(), nullable=True),
+        sa.Column(
+            "processed",
+            sa.Boolean(),
+            nullable=False,
+            comment="Whether the bed file was processed",
+        ),
+        sa.ForeignKeyConstraint(["license_id"], ["licenses.id"], ondelete="CASCADE"),
+        sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index(op.f('ix_bedfile_bedset_relation_bedfile_id'), 'bedfile_bedset_relation', ['bedfile_id'], unique=False)
-    op.create_table('files',
-    sa.Column('id', sa.Integer(), nullable=False),
-    sa.Column('name', sa.String(), nullable=False, comment='Name of the file, e.g. bed, bigBed'),
-    sa.Column('file_digest', sa.String(), nullable=True, comment='Digest of the file. Mainly used for bed file.'),
-    sa.Column('title', sa.String(), nullable=True),
-    sa.Column('type', sa.String(), nullable=False, comment='Type of the object, e.g. file, plot, ...'),
-    sa.Column('path', sa.String(), nullable=False),
-    sa.Column('path_thumbnail', sa.String(), nullable=True, comment='Thumbnail path of the file'),
-    sa.Column('description', sa.String(), nullable=True),
-    sa.Column('size', sa.Integer(), nullable=True, comment='Size of the file'),
-    sa.Column('bedfile_id', sa.String(), nullable=True),
-    sa.Column('bedset_id', sa.String(), nullable=True),
-    sa.ForeignKeyConstraint(['bedfile_id'], ['bed.id'], ondelete='CASCADE'),
-    sa.ForeignKeyConstraint(['bedset_id'], ['bedsets.id'], ondelete='CASCADE'),
-    sa.PrimaryKeyConstraint('id'),
-    sa.UniqueConstraint('name', 'bedfile_id'),
-    sa.UniqueConstraint('name', 'bedset_id')
+    op.create_index(
+        "genome_alias_index",
+        "bed",
+        ["genome_alias"],
+        unique=False,
+        postgresql_with={"deduplicate_items": "true"},
     )
-    op.create_index(op.f('ix_files_bedfile_id'), 'files', ['bedfile_id'], unique=False)
-    op.create_index(op.f('ix_files_bedset_id'), 'files', ['bedset_id'], unique=False)
-    op.create_index(op.f('ix_files_id'), 'files', ['id'], unique=False)
-    op.create_table('genome_ref_stats',
-    sa.Column('id', sa.Integer(), nullable=False),
-    sa.Column('bed_id', sa.String(), nullable=False),
-    sa.Column('provided_genome', sa.String(), nullable=False),
-    sa.Column('compared_genome', sa.String(), nullable=False, comment='Compared Genome'),
-    sa.Column('genome_digest', sa.String(), nullable=False),
-    sa.Column('xs', sa.Float(), nullable=True),
-    sa.Column('oobr', sa.Float(), nullable=True),
-    sa.Column('sequence_fit', sa.Float(), nullable=True),
-    sa.Column('assigned_points', sa.Integer(), nullable=False),
-    sa.Column('tier_ranking', sa.Integer(), nullable=False),
-    sa.ForeignKeyConstraint(['bed_id'], ['bed.id'], ondelete='CASCADE'),
-    sa.ForeignKeyConstraint(['genome_digest'], ['reference_genomes.digest'], ondelete='CASCADE'),
-    sa.PrimaryKeyConstraint('id'),
-    sa.UniqueConstraint('bed_id', 'compared_genome')
+    op.create_index(op.f("ix_bed_id"), "bed", ["id"], unique=False)
+    op.create_index(op.f("ix_bed_license_id"), "bed", ["license_id"], unique=False)
+    op.create_index(
+        "ix_bed_not_file_indexed",
+        "bed",
+        ["id"],
+        unique=False,
+        postgresql_where=sa.text("file_indexed = false"),
     )
-    op.create_index(op.f('ix_genome_ref_stats_bed_id'), 'genome_ref_stats', ['bed_id'], unique=False)
-    op.create_index(op.f('ix_genome_ref_stats_id'), 'genome_ref_stats', ['id'], unique=False)
-    op.create_table('universes',
-    sa.Column('id', sa.String(), nullable=False),
-    sa.Column('method', sa.String(), nullable=True, comment='Method used to create the universe'),
-    sa.Column('bedset_id', sa.String(), nullable=True),
-    sa.ForeignKeyConstraint(['bedset_id'], ['bedsets.id'], ondelete='CASCADE'),
-    sa.ForeignKeyConstraint(['id'], ['bed.id'], ondelete='CASCADE'),
-    sa.PrimaryKeyConstraint('id')
+    op.create_index(
+        "ix_bed_not_indexed",
+        "bed",
+        ["id"],
+        unique=False,
+        postgresql_where=sa.text("indexed = false"),
     )
-    op.create_index(op.f('ix_universes_bedset_id'), 'universes', ['bedset_id'], unique=False)
-    op.create_index(op.f('ix_universes_id'), 'universes', ['id'], unique=False)
-    op.create_table('usage_bed_meta',
-    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
-    sa.Column('bed_id', sa.String(), nullable=True),
-    sa.Column('count', sa.Integer(), nullable=False, comment='Number of visits'),
-    sa.Column('date_from', sa.TIMESTAMP(timezone=True), nullable=False, comment='Date from'),
-    sa.Column('date_to', sa.TIMESTAMP(timezone=True), nullable=False, comment='Date to'),
-    sa.ForeignKeyConstraint(['bed_id'], ['bed.id'], ondelete='CASCADE'),
-    sa.PrimaryKeyConstraint('id')
+    op.create_index(
+        "ix_bed_submission_date",
+        "bed",
+        [sa.literal_column("submission_date DESC"), sa.literal_column("id")],
+        unique=False,
     )
-    op.create_index(op.f('ix_usage_bed_meta_bed_id'), 'usage_bed_meta', ['bed_id'], unique=False)
-    op.create_index(op.f('ix_usage_bed_meta_id'), 'usage_bed_meta', ['id'], unique=False)
-    op.create_table('tokenized_bed',
-    sa.Column('bed_id', sa.String(), nullable=False),
-    sa.Column('universe_id', sa.String(), nullable=False),
-    sa.Column('path', sa.String(), nullable=False, comment='Path to the tokenized bed file'),
-    sa.ForeignKeyConstraint(['bed_id'], ['bed.id'], ondelete='CASCADE'),
-    sa.ForeignKeyConstraint(['universe_id'], ['universes.id'], ondelete='CASCADE'),
-    sa.PrimaryKeyConstraint('bed_id', 'universe_id')
+    op.create_index(
+        "ix_bed_unprocessed",
+        "bed",
+        ["id"],
+        unique=False,
+        postgresql_where=sa.text("processed = false"),
     )
-    op.create_index(op.f('ix_tokenized_bed_bed_id'), 'tokenized_bed', ['bed_id'], unique=False)
-    op.create_index(op.f('ix_tokenized_bed_universe_id'), 'tokenized_bed', ['universe_id'], unique=False)
+    op.create_table(
+        "geo_gsm_status",
+        sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
+        sa.Column("gse_status_id", sa.Integer(), nullable=False),
+        sa.Column("gsm", sa.String(), nullable=False, comment="GSM number"),
+        sa.Column("sample_name", sa.String(), nullable=False),
+        sa.Column(
+            "status", sa.String(), nullable=False, comment="Status of the GEO sample"
+        ),
+        sa.Column("error", sa.String(), nullable=True, comment="Error message"),
+        sa.Column(
+            "source_submission_date",
+            sa.TIMESTAMP(timezone=True),
+            nullable=True,
+            comment="Submission date of the source",
+        ),
+        sa.Column("submission_date", sa.TIMESTAMP(timezone=True), nullable=False),
+        sa.Column("bed_id", sa.String(), nullable=True, comment="Bed identifier"),
+        sa.Column(
+            "file_size", sa.BigInteger(), nullable=False, comment="Size of the file"
+        ),
+        sa.Column("genome", sa.String(), nullable=True, comment="Genome"),
+        sa.ForeignKeyConstraint(
+            ["gse_status_id"], ["geo_gse_status.id"], ondelete="CASCADE"
+        ),
+        sa.PrimaryKeyConstraint("id"),
+    )
+    op.create_index(
+        op.f("ix_geo_gsm_status_bed_id"), "geo_gsm_status", ["bed_id"], unique=False
+    )
+    op.create_index(
+        op.f("ix_geo_gsm_status_gse_status_id"),
+        "geo_gsm_status",
+        ["gse_status_id"],
+        unique=False,
+    )
+    op.create_index(
+        op.f("ix_geo_gsm_status_id"), "geo_gsm_status", ["id"], unique=False
+    )
+    op.create_table(
+        "usage_bedset_meta",
+        sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
+        sa.Column("bedset_id", sa.String(), nullable=True),
+        sa.Column("count", sa.Integer(), nullable=False, comment="Number of visits"),
+        sa.Column(
+            "date_from",
+            sa.TIMESTAMP(timezone=True),
+            nullable=False,
+            comment="Date from",
+        ),
+        sa.Column(
+            "date_to", sa.TIMESTAMP(timezone=True), nullable=False, comment="Date to"
+        ),
+        sa.ForeignKeyConstraint(["bedset_id"], ["bedsets.id"], ondelete="CASCADE"),
+        sa.PrimaryKeyConstraint("id"),
+    )
+    op.create_index(
+        op.f("ix_usage_bedset_meta_bedset_id"),
+        "usage_bedset_meta",
+        ["bedset_id"],
+        unique=False,
+    )
+    op.create_index(
+        op.f("ix_usage_bedset_meta_id"), "usage_bedset_meta", ["id"], unique=False
+    )
+    op.create_table(
+        "bed_metadata",
+        sa.Column("species_name", sa.String(), nullable=False, comment="Organism name"),
+        sa.Column(
+            "species_id", sa.String(), nullable=True, comment="Organism taxon id"
+        ),
+        sa.Column(
+            "genotype", sa.String(), nullable=True, comment="Genotype of the sample"
+        ),
+        sa.Column(
+            "phenotype", sa.String(), nullable=True, comment="Phenotype of the sample"
+        ),
+        sa.Column(
+            "cell_type",
+            sa.String(),
+            nullable=True,
+            comment="Specific kind of cell with distinct characteristics found in an organism. e.g. Neurons, Hepatocytes, Adipocytes",
+        ),
+        sa.Column(
+            "cell_line",
+            sa.String(),
+            nullable=True,
+            comment="Population of cells derived from a single cell and cultured in the lab for extended use, e.g. HeLa, HepG2, k562",
+        ),
+        sa.Column("tissue", sa.String(), nullable=True, comment="Tissue type"),
+        sa.Column(
+            "library_source",
+            sa.String(),
+            nullable=True,
+            comment="Library source (e.g. genomic, transcriptomic)",
+        ),
+        sa.Column(
+            "assay",
+            sa.String(),
+            nullable=True,
+            comment="Experimental protocol (e.g. ChIP-seq)",
+        ),
+        sa.Column(
+            "antibody", sa.String(), nullable=True, comment="Antibody used in the assay"
+        ),
+        sa.Column(
+            "target",
+            sa.String(),
+            nullable=True,
+            comment="Target of the assay (e.g. H3K4me3)",
+        ),
+        sa.Column(
+            "treatment",
+            sa.String(),
+            nullable=True,
+            comment="Treatment of the sample (e.g. drug treatment)",
+        ),
+        sa.Column(
+            "original_file_name",
+            sa.String(),
+            nullable=True,
+            comment="Original file name",
+        ),
+        sa.Column(
+            "global_sample_id",
+            postgresql.ARRAY(sa.String()),
+            nullable=True,
+            comment="Global sample identifier. e.g. GSM000",
+        ),
+        sa.Column(
+            "global_experiment_id",
+            postgresql.ARRAY(sa.String()),
+            nullable=True,
+            comment="Global experiment identifier. e.g. GSE000",
+        ),
+        sa.Column("id", sa.String(), nullable=False),
+        sa.ForeignKeyConstraint(["id"], ["bed.id"], ondelete="CASCADE"),
+        sa.PrimaryKeyConstraint("id"),
+    )
+    op.create_index(op.f("ix_bed_metadata_id"), "bed_metadata", ["id"], unique=False)
+    op.create_table(
+        "bed_stats",
+        sa.Column("id", sa.String(), nullable=False),
+        sa.Column("number_of_regions", sa.Float(), nullable=True),
+        sa.Column("gc_content", sa.Float(), nullable=True),
+        sa.Column("median_tss_dist", sa.Float(), nullable=True),
+        sa.Column("mean_region_width", sa.Float(), nullable=True),
+        sa.Column("exon_frequency", sa.Float(), nullable=True),
+        sa.Column("intron_frequency", sa.Float(), nullable=True),
+        sa.Column("promoterprox_frequency", sa.Float(), nullable=True),
+        sa.Column("intergenic_frequency", sa.Float(), nullable=True),
+        sa.Column("promotercore_frequency", sa.Float(), nullable=True),
+        sa.Column("fiveutr_frequency", sa.Float(), nullable=True),
+        sa.Column("threeutr_frequency", sa.Float(), nullable=True),
+        sa.Column("fiveutr_percentage", sa.Float(), nullable=True),
+        sa.Column("threeutr_percentage", sa.Float(), nullable=True),
+        sa.Column("promoterprox_percentage", sa.Float(), nullable=True),
+        sa.Column("exon_percentage", sa.Float(), nullable=True),
+        sa.Column("intron_percentage", sa.Float(), nullable=True),
+        sa.Column("intergenic_percentage", sa.Float(), nullable=True),
+        sa.Column("promotercore_percentage", sa.Float(), nullable=True),
+        sa.Column("tssdist", sa.Float(), nullable=True),
+        sa.ForeignKeyConstraint(["id"], ["bed.id"], ondelete="CASCADE"),
+        sa.PrimaryKeyConstraint("id"),
+    )
+    op.create_index(op.f("ix_bed_stats_id"), "bed_stats", ["id"], unique=False)
+    op.create_index(
+        "ix_bed_stats_missing_regions",
+        "bed_stats",
+        ["id"],
+        unique=False,
+        postgresql_where=sa.text("number_of_regions IS NULL"),
+    )
+    op.create_table(
+        "bedfile_bedset_relation",
+        sa.Column("bedset_id", sa.String(), nullable=False),
+        sa.Column("bedfile_id", sa.String(), nullable=False),
+        sa.ForeignKeyConstraint(["bedfile_id"], ["bed.id"], ondelete="CASCADE"),
+        sa.ForeignKeyConstraint(["bedset_id"], ["bedsets.id"], ondelete="CASCADE"),
+        sa.PrimaryKeyConstraint("bedset_id", "bedfile_id"),
+    )
+    op.create_index(
+        op.f("ix_bedfile_bedset_relation_bedfile_id"),
+        "bedfile_bedset_relation",
+        ["bedfile_id"],
+        unique=False,
+    )
+    op.create_table(
+        "files",
+        sa.Column("id", sa.Integer(), nullable=False),
+        sa.Column(
+            "name",
+            sa.String(),
+            nullable=False,
+            comment="Name of the file, e.g. bed, bigBed",
+        ),
+        sa.Column(
+            "file_digest",
+            sa.String(),
+            nullable=True,
+            comment="Digest of the file. Mainly used for bed file.",
+        ),
+        sa.Column("title", sa.String(), nullable=True),
+        sa.Column(
+            "type",
+            sa.String(),
+            nullable=False,
+            comment="Type of the object, e.g. file, plot, ...",
+        ),
+        sa.Column("path", sa.String(), nullable=False),
+        sa.Column(
+            "path_thumbnail",
+            sa.String(),
+            nullable=True,
+            comment="Thumbnail path of the file",
+        ),
+        sa.Column("description", sa.String(), nullable=True),
+        sa.Column("size", sa.Integer(), nullable=True, comment="Size of the file"),
+        sa.Column("bedfile_id", sa.String(), nullable=True),
+        sa.Column("bedset_id", sa.String(), nullable=True),
+        sa.ForeignKeyConstraint(["bedfile_id"], ["bed.id"], ondelete="CASCADE"),
+        sa.ForeignKeyConstraint(["bedset_id"], ["bedsets.id"], ondelete="CASCADE"),
+        sa.PrimaryKeyConstraint("id"),
+        sa.UniqueConstraint("name", "bedfile_id"),
+        sa.UniqueConstraint("name", "bedset_id"),
+    )
+    op.create_index(op.f("ix_files_bedfile_id"), "files", ["bedfile_id"], unique=False)
+    op.create_index(op.f("ix_files_bedset_id"), "files", ["bedset_id"], unique=False)
+    op.create_index(op.f("ix_files_id"), "files", ["id"], unique=False)
+    op.create_table(
+        "genome_ref_stats",
+        sa.Column("id", sa.Integer(), nullable=False),
+        sa.Column("bed_id", sa.String(), nullable=False),
+        sa.Column("provided_genome", sa.String(), nullable=False),
+        sa.Column(
+            "compared_genome", sa.String(), nullable=False, comment="Compared Genome"
+        ),
+        sa.Column("genome_digest", sa.String(), nullable=False),
+        sa.Column("xs", sa.Float(), nullable=True),
+        sa.Column("oobr", sa.Float(), nullable=True),
+        sa.Column("sequence_fit", sa.Float(), nullable=True),
+        sa.Column("assigned_points", sa.Integer(), nullable=False),
+        sa.Column("tier_ranking", sa.Integer(), nullable=False),
+        sa.ForeignKeyConstraint(["bed_id"], ["bed.id"], ondelete="CASCADE"),
+        sa.ForeignKeyConstraint(
+            ["genome_digest"], ["reference_genomes.digest"], ondelete="CASCADE"
+        ),
+        sa.PrimaryKeyConstraint("id"),
+        sa.UniqueConstraint("bed_id", "compared_genome"),
+    )
+    op.create_index(
+        op.f("ix_genome_ref_stats_bed_id"), "genome_ref_stats", ["bed_id"], unique=False
+    )
+    op.create_index(
+        op.f("ix_genome_ref_stats_id"), "genome_ref_stats", ["id"], unique=False
+    )
+    op.create_table(
+        "universes",
+        sa.Column("id", sa.String(), nullable=False),
+        sa.Column(
+            "method",
+            sa.String(),
+            nullable=True,
+            comment="Method used to create the universe",
+        ),
+        sa.Column("bedset_id", sa.String(), nullable=True),
+        sa.ForeignKeyConstraint(["bedset_id"], ["bedsets.id"], ondelete="CASCADE"),
+        sa.ForeignKeyConstraint(["id"], ["bed.id"], ondelete="CASCADE"),
+        sa.PrimaryKeyConstraint("id"),
+    )
+    op.create_index(
+        op.f("ix_universes_bedset_id"), "universes", ["bedset_id"], unique=False
+    )
+    op.create_index(op.f("ix_universes_id"), "universes", ["id"], unique=False)
+    op.create_table(
+        "usage_bed_meta",
+        sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
+        sa.Column("bed_id", sa.String(), nullable=True),
+        sa.Column("count", sa.Integer(), nullable=False, comment="Number of visits"),
+        sa.Column(
+            "date_from",
+            sa.TIMESTAMP(timezone=True),
+            nullable=False,
+            comment="Date from",
+        ),
+        sa.Column(
+            "date_to", sa.TIMESTAMP(timezone=True), nullable=False, comment="Date to"
+        ),
+        sa.ForeignKeyConstraint(["bed_id"], ["bed.id"], ondelete="CASCADE"),
+        sa.PrimaryKeyConstraint("id"),
+    )
+    op.create_index(
+        op.f("ix_usage_bed_meta_bed_id"), "usage_bed_meta", ["bed_id"], unique=False
+    )
+    op.create_index(
+        op.f("ix_usage_bed_meta_id"), "usage_bed_meta", ["id"], unique=False
+    )
+    op.create_table(
+        "tokenized_bed",
+        sa.Column("bed_id", sa.String(), nullable=False),
+        sa.Column("universe_id", sa.String(), nullable=False),
+        sa.Column(
+            "path",
+            sa.String(),
+            nullable=False,
+            comment="Path to the tokenized bed file",
+        ),
+        sa.ForeignKeyConstraint(["bed_id"], ["bed.id"], ondelete="CASCADE"),
+        sa.ForeignKeyConstraint(["universe_id"], ["universes.id"], ondelete="CASCADE"),
+        sa.PrimaryKeyConstraint("bed_id", "universe_id"),
+    )
+    op.create_index(
+        op.f("ix_tokenized_bed_bed_id"), "tokenized_bed", ["bed_id"], unique=False
+    )
+    op.create_index(
+        op.f("ix_tokenized_bed_universe_id"),
+        "tokenized_bed",
+        ["universe_id"],
+        unique=False,
+    )
     # ### end Alembic commands ###
 
 
 def downgrade() -> None:
     """Downgrade schema."""
     # ### commands auto generated by Alembic - please adjust! ###
-    op.drop_index(op.f('ix_tokenized_bed_universe_id'), table_name='tokenized_bed')
-    op.drop_index(op.f('ix_tokenized_bed_bed_id'), table_name='tokenized_bed')
-    op.drop_table('tokenized_bed')
-    op.drop_index(op.f('ix_usage_bed_meta_id'), table_name='usage_bed_meta')
-    op.drop_index(op.f('ix_usage_bed_meta_bed_id'), table_name='usage_bed_meta')
-    op.drop_table('usage_bed_meta')
-    op.drop_index(op.f('ix_universes_id'), table_name='universes')
-    op.drop_index(op.f('ix_universes_bedset_id'), table_name='universes')
-    op.drop_table('universes')
-    op.drop_index(op.f('ix_genome_ref_stats_id'), table_name='genome_ref_stats')
-    op.drop_index(op.f('ix_genome_ref_stats_bed_id'), table_name='genome_ref_stats')
-    op.drop_table('genome_ref_stats')
-    op.drop_index(op.f('ix_files_id'), table_name='files')
-    op.drop_index(op.f('ix_files_bedset_id'), table_name='files')
-    op.drop_index(op.f('ix_files_bedfile_id'), table_name='files')
-    op.drop_table('files')
-    op.drop_index(op.f('ix_bedfile_bedset_relation_bedfile_id'), table_name='bedfile_bedset_relation')
-    op.drop_table('bedfile_bedset_relation')
-    op.drop_index('ix_bed_stats_missing_regions', table_name='bed_stats', postgresql_where=sa.text('number_of_regions IS NULL'))
-    op.drop_index(op.f('ix_bed_stats_id'), table_name='bed_stats')
-    op.drop_table('bed_stats')
-    op.drop_index(op.f('ix_bed_metadata_id'), table_name='bed_metadata')
-    op.drop_table('bed_metadata')
-    op.drop_index(op.f('ix_usage_bedset_meta_id'), table_name='usage_bedset_meta')
-    op.drop_index(op.f('ix_usage_bedset_meta_bedset_id'), table_name='usage_bedset_meta')
-    op.drop_table('usage_bedset_meta')
-    op.drop_index(op.f('ix_geo_gsm_status_id'), table_name='geo_gsm_status')
-    op.drop_index(op.f('ix_geo_gsm_status_gse_status_id'), table_name='geo_gsm_status')
-    op.drop_index(op.f('ix_geo_gsm_status_bed_id'), table_name='geo_gsm_status')
-    op.drop_table('geo_gsm_status')
-    op.drop_index('ix_bed_unprocessed', table_name='bed', postgresql_where=sa.text('processed = false'))
-    op.drop_index('ix_bed_submission_date', table_name='bed')
-    op.drop_index('ix_bed_not_indexed', table_name='bed', postgresql_where=sa.text('indexed = false'))
-    op.drop_index('ix_bed_not_file_indexed', table_name='bed', postgresql_where=sa.text('file_indexed = false'))
-    op.drop_index(op.f('ix_bed_license_id'), table_name='bed')
-    op.drop_index(op.f('ix_bed_id'), table_name='bed')
-    op.drop_index('genome_alias_index', table_name='bed', postgresql_with={'deduplicate_items': 'true'})
-    op.drop_table('bed')
-    op.drop_index(op.f('ix_usage_search_id'), table_name='usage_search')
-    op.drop_table('usage_search')
-    op.drop_index(op.f('ix_usage_files_id'), table_name='usage_files')
-    op.drop_table('usage_files')
-    op.drop_index(op.f('ix_reference_genomes_digest'), table_name='reference_genomes')
-    op.drop_table('reference_genomes')
-    op.drop_index(op.f('ix_licenses_id'), table_name='licenses')
-    op.drop_table('licenses')
-    op.drop_index(op.f('ix_geo_gse_status_id'), table_name='geo_gse_status')
-    op.drop_table('geo_gse_status')
-    op.drop_index('ix_bedsets_unprocessed', table_name='bedsets', postgresql_where=sa.text('processed = false'))
-    op.drop_index('ix_bedsets_name_trgm', table_name='bedsets', postgresql_using='gin', postgresql_ops={'name': 'gin_trgm_ops'})
-    op.drop_index(op.f('ix_bedsets_id'), table_name='bedsets')
-    op.drop_index('ix_bedsets_description_trgm', table_name='bedsets', postgresql_using='gin', postgresql_ops={'description': 'gin_trgm_ops'})
-    op.drop_table('bedsets')
-    op.drop_index(op.f('ix_bed_snapshots_id'), table_name='bed_snapshots')
-    op.drop_table('bed_snapshots')
+    op.drop_index(op.f("ix_tokenized_bed_universe_id"), table_name="tokenized_bed")
+    op.drop_index(op.f("ix_tokenized_bed_bed_id"), table_name="tokenized_bed")
+    op.drop_table("tokenized_bed")
+    op.drop_index(op.f("ix_usage_bed_meta_id"), table_name="usage_bed_meta")
+    op.drop_index(op.f("ix_usage_bed_meta_bed_id"), table_name="usage_bed_meta")
+    op.drop_table("usage_bed_meta")
+    op.drop_index(op.f("ix_universes_id"), table_name="universes")
+    op.drop_index(op.f("ix_universes_bedset_id"), table_name="universes")
+    op.drop_table("universes")
+    op.drop_index(op.f("ix_genome_ref_stats_id"), table_name="genome_ref_stats")
+    op.drop_index(op.f("ix_genome_ref_stats_bed_id"), table_name="genome_ref_stats")
+    op.drop_table("genome_ref_stats")
+    op.drop_index(op.f("ix_files_id"), table_name="files")
+    op.drop_index(op.f("ix_files_bedset_id"), table_name="files")
+    op.drop_index(op.f("ix_files_bedfile_id"), table_name="files")
+    op.drop_table("files")
+    op.drop_index(
+        op.f("ix_bedfile_bedset_relation_bedfile_id"),
+        table_name="bedfile_bedset_relation",
+    )
+    op.drop_table("bedfile_bedset_relation")
+    op.drop_index(
+        "ix_bed_stats_missing_regions",
+        table_name="bed_stats",
+        postgresql_where=sa.text("number_of_regions IS NULL"),
+    )
+    op.drop_index(op.f("ix_bed_stats_id"), table_name="bed_stats")
+    op.drop_table("bed_stats")
+    op.drop_index(op.f("ix_bed_metadata_id"), table_name="bed_metadata")
+    op.drop_table("bed_metadata")
+    op.drop_index(op.f("ix_usage_bedset_meta_id"), table_name="usage_bedset_meta")
+    op.drop_index(
+        op.f("ix_usage_bedset_meta_bedset_id"), table_name="usage_bedset_meta"
+    )
+    op.drop_table("usage_bedset_meta")
+    op.drop_index(op.f("ix_geo_gsm_status_id"), table_name="geo_gsm_status")
+    op.drop_index(op.f("ix_geo_gsm_status_gse_status_id"), table_name="geo_gsm_status")
+    op.drop_index(op.f("ix_geo_gsm_status_bed_id"), table_name="geo_gsm_status")
+    op.drop_table("geo_gsm_status")
+    op.drop_index(
+        "ix_bed_unprocessed",
+        table_name="bed",
+        postgresql_where=sa.text("processed = false"),
+    )
+    op.drop_index("ix_bed_submission_date", table_name="bed")
+    op.drop_index(
+        "ix_bed_not_indexed",
+        table_name="bed",
+        postgresql_where=sa.text("indexed = false"),
+    )
+    op.drop_index(
+        "ix_bed_not_file_indexed",
+        table_name="bed",
+        postgresql_where=sa.text("file_indexed = false"),
+    )
+    op.drop_index(op.f("ix_bed_license_id"), table_name="bed")
+    op.drop_index(op.f("ix_bed_id"), table_name="bed")
+    op.drop_index(
+        "genome_alias_index",
+        table_name="bed",
+        postgresql_with={"deduplicate_items": "true"},
+    )
+    op.drop_table("bed")
+    op.drop_index(op.f("ix_usage_search_id"), table_name="usage_search")
+    op.drop_table("usage_search")
+    op.drop_index(op.f("ix_usage_files_id"), table_name="usage_files")
+    op.drop_table("usage_files")
+    op.drop_index(op.f("ix_reference_genomes_digest"), table_name="reference_genomes")
+    op.drop_table("reference_genomes")
+    op.drop_index(op.f("ix_licenses_id"), table_name="licenses")
+    op.drop_table("licenses")
+    op.drop_index(op.f("ix_geo_gse_status_id"), table_name="geo_gse_status")
+    op.drop_table("geo_gse_status")
+    op.drop_index(
+        "ix_bedsets_unprocessed",
+        table_name="bedsets",
+        postgresql_where=sa.text("processed = false"),
+    )
+    op.drop_index(
+        "ix_bedsets_name_trgm",
+        table_name="bedsets",
+        postgresql_using="gin",
+        postgresql_ops={"name": "gin_trgm_ops"},
+    )
+    op.drop_index(op.f("ix_bedsets_id"), table_name="bedsets")
+    op.drop_index(
+        "ix_bedsets_description_trgm",
+        table_name="bedsets",
+        postgresql_using="gin",
+        postgresql_ops={"description": "gin_trgm_ops"},
+    )
+    op.drop_table("bedsets")
+    op.drop_index(op.f("ix_bed_snapshots_id"), table_name="bed_snapshots")
+    op.drop_table("bed_snapshots")
     # ### end Alembic commands ###
