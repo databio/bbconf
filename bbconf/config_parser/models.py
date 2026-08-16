@@ -1,5 +1,6 @@
 import logging
 from pathlib import Path
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, computed_field, field_validator
 from yacman import load_yaml
@@ -72,14 +73,14 @@ class ConfigPath(BaseModel):
 
 class AccessMethodsStruct(BaseModel):
     type: str
-    description: str = None
+    description: str | None = None
     prefix: str
 
 
 class AccessMethods(BaseModel):
-    http: AccessMethodsStruct = None
-    s3: AccessMethodsStruct = None
-    local: AccessMethodsStruct = None
+    http: AccessMethodsStruct | None = None
+    s3: AccessMethodsStruct | None = None
+    local: AccessMethodsStruct | None = None
 
 
 class ConfigS3(BaseModel):
@@ -118,13 +119,25 @@ class ConfigS3(BaseModel):
         return False
 
 
+class ConfigAnalysis(BaseModel):
+    """Analysis backend configuration.
+
+    Controls which statistics engine is used for BED file analysis.
+    """
+
+    backend: Literal["r", "gtars"] = "r"
+
+    model_config = ConfigDict(extra="forbid")
+
+
 class ConfigFile(BaseModel):
     database: ConfigDB
-    qdrant: ConfigQdrant = None
+    qdrant: ConfigQdrant | None = None
     server: ConfigServer
     path: ConfigPath
-    access_methods: AccessMethods = None
-    s3: ConfigS3 = None
+    access_methods: AccessMethods | None = None
+    s3: ConfigS3 | None = None
+    analysis: ConfigAnalysis | None = ConfigAnalysis()
 
     model_config = ConfigDict(extra="allow")
 
