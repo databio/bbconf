@@ -54,6 +54,7 @@ class BedSetMetadata(BaseModel):
     description: str = None
     summary: str = None
     bed_ids: list[str] = None
+    bedfile_count: int = 0
     author: str | None = None
     source: str | None = None
 

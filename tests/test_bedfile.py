@@ -8,7 +8,7 @@ from bbconf.db_utils import Bed, Files
 from bbconf.exceptions import BedFIleExistsError, BEDFileNotFoundError
 
 from .conftest import SERVICE_UNAVAILABLE, get_bbagent
-from .utils import BED_TEST_ID, ContextManagerDBTesting
+from .utils import BED_TEST_ID, BEDSET_TEST_ID, ContextManagerDBTesting
 
 
 @pytest.mark.skipif(SERVICE_UNAVAILABLE, reason="Database is not available")
@@ -52,15 +52,12 @@ class Test_BedFile_Agent:
             bbagent_obj.bed.add(**example_dict)
             assert bbagent_obj.bed.exists(example_dict["identifier"])
 
-    def test_get_all(self, bbagent_obj, mocked_phc):
+    def test_get_all(self, bbagent_obj):
         with ContextManagerDBTesting(config=bbagent_obj.config, add_data=True):
             return_result = bbagent_obj.bed.get(BED_TEST_ID, full=True)
             assert return_result is not None
             assert return_result.files is not None
             assert return_result.plots is not None
-
-            # TODO: PEPhub is disabled
-            # assert return_result.raw_metadata is not None
 
             assert return_result.genome_alias == "hg38"
             assert return_result.stats.number_of_regions == 1
@@ -69,6 +66,16 @@ class Test_BedFile_Agent:
             assert return_result.plots.chrombins is not None
             assert return_result.license_id == DEFAULT_LICENSE
 
+    def test_get_all_bedsets_bedfile_count(self, bbagent_obj):
+        with ContextManagerDBTesting(
+            config=bbagent_obj.config, add_data=True, bedset=True
+        ):
+            return_result = bbagent_obj.bed.get(BED_TEST_ID, full=True)
+
+            assert len(return_result.bedsets) == 1
+            assert return_result.bedsets[0].id == BEDSET_TEST_ID
+            assert return_result.bedsets[0].bedfile_count == 1
+
     def test_get_all_not_found(self, bbagent_obj):
         with ContextManagerDBTesting(config=bbagent_obj.config, add_data=True):
             return_result = bbagent_obj.bed.get(BED_TEST_ID, full=False)
@@ -76,21 +83,10 @@ class Test_BedFile_Agent:
             assert return_result is not None
             assert return_result.files is None
             assert return_result.plots is None
-            assert return_result.raw_metadata is None
             assert return_result.stats is None
 
             assert return_result.genome_alias == "hg38"
             assert return_result.id == BED_TEST_ID
-
-    @pytest.mark.skip(
-        "Skipped, because PHC is disabled"
-    )  # TODO: should we disable PHC everywhere?
-    def test_get_raw_metadata(self, bbagent_obj, mocked_phc):
-        with ContextManagerDBTesting(config=bbagent_obj.config, add_data=True):
-            return_result = bbagent_obj.bed.get_raw_metadata(BED_TEST_ID)
-
-            assert return_result is not None
-            assert return_result.sample_name == BED_TEST_ID
 
     def test_get_stats(self, bbagent_obj):
         with ContextManagerDBTesting(config=bbagent_obj.config, add_data=True):
@@ -215,7 +211,7 @@ class Test_BedFile_Agent:
         with ContextManagerDBTesting(config=bbagent_obj.config, add_data=True):
             bed_file = bbagent_obj.bed.get(BED_TEST_ID, full=True)
             # assert bed_file.annotation.model_dump(exclude_defaults=True) == {}
-            assert bed_file.annotation.cell_line == ""
+            assert bed_file.annotation.cell_line is None
 
             new_metadata = {
                 "cell_line": "K562",

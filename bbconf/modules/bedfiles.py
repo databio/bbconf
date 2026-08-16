@@ -6,7 +6,6 @@ import numpy as np
 from geniml.bbclient import BBClient
 from geniml.search.backends import QdrantBackend
 from gtars.models import RegionSet as GRegionSet
-from pephubclient.exceptions import ResponseError
 from pydantic import BaseModel
 from qdrant_client import models
 from qdrant_client.http.exceptions import UnexpectedResponse
@@ -15,7 +14,7 @@ from qdrant_client.models import PointIdsList
 from sqlalchemy import and_, cast, delete, func, or_, select
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session, aliased
+from sqlalchemy.orm import Session, aliased, selectinload
 from sqlalchemy.orm.attributes import flag_modified
 from tqdm import tqdm
 
@@ -52,8 +51,6 @@ from bbconf.models.bed_models import (
     BedListSearchResult,
     BedMetadataAll,
     BedMetadataBasic,
-    BedPEPHub,
-    BedPEPHubRestrict,
     BedPlots,
     BedSetMinimal,
     BedStatsModel,
@@ -100,27 +97,62 @@ class BedAgentBedFile:
 
         Args:
             identifier: Bed file identifier.
-            full: If True, return full metadata, including statistics, files, and raw metadata from pephub.
+            full: If True, return full metadata, including statistics and files.
 
         Returns:
             BED file metadata.
         """
         statement = select(Bed).where(and_(Bed.id == identifier))
 
-        bed_plots = BedPlots()
-        bed_files = BedFiles()
-
         with Session(self._sa_engine) as session:
             bed_object = session.scalar(statement)
             if not bed_object:
                 raise BEDFileNotFoundError(f"Bed file with id: {identifier} not found.")
 
-            if full:
-                for result in bed_object.files:
-                    # PLOTS
-                    if result.name in BedPlots.model_fields:
+            return self._build_metadata(bed_object, full=full)
+
+    def _build_metadata(self, bed_object: Bed, full: bool = False) -> BedMetadataAll:
+        """
+        Build a BedMetadataAll model from a Bed ORM object.
+
+        For ``full=True`` this assembles plots, files, stats, bedsets, and
+        universe metadata (which lazy-load relationships, so the caller must
+        keep the SQLAlchemy session open). For ``full=False`` only scalar
+        columns and the (joined-loaded) annotations are accessed, so the
+        Bed object may be detached from its session.
+
+        Args:
+            bed_object: Bed ORM object to build metadata from.
+            full: If True, return full metadata, including statistics and files.
+
+        Returns:
+            BED file metadata.
+        """
+        identifier = bed_object.id
+
+        bed_plots = BedPlots()
+        bed_files = BedFiles()
+
+        if full:
+            for result in bed_object.files:
+                # PLOTS
+                if result.name in BedPlots.model_fields:
+                    setattr(
+                        bed_plots,
+                        result.name,
+                        FileModel(
+                            **result.__dict__,
+                            object_id=f"bed.{identifier}.{result.name}",
+                            access_methods=self.config.construct_access_method_list(
+                                result.path
+                            ),
+                        ),
+                    )
+                # FILES
+                elif result.name in BedFiles.model_fields:
+                    (
                         setattr(
-                            bed_plots,
+                            bed_files,
                             result.name,
                             FileModel(
                                 **result.__dict__,
@@ -129,64 +161,35 @@ class BedAgentBedFile:
                                     result.path
                                 ),
                             ),
-                        )
-                    # FILES
-                    elif result.name in BedFiles.model_fields:
-                        (
-                            setattr(
-                                bed_files,
-                                result.name,
-                                FileModel(
-                                    **result.__dict__,
-                                    object_id=f"bed.{identifier}.{result.name}",
-                                    access_methods=self.config.construct_access_method_list(
-                                        result.path
-                                    ),
-                                ),
-                            ),
-                        )
-
-                    else:
-                        _LOGGER.error(
-                            f"Unknown file type: {result.name}. And is not in the model fields. Skipping.."
-                        )
-                bed_stats = BedStatsModel(**bed_object.stats.__dict__)
-                bed_bedsets = []
-                for relation in bed_object.bedsets:
-                    bed_bedsets.append(
-                        BedSetMinimal(
-                            id=relation.bedset.id,
-                            description=relation.bedset.description,
-                            name=relation.bedset.name,
-                        )
+                        ),
                     )
 
-                if bed_object.universe:
-                    universe_meta = UniverseMetadata(**bed_object.universe.__dict__)
                 else:
-                    universe_meta = UniverseMetadata()
-            else:
-                bed_plots = None
-                bed_files = None
-                bed_stats = None
-                universe_meta = None
-                bed_bedsets = []
-
-        try:
-            if full:
-                bed_metadata = BedPEPHubRestrict(
-                    **self.config.phc.sample.get(
-                        namespace=self.config.config.phc.namespace,
-                        name=self.config.config.phc.name,
-                        tag=self.config.config.phc.tag,
-                        sample_name=identifier,
+                    _LOGGER.error(
+                        f"Unknown file type: {result.name}. And is not in the model fields. Skipping.."
+                    )
+            bed_stats = BedStatsModel(**bed_object.stats.__dict__)
+            bed_bedsets = []
+            for relation in bed_object.bedsets:
+                bed_bedsets.append(
+                    BedSetMinimal(
+                        id=relation.bedset.id,
+                        description=relation.bedset.description,
+                        name=relation.bedset.name,
+                        bedfile_count=relation.bedset.bedfile_count,
                     )
                 )
+
+            if bed_object.universe:
+                universe_meta = UniverseMetadata(**bed_object.universe.__dict__)
             else:
-                bed_metadata = None
-        except Exception as e:
-            _LOGGER.warning(f"Could not retrieve metadata from pephub. Error: {e}")
-            bed_metadata = None
+                universe_meta = UniverseMetadata()
+        else:
+            bed_plots = None
+            bed_files = None
+            bed_stats = None
+            universe_meta = None
+            bed_bedsets = []
 
         return BedMetadataAll(
             id=bed_object.id,
@@ -197,7 +200,6 @@ class BedAgentBedFile:
             description=bed_object.description,
             submission_date=bed_object.submission_date,
             last_update_date=bed_object.last_update_date,
-            raw_metadata=bed_metadata,
             genome_alias=bed_object.genome_alias,
             genome_digest=bed_object.genome_digest,
             bed_compliance=bed_object.bed_compliance,
@@ -290,17 +292,32 @@ class BedAgentBedFile:
                 limit=limit,
                 offset=offset,
             )
-            result_list = []
-            for result in results.points:
-                result_id = result.id.replace("-", "")
-                result_list.append(
-                    QdrantSearchResult(
-                        id=result_id,
-                        payload=result.payload,
-                        score=result.score,
-                        metadata=self.get(result_id, full=False),
-                    )
+            # Hydrate all neighbours with a single batched query instead of one
+            # SELECT per neighbour (was an N+1). annotations is joined-loaded,
+            # but selectinload keeps that explicit for this detached-object path.
+            ids = [result.id.replace("-", "") for result in results.points]
+            with Session(self._sa_engine) as session:
+                beds = {
+                    bed.id: bed
+                    for bed in session.scalars(
+                        select(Bed)
+                        .where(Bed.id.in_(ids))
+                        .options(selectinload(Bed.annotations))
+                    ).all()
+                }
+            result_list = [
+                QdrantSearchResult(
+                    id=result.id.replace("-", ""),
+                    payload=result.payload,
+                    score=result.score,
+                    metadata=self._build_metadata(
+                        beds[result.id.replace("-", "")], full=False
+                    ),
                 )
+                for result in results.points
+                # skip stale Qdrant points that no longer exist in the database
+                if result.id.replace("-", "") in beds
+            ]
         except UnexpectedResponse as err:
             _LOGGER.error(
                 f"Qdrant request failed. Error: {err}. Returning empty result set."
@@ -346,28 +363,6 @@ class BedAgentBedFile:
                         ),
                     )
         return bed_files
-
-    def get_raw_metadata(self, identifier: str) -> BedPEPHub:
-        """
-        Get file metadata by identifier.
-
-        Args:
-            identifier: Bed file identifier.
-
-        Returns:
-            BED file raw metadata.
-        """
-        try:
-            bed_metadata = self.config.phc.sample.get(
-                namespace=self.config.config.phc.namespace,
-                name=self.config.config.phc.name,
-                tag=self.config.config.phc.tag,
-                sample_name=identifier,
-            )
-        except Exception as e:
-            _LOGGER.warning(f"Could not retrieve metadata from pephub. Error: {e}")
-            bed_metadata = {}
-        return BedPEPHubRestrict(**bed_metadata)
 
     def get_classification(self, identifier: str) -> BedClassification:
         """
@@ -470,7 +465,7 @@ class BedAgentBedFile:
                 and_(Bed.bed_compliance == bed_compliance)
             )
 
-        statement = statement.limit(limit).offset(offset)
+        statement = statement.order_by(Bed.id).limit(limit).offset(offset)
 
         result_list = []
         with Session(self._sa_engine) as session:
@@ -557,7 +552,6 @@ class BedAgentBedFile:
         ref_validation: dict[str, BaseModel] | None = None,
         license_id: str = DEFAULT_LICENSE,
         upload_qdrant: bool = False,
-        upload_pephub: bool = False,
         upload_s3: bool = False,
         local_path: str = None,
         overwrite: bool = False,
@@ -570,7 +564,7 @@ class BedAgentBedFile:
         Args:
             identifier: Bed file identifier.
             stats: Bed file results {statistics, plots, files, metadata}.
-            metadata: Bed file metadata (will be saved in pephub).
+            metadata: Bed file metadata.
             plots: Bed file plots.
             files: Bed file files.
             classification: Bed file classification.
@@ -578,11 +572,10 @@ class BedAgentBedFile:
             license_id: Bed file license id (default: 'DUO:0000042'). Full list of licenses:
                 https://raw.githubusercontent.com/EBISPOT/DUO/master/duo.csv
             upload_qdrant: Add bed file to qdrant indexes.
-            upload_pephub: Add bed file to pephub.
             upload_s3: Upload files to s3.
             local_path: Local path to the output files.
             overwrite: Overwrite bed file if it already exists.
-            nofail: Do not raise an error for error in pephub/s3/qdrant or record exists and not overwrite.
+            nofail: Do not raise an error for error in s3/qdrant or record exists and not overwrite.
             processed: True if bedfile was processed and statistics and plots were calculated.
 
         Returns:
@@ -634,23 +627,6 @@ class BedAgentBedFile:
         bed_metadata = StandardMeta(**metadata)
 
         classification = BedClassification(**classification)
-        if upload_pephub:
-            pephub_metadata = BedPEPHub(**metadata)
-            try:
-                self.upload_pephub(
-                    identifier,
-                    pephub_metadata.model_dump(exclude=set("input_file")),
-                    overwrite,
-                )
-            except Exception as e:
-                _LOGGER.warning(
-                    f"Could not upload to pephub. Error: {e}. nofail: {nofail}"
-                )
-                upload_pephub = False
-                if not nofail:
-                    raise e
-        else:
-            _LOGGER.info("upload_pephub set to false. Skipping pephub..")
 
         if upload_qdrant:
             if classification.genome_alias == "hg38":
@@ -686,7 +662,6 @@ class BedAgentBedFile:
                 description=bed_metadata.description,
                 license_id=license_id,
                 indexed=upload_qdrant,
-                pephub=upload_pephub,
                 processed=processed,
             )
             session.add(new_bed)
@@ -758,7 +733,6 @@ class BedAgentBedFile:
         ref_validation: dict[str, BaseModel] | None = None,
         license_id: str = DEFAULT_LICENSE,
         upload_qdrant: bool = False,
-        upload_pephub: bool = False,
         upload_s3: bool = True,
         local_path: str = None,
         overwrite: bool = False,
@@ -771,18 +745,17 @@ class BedAgentBedFile:
         Args:
             identifier: Bed file identifier.
             stats: Bed file results {statistics, plots, files, metadata}.
-            metadata: Bed file metadata (will be saved in pephub).
+            metadata: Bed file metadata.
             plots: Bed file plots.
             files: Bed file files.
             classification: Bed file classification.
             ref_validation: Reference validation data. RefGenValidModel.
             license_id: Bed file license id (default: 'DUO:0000042').
             upload_qdrant: Add bed file to qdrant indexes.
-            upload_pephub: Add bed file to pephub.
             upload_s3: Upload files to s3.
             local_path: Local path to the output files.
             overwrite: Overwrite bed file if it already exists.
-            nofail: Do not raise an error for error in pephub/s3/qdrant or record exists and not overwrite.
+            nofail: Do not raise an error for error in s3/qdrant or record exists and not overwrite.
             processed: True if bedfile was processed and statistics and plots were calculated.
 
         Returns:
@@ -805,19 +778,6 @@ class BedAgentBedFile:
         files = BedFiles(**files if files else {})
         bed_metadata = StandardMeta(**metadata if metadata else {})
         classification = BedClassification(**classification if classification else {})
-
-        if upload_pephub and metadata:
-            metadata = BedPEPHub(**metadata)
-            try:
-                self.update_pephub(identifier, metadata.model_dump(), overwrite)
-            except Exception as e:
-                _LOGGER.warning(
-                    f"Could not upload to pephub. Error: {e}. nofail: {nofail}"
-                )
-                if not nofail:
-                    raise e
-        else:
-            _LOGGER.info("upload_pephub set to false. Skipping pephub..")
 
         if upload_qdrant:
             if classification.genome_alias == "hg38":
@@ -1152,64 +1112,14 @@ class BedAgentBedFile:
             bed_object = session.scalar(statement)
 
             files = [FileModel(**k.__dict__) for k in bed_object.files]
-            delete_pephub = bed_object.pephub
             delete_qdrant = bed_object.indexed
 
             session.delete(bed_object)
             session.commit()
 
-        if delete_pephub:
-            self.delete_pephub_sample(identifier)
         if delete_qdrant:
             self.delete_qdrant_point(identifier)
         self.config.delete_files_s3(files)
-
-    def upload_pephub(self, identifier: str, metadata: dict, overwrite: bool = False):
-        if not metadata:
-            _LOGGER.warning("No metadata provided. Skipping pephub upload..")
-            return False
-        self.config.phc.sample.create(
-            namespace=self.config.config.phc.namespace,
-            name=self.config.config.phc.name,
-            tag=self.config.config.phc.tag,
-            sample_name=identifier,
-            sample_dict=metadata,
-            overwrite=overwrite,
-        )
-
-    def update_pephub(
-        self, identifier: str, metadata: dict, overwrite: bool = False
-    ) -> None:
-        try:
-            if not metadata:
-                _LOGGER.warning("No metadata provided. Skipping pephub upload..")
-                return None
-            self.config.phc.sample.update(
-                namespace=self.config.config.phc.namespace,
-                name=self.config.config.phc.name,
-                tag=self.config.config.phc.tag,
-                sample_name=identifier,
-                sample_dict=metadata,
-            )
-        except ResponseError as e:
-            _LOGGER.warning(f"Could not update pephub. Error: {e}")
-
-    def delete_pephub_sample(self, identifier: str):
-        """
-        Delete sample from pephub.
-
-        Args:
-            identifier: Bed file identifier.
-        """
-        try:
-            self.config.phc.sample.remove(
-                namespace=self.config.config.phc.namespace,
-                name=self.config.config.phc.name,
-                tag=self.config.config.phc.tag,
-                sample_name=identifier,
-            )
-        except ResponseError as e:
-            _LOGGER.warning(f"Could not delete from pephub. Error: {e}")
 
     def upload_file_qdrant(
         self,
@@ -1382,8 +1292,15 @@ class BedAgentBedFile:
                 continue
             if result_meta:
                 results_list.append(QdrantSearchResult(**result, metadata=result_meta))
+
+        # Count of the searchable pool (indexed bed vectors), not the total number
+        # of bed files in the database (which overcounts unindexed genomes).
+        count = self.config.qdrant_client.count(
+            collection_name=self.config.config.qdrant.file_collection,
+            exact=True,
+        ).count
         return BedListSearchResult(
-            count=self.bb_agent.get_stats().bedfiles_number,
+            count=count,
             limit=limit,
             offset=offset,
             results=results_list,
@@ -2374,6 +2291,7 @@ class BedAgentBedFile:
         Returns:
             List of bed file metadata.
         """
+
         if source not in ["geo", "encode"]:
             raise BedBaseConfError(
                 f"Source {source} is not supported. Supported sources are: 'geo', 'encode'."
@@ -2392,6 +2310,34 @@ class BedAgentBedFile:
                     )
                 )
             )
+        elif source == "geo" and accession.upper().startswith("GSM"):
+            statement = (
+                select(Bed)
+                .join(BedMetadata, Bed.id == BedMetadata.id)
+                .where(
+                    BedMetadata.global_sample_id.contains(
+                        cast(
+                            [f"{source}:{accession}"],
+                            postgresql.ARRAY(postgresql.VARCHAR),
+                        )
+                    )
+                )
+            )
+        elif source == "encode" and accession.upper().startswith("ENCSR"):
+            accession = accession.upper()
+            statement = (
+                select(Bed)
+                .join(BedMetadata, Bed.id == BedMetadata.id)
+                .where(
+                    BedMetadata.global_experiment_id.contains(
+                        cast(
+                            [f"{source}:{accession}"],
+                            postgresql.ARRAY(postgresql.VARCHAR),
+                        )
+                    )
+                )
+            )
+            print(statement)
         else:
             statement = (
                 select(Bed)

@@ -1,4 +1,5 @@
 import logging
+from importlib.metadata import version
 
 import coloredlogs
 
@@ -6,7 +7,9 @@ from bbconf.bbagent import BedBaseAgent
 
 from .const import PKG_NAME
 
-__all__ = ["BedBaseAgent"]
+__version__ = version(__package__)
+
+__all__ = ["BedBaseAgent", "__version__"]
 
 _LOGGER = logging.getLogger(PKG_NAME)
 coloredlogs.install(

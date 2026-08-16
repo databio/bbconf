@@ -10,9 +10,6 @@ from bbconf.config_parser.const import (  # DEFAULT_VEC2VEC_MODEL,
     DEFAULT_DB_DRIVER,
     DEFAULT_DB_NAME,
     DEFAULT_DB_PORT,
-    DEFAULT_PEPHUB_NAME,
-    DEFAULT_PEPHUB_NAMESPACE,
-    DEFAULT_PEPHUB_TAG,
     DEFAULT_QDRANT_BIVEC_COLLECTION_NAME,
     DEFAULT_QDRANT_FILE_COLLECTION_NAME,
     DEFAULT_QDRANT_HYBRID_COLLECTION_NAME,
@@ -36,6 +33,7 @@ class ConfigDB(BaseModel):
     database: str = DEFAULT_DB_NAME
     dialect: str = DEFAULT_DB_DIALECT
     driver: str | None = DEFAULT_DB_DRIVER
+    run_migrations: bool = False
 
     model_config = ConfigDict(extra="forbid")
 
@@ -137,7 +135,6 @@ class ConfigAnalysis(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-
 class ConfigFile(BaseModel):
     database: ConfigDB
     qdrant: ConfigQdrant = None
@@ -145,7 +142,6 @@ class ConfigFile(BaseModel):
     path: ConfigPath
     access_methods: AccessMethods = None
     s3: ConfigS3 = None
-    phc: ConfigPepHubClient = None
     analysis: ConfigAnalysis = ConfigAnalysis()
 
     model_config = ConfigDict(extra="allow")

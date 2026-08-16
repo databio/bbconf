@@ -3,6 +3,35 @@
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) and [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) format.
 
 
+### [0.14.13] - 2026-07-13
+### Fixed:
+- Cache `get_stats()` with a TTL to avoid running uncached COUNT queries on the bed table on every request to hot API paths (stats, neighbours, list, search)
+- Eliminated an N+1 query in `get_neighbours()` by fetching all neighbour metadata in a single batched query (with annotations eager-loaded) instead of one query per neighbour; stale Qdrant points are now skipped rather than raising
+- Eliminated an N+1 in `BedAgentBedSet.get_ids_list()`: it was refetching each bedset by id and lazy-loading its full bedfile membership just to build the list page. Now builds results directly from the paginated query; `bed_ids` is left unpopulated on list results (use `get(identifier)` for a single bedset's member ids)
+- `get_detailed_stats()` no longer reuses a `Session` after its `with` block has closed (was forcing 3 extra connection checkouts for `_stats_comments`/`_stats_geo_status`/`_get_geo_stats`); all queries now share one session/transaction
+- Replaced the `bed_files_info()` call inside `get_detailed_stats()` with a targeted 3-column query, avoiding a full-table `FileInfo` Pydantic construction (with per-row try/except) for every bed record just to extract `number_of_regions`/`mean_region_width`/`file_size` for histogram binning
+- `BedAgentBedFile.get_ids_list()` (backs `/bed/list`) had no `order_by()` on its paginated query, so row order across pages was undefined -- rows could be duplicated or skipped between requests. Now orders by `Bed.id`.
+- `get_detailed_stats()` crashed with a pydantic `ValidationError` whenever `bed_compliance`, `data_format`, `genome_alias`, `species_name`, `assay`, or `cell_line` had NULL rows: the `GROUP BY` queries included the NULL group, producing a `None` dict key, which `FileStats`'s `dict[str, int]` fields reject. All six queries now filter out NULLs before grouping.
+
+
+### Added:
+- Added a denormalized `bedfile_count` column to `bedsets`, exposed as `BedSetMetadata.bedfile_count`. Set once at bedset creation time (membership is write-once; `add_bedfile`/`delete_bedfile` are unimplemented), so reads never need to touch `bedfile_bedset_relation` to know a bedset's size. Requires a DB migration -- see `scripts/migrations/2026_07_31_add_bedset_bedfile_count.sql`
+
+
+### [0.14.12] - 2026-04-22
+### Changed:
+- Updated yacman version to 2.0.0
+
+
+### [0.14.11] - 2026-04-15
+### Fixed:
+- External id search
+
+
+### [0.14.10] - 2026-04-05
+### Fixed:
+- version info bug
+
 ### [0.14.9] - 2026-02-26
 ### Changed:
 - Modernized docstrings

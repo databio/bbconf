@@ -17,10 +17,6 @@ qdrant:
 s3:
   bucket: bedbase
   endpoint_url: "None"
-phc:
-  namespace: bedbase
-  name: bedbase
-  tag: test
 access_methods:
   http:
     type: "https"

@@ -70,6 +70,13 @@ class BedSetExistsError(BedBaseConfError):
     pass
 
 
+class SnapshotNotFoundError(BedBaseConfError):
+    """
+    Error type for missing snapshot"""
+
+    pass
+
+
 class UniverseNotFoundError(BedBaseConfError):
     """
     Error type for missing universe"""

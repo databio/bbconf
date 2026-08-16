@@ -138,6 +138,7 @@ class ContextManagerDBTesting:
                 bedset_standard_deviation=stats,
                 md5sum="bbad0000000000000000000000000000",
                 processed=False,
+                bedfile_count=1,
             )
             new_bed_bedset = BedFileBedSetRelation(
                 bedfile_id=BED_TEST_ID,
