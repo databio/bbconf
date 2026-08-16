@@ -129,19 +129,7 @@ class BedBaseConfig:
         """
 
         _config = yacman.YAMLConfigManager.from_yaml_file(filepath=config_path).exp
-
-        config_dict = {}
-        for field_name, annotation in ConfigFile.model_fields.items():
-            try:
-                config_dict[field_name] = annotation.annotation(
-                    **_config.get(field_name)
-                )
-            except TypeError:
-                # TODO: this should be more specific
-                config_dict[field_name] = annotation.annotation()
-
-        return ConfigFile(**config_dict)
-        # return ConfigFile.from_yaml(Path(config_path))
+        return ConfigFile(**_config)
 
     @property
     def config(self) -> ConfigFile:

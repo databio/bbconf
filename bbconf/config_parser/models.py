@@ -118,6 +118,7 @@ class ConfigS3(BaseModel):
         )
         return False
 
+
 class ConfigAnalysis(BaseModel):
     """Analysis backend configuration.
 
@@ -128,6 +129,7 @@ class ConfigAnalysis(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
+
 class ConfigFile(BaseModel):
     database: ConfigDB
     qdrant: ConfigQdrant | None = None
@@ -135,7 +137,7 @@ class ConfigFile(BaseModel):
     path: ConfigPath
     access_methods: AccessMethods | None = None
     s3: ConfigS3 | None = None
-    analysis: ConfigAnalysis = ConfigAnalysis()
+    analysis: ConfigAnalysis | None = ConfigAnalysis()
 
     model_config = ConfigDict(extra="allow")
 
