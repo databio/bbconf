@@ -83,7 +83,6 @@ class Test_BedFile_Agent:
             assert return_result is not None
             assert return_result.files is None
             assert return_result.plots is None
-            assert return_result.raw_metadata is None
             assert return_result.stats is None
 
             assert return_result.genome_alias == "hg38"

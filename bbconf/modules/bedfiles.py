@@ -51,8 +51,6 @@ from bbconf.models.bed_models import (
     BedListSearchResult,
     BedMetadataAll,
     BedMetadataBasic,
-    BedPEPHub,
-    BedPEPHubRestrict,
     BedPlots,
     BedSetMinimal,
     BedStatsModel,
@@ -193,9 +191,6 @@ class BedAgentBedFile:
             universe_meta = None
             bed_bedsets = []
 
-        # Raw metadata used to come from PEPHub, which is no longer used.
-        bed_metadata = None
-
         return BedMetadataAll(
             id=bed_object.id,
             name=bed_object.name,
@@ -205,7 +200,6 @@ class BedAgentBedFile:
             description=bed_object.description,
             submission_date=bed_object.submission_date,
             last_update_date=bed_object.last_update_date,
-            raw_metadata=bed_metadata,
             genome_alias=bed_object.genome_alias,
             genome_digest=bed_object.genome_digest,
             bed_compliance=bed_object.bed_compliance,
@@ -369,19 +363,6 @@ class BedAgentBedFile:
                         ),
                     )
         return bed_files
-
-    def get_raw_metadata(self, identifier: str) -> BedPEPHub:
-        """
-        Get file metadata by identifier.
-
-        Args:
-            identifier: Bed file identifier.
-
-        Returns:
-            BED file raw metadata.
-        """
-        # Raw metadata used to come from PEPHub, which is no longer used.
-        return BedPEPHubRestrict()
 
     def get_classification(self, identifier: str) -> BedClassification:
         """
@@ -571,7 +552,6 @@ class BedAgentBedFile:
         ref_validation: dict[str, BaseModel] | None = None,
         license_id: str = DEFAULT_LICENSE,
         upload_qdrant: bool = False,
-        upload_pephub: bool = False,
         upload_s3: bool = False,
         local_path: str = None,
         overwrite: bool = False,
@@ -592,7 +572,6 @@ class BedAgentBedFile:
             license_id: Bed file license id (default: 'DUO:0000042'). Full list of licenses:
                 https://raw.githubusercontent.com/EBISPOT/DUO/master/duo.csv
             upload_qdrant: Add bed file to qdrant indexes.
-            upload_pephub: Deprecated and ignored. PEPHub upload is no longer supported.
             upload_s3: Upload files to s3.
             local_path: Local path to the output files.
             overwrite: Overwrite bed file if it already exists.
@@ -648,8 +627,6 @@ class BedAgentBedFile:
         bed_metadata = StandardMeta(**metadata)
 
         classification = BedClassification(**classification)
-        if upload_pephub:
-            _LOGGER.info("PEPHub upload is no longer supported. Skipping pephub..")
 
         if upload_qdrant:
             if classification.genome_alias == "hg38":
@@ -685,7 +662,6 @@ class BedAgentBedFile:
                 description=bed_metadata.description,
                 license_id=license_id,
                 indexed=upload_qdrant,
-                pephub=False,
                 processed=processed,
             )
             session.add(new_bed)
@@ -757,7 +733,6 @@ class BedAgentBedFile:
         ref_validation: dict[str, BaseModel] | None = None,
         license_id: str = DEFAULT_LICENSE,
         upload_qdrant: bool = False,
-        upload_pephub: bool = False,
         upload_s3: bool = True,
         local_path: str = None,
         overwrite: bool = False,
@@ -777,7 +752,6 @@ class BedAgentBedFile:
             ref_validation: Reference validation data. RefGenValidModel.
             license_id: Bed file license id (default: 'DUO:0000042').
             upload_qdrant: Add bed file to qdrant indexes.
-            upload_pephub: Deprecated and ignored. PEPHub upload is no longer supported.
             upload_s3: Upload files to s3.
             local_path: Local path to the output files.
             overwrite: Overwrite bed file if it already exists.
@@ -804,9 +778,6 @@ class BedAgentBedFile:
         files = BedFiles(**files if files else {})
         bed_metadata = StandardMeta(**metadata if metadata else {})
         classification = BedClassification(**classification if classification else {})
-
-        if upload_pephub:
-            _LOGGER.info("PEPHub upload is no longer supported. Skipping pephub..")
 
         if upload_qdrant:
             if classification.genome_alias == "hg38":

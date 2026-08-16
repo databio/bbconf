@@ -306,7 +306,6 @@ class BedAgentBedSet:
         statistics: bool = False,
         annotation: dict | None = None,
         plots: dict | None = None,
-        upload_pephub: bool = False,
         upload_s3: bool = False,
         local_path: str = "",
         no_fail: bool = False,
@@ -324,7 +323,6 @@ class BedAgentBedSet:
             statistics: Calculate statistics for bedset.
             annotation: Bedset annotation (author, source).
             plots: Dictionary with plots.
-            upload_pephub: Deprecated and ignored. PEPHub upload is no longer supported.
             upload_s3: Upload bedset to s3.
             local_path: Local path to the output files.
             no_fail: Do not raise an error if bedset already exists.
@@ -356,9 +354,6 @@ class BedAgentBedSet:
 
         if not isinstance(annotation, dict):
             annotation = {}
-
-        if upload_pephub:
-            _LOGGER.info("PEPHub upload is no longer supported. Skipping pephub..")
 
         if no_fail:
             bedid_list = list(set(bedid_list))

@@ -114,7 +114,6 @@ def example_dict():
         files=files,
         classification=classification,
         upload_qdrant=False,
-        upload_pephub=False,
         upload_s3=True,
         local_path=DATA_PATH,
         overwrite=False,

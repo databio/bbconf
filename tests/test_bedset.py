@@ -53,7 +53,6 @@ class TestBedset:
                 },
                 statistics=True,
                 upload_s3=True,
-                upload_pephub=False,
                 no_fail=True,
             )
             with Session(bbagent_obj.config.db_engine.engine) as session:
