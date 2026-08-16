@@ -77,33 +77,6 @@ class BedStatsModel(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
 
-class BedPEPHub(BaseModel):
-    sample_name: str | None = ""
-    genome: str | None = ""
-    organism: str | None = ""
-    species_id: str | None = ""
-    cell_type: str | None = ""
-    cell_line: str | None = ""
-    assay: str | None = Field("", description="Experimental protocol (e.g. ChIP-seq)")
-    library_source: str | None = Field(
-        "", description="Library source (e.g. genomic, transcriptomic)"
-    )
-    genotype: str | None = Field("", description="Genotype of the sample")
-    target: str | None = Field("", description="Target of the assay (e.g. H3K4me3)")
-    antibody: str | None = Field("", description="Antibody used in the assay")
-    treatment: str | None = Field(
-        "", description="Treatment of the sample (e.g. drug treatment)"
-    )
-    tissue: str | None = Field("", description="Tissue type")
-    global_sample_id: str | None = Field("", description="Global sample identifier")
-    global_experiment_id: str | None = Field(
-        "", description="Global experiment identifier"
-    )
-    description: str | None = Field("", description="Description of the sample")
-
-    model_config = ConfigDict(extra="allow", populate_by_name=True)
-
-
 class StandardMeta(BaseModel):
     """
     Standardized Bed file metadata
@@ -165,10 +138,6 @@ class StandardMeta(BaseModel):
         raise ValueError("values must be a string or a list of strings")
 
 
-class BedPEPHubRestrict(BedPEPHub):
-    model_config = ConfigDict(extra="ignore")
-
-
 class BedMetadataBasic(BedClassification):
     id: str
     name: str | None = ""
@@ -190,6 +159,7 @@ class BedSetMinimal(BaseModel):
     id: str
     name: str | None = None
     description: str | None = None
+    bedfile_count: int = 0
 
 
 class BedMetadataAll(BedMetadataBasic):
@@ -197,7 +167,6 @@ class BedMetadataAll(BedMetadataBasic):
     plots: BedPlots | None = None
     files: BedFiles | None = None
     universe_metadata: UniverseMetadata | None = None
-    raw_metadata: BedPEPHub | BedPEPHubRestrict | None = None
     bedsets: list[BedSetMinimal] | None = None
 
 
