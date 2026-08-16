@@ -306,7 +306,6 @@ class BedAgentBedSet:
         statistics: bool = False,
         annotation: dict | None = None,
         plots: dict | None = None,
-        upload_pephub: bool = False,
         upload_s3: bool = False,
         local_path: str = "",
         no_fail: bool = False,
@@ -324,7 +323,6 @@ class BedAgentBedSet:
             statistics: Calculate statistics for bedset.
             annotation: Bedset annotation (author, source).
             plots: Dictionary with plots.
-            upload_pephub: Upload bedset to pephub (create view in pephub).
             upload_s3: Upload bedset to s3.
             local_path: Local path to the output files.
             no_fail: Do not raise an error if bedset already exists.
@@ -356,14 +354,6 @@ class BedAgentBedSet:
 
         if not isinstance(annotation, dict):
             annotation = {}
-
-        if upload_pephub:
-            try:
-                self._create_pephub_view(identifier, description, bedid_list, no_fail)
-            except Exception as e:
-                _LOGGER.error(f"Failed to create view in pephub: {e}")
-                if not no_fail:
-                    raise e
 
         if no_fail:
             bedid_list = list(set(bedid_list))
@@ -461,42 +451,6 @@ class BedAgentBedSet:
 
         _LOGGER.info("Bedset statistics were calculated successfully")
         return bedset_stats
-
-    # def _create_pephub_view(
-    #     self,
-    #     bedset_id: str,
-    #     description: str = None,
-    #     bed_ids: list = None,
-    #     nofail: bool = False,
-    # ) -> None:
-    #     """
-    #     Create view in pephub for bedset.
-    #
-    #     Args:
-    #         bedset_id: Bedset identifier.
-    #         description: Bedset description.
-    #         bed_ids: List of bed file identifiers.
-    #         nofail: Do not raise an error if sample not found.
-    #
-    #     Returns:
-    #         None.
-    #     """
-    #
-    #     _LOGGER.info(f"Creating view in pephub for bedset '{bedset_id}'")
-    #     try:
-    #         self.config.phc.view.create(
-    #             namespace=self.config.config.phc.namespace,
-    #             name=self.config.config.phc.name,
-    #             tag=self.config.config.phc.tag,
-    #             view_name=bedset_id,
-    #             # description=description,
-    #             sample_list=bed_ids,
-    #         )
-    #     except Exception as e:
-    #         _LOGGER.error(f"Failed to create view in pephub: {e}")
-    #         if not nofail:
-    #             raise e
-    #     return None
 
     def get_ids_list(
         self, query: str | None = None, limit: int = 10, offset: int = 0
@@ -622,31 +576,6 @@ class BedAgentBedSet:
 
         if files:
             self.config.delete_files_s3(files)
-
-    # def delete_phc_view(self, identifier: str, nofail: bool = False) -> None:
-    #     """
-    #     Delete view in pephub.
-    #
-    #     Args:
-    #         identifier: Bedset identifier.
-    #         nofail: Do not raise an error if view not found.
-    #
-    #     Returns:
-    #         None.
-    #     """
-    #     _LOGGER.info(f"Deleting view in pephub for bedset '{identifier}'")
-    #     try:
-    #         self.config.phc.view.delete(
-    #             namespace=self.config.config.phc.namespace,
-    #             name=self.config.config.phc.name,
-    #             tag=self.config.config.phc.tag,
-    #             view_name=identifier,
-    #         )
-    #     except Exception as e:
-    #         _LOGGER.error(f"Failed to delete view in pephub: {e}")
-    #         if not nofail:
-    #             raise e
-    #     return None
 
     def exists(self, identifier: str) -> bool:
         """

@@ -17,10 +17,6 @@ DEFAULT_TEXT2VEC_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 DEFAULT_SPARSE_MODEL = "prithivida/Splade_PP_en_v2"
 DEFAULT_REGION2_VEC_MODEL = "databio/r2v_encoder-ChIP-atlas-hg38"
 
-DEFAULT_PEPHUB_NAMESPACE = "databio"
-DEFAULT_PEPHUB_NAME = "bedbase_all"
-DEFAULT_PEPHUB_TAG = "default"
-
 DEFAULT_S3_BUCKET = "bedbase"
 
 

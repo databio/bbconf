@@ -52,15 +52,12 @@ class Test_BedFile_Agent:
             bbagent_obj.bed.add(**example_dict)
             assert bbagent_obj.bed.exists(example_dict["identifier"])
 
-    def test_get_all(self, bbagent_obj, mocked_phc):
+    def test_get_all(self, bbagent_obj):
         with ContextManagerDBTesting(config=bbagent_obj.config, add_data=True):
             return_result = bbagent_obj.bed.get(BED_TEST_ID, full=True)
             assert return_result is not None
             assert return_result.files is not None
             assert return_result.plots is not None
-
-            # TODO: PEPhub is disabled
-            # assert return_result.raw_metadata is not None
 
             assert return_result.genome_alias == "hg38"
             assert return_result.stats.number_of_regions == 1
@@ -69,7 +66,7 @@ class Test_BedFile_Agent:
             assert return_result.plots.chrombins is not None
             assert return_result.license_id == DEFAULT_LICENSE
 
-    def test_get_all_bedsets_bedfile_count(self, bbagent_obj, mocked_phc):
+    def test_get_all_bedsets_bedfile_count(self, bbagent_obj):
         with ContextManagerDBTesting(
             config=bbagent_obj.config, add_data=True, bedset=True
         ):
@@ -86,21 +83,10 @@ class Test_BedFile_Agent:
             assert return_result is not None
             assert return_result.files is None
             assert return_result.plots is None
-            assert return_result.raw_metadata is None
             assert return_result.stats is None
 
             assert return_result.genome_alias == "hg38"
             assert return_result.id == BED_TEST_ID
-
-    @pytest.mark.skip(
-        "Skipped, because PHC is disabled"
-    )  # TODO: should we disable PHC everywhere?
-    def test_get_raw_metadata(self, bbagent_obj, mocked_phc):
-        with ContextManagerDBTesting(config=bbagent_obj.config, add_data=True):
-            return_result = bbagent_obj.bed.get_raw_metadata(BED_TEST_ID)
-
-            assert return_result is not None
-            assert return_result.sample_name == BED_TEST_ID
 
     def test_get_stats(self, bbagent_obj):
         with ContextManagerDBTesting(config=bbagent_obj.config, add_data=True):

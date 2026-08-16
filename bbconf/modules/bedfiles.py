@@ -6,7 +6,6 @@ import numpy as np
 from geniml.bbclient import BBClient
 from geniml.search.backends import QdrantBackend
 from gtars.models import RegionSet as GRegionSet
-from pephubclient.exceptions import ResponseError
 from pydantic import BaseModel
 from qdrant_client import models
 from qdrant_client.http.exceptions import UnexpectedResponse
@@ -52,8 +51,6 @@ from bbconf.models.bed_models import (
     BedListSearchResult,
     BedMetadataAll,
     BedMetadataBasic,
-    BedPEPHub,
-    BedPEPHubRestrict,
     BedPlots,
     BedSetMinimal,
     BedStatsModel,
@@ -100,7 +97,7 @@ class BedAgentBedFile:
 
         Args:
             identifier: Bed file identifier.
-            full: If True, return full metadata, including statistics, files, and raw metadata from pephub.
+            full: If True, return full metadata, including statistics and files.
 
         Returns:
             BED file metadata.
@@ -126,8 +123,7 @@ class BedAgentBedFile:
 
         Args:
             bed_object: Bed ORM object to build metadata from.
-            full: If True, return full metadata, including statistics, files,
-                and raw metadata from pephub.
+            full: If True, return full metadata, including statistics and files.
 
         Returns:
             BED file metadata.
@@ -195,22 +191,6 @@ class BedAgentBedFile:
             universe_meta = None
             bed_bedsets = []
 
-        try:
-            if full:
-                bed_metadata = BedPEPHubRestrict(
-                    **self.config.phc.sample.get(
-                        namespace=self.config.config.phc.namespace,
-                        name=self.config.config.phc.name,
-                        tag=self.config.config.phc.tag,
-                        sample_name=identifier,
-                    )
-                )
-            else:
-                bed_metadata = None
-        except Exception as e:
-            _LOGGER.warning(f"Could not retrieve metadata from pephub. Error: {e}")
-            bed_metadata = None
-
         return BedMetadataAll(
             id=bed_object.id,
             name=bed_object.name,
@@ -220,7 +200,6 @@ class BedAgentBedFile:
             description=bed_object.description,
             submission_date=bed_object.submission_date,
             last_update_date=bed_object.last_update_date,
-            raw_metadata=bed_metadata,
             genome_alias=bed_object.genome_alias,
             genome_digest=bed_object.genome_digest,
             bed_compliance=bed_object.bed_compliance,
@@ -384,28 +363,6 @@ class BedAgentBedFile:
                         ),
                     )
         return bed_files
-
-    def get_raw_metadata(self, identifier: str) -> BedPEPHub:
-        """
-        Get file metadata by identifier.
-
-        Args:
-            identifier: Bed file identifier.
-
-        Returns:
-            BED file raw metadata.
-        """
-        try:
-            bed_metadata = self.config.phc.sample.get(
-                namespace=self.config.config.phc.namespace,
-                name=self.config.config.phc.name,
-                tag=self.config.config.phc.tag,
-                sample_name=identifier,
-            )
-        except Exception as e:
-            _LOGGER.warning(f"Could not retrieve metadata from pephub. Error: {e}")
-            bed_metadata = {}
-        return BedPEPHubRestrict(**bed_metadata)
 
     def get_classification(self, identifier: str) -> BedClassification:
         """
@@ -595,7 +552,6 @@ class BedAgentBedFile:
         ref_validation: dict[str, BaseModel] | None = None,
         license_id: str = DEFAULT_LICENSE,
         upload_qdrant: bool = False,
-        upload_pephub: bool = False,
         upload_s3: bool = False,
         local_path: str = None,
         overwrite: bool = False,
@@ -608,7 +564,7 @@ class BedAgentBedFile:
         Args:
             identifier: Bed file identifier.
             stats: Bed file results {statistics, plots, files, metadata}.
-            metadata: Bed file metadata (will be saved in pephub).
+            metadata: Bed file metadata.
             plots: Bed file plots.
             files: Bed file files.
             classification: Bed file classification.
@@ -616,11 +572,10 @@ class BedAgentBedFile:
             license_id: Bed file license id (default: 'DUO:0000042'). Full list of licenses:
                 https://raw.githubusercontent.com/EBISPOT/DUO/master/duo.csv
             upload_qdrant: Add bed file to qdrant indexes.
-            upload_pephub: Add bed file to pephub.
             upload_s3: Upload files to s3.
             local_path: Local path to the output files.
             overwrite: Overwrite bed file if it already exists.
-            nofail: Do not raise an error for error in pephub/s3/qdrant or record exists and not overwrite.
+            nofail: Do not raise an error for error in s3/qdrant or record exists and not overwrite.
             processed: True if bedfile was processed and statistics and plots were calculated.
 
         Returns:
@@ -672,23 +627,6 @@ class BedAgentBedFile:
         bed_metadata = StandardMeta(**metadata)
 
         classification = BedClassification(**classification)
-        if upload_pephub:
-            pephub_metadata = BedPEPHub(**metadata)
-            try:
-                self.upload_pephub(
-                    identifier,
-                    pephub_metadata.model_dump(exclude=set("input_file")),
-                    overwrite,
-                )
-            except Exception as e:
-                _LOGGER.warning(
-                    f"Could not upload to pephub. Error: {e}. nofail: {nofail}"
-                )
-                upload_pephub = False
-                if not nofail:
-                    raise e
-        else:
-            _LOGGER.info("upload_pephub set to false. Skipping pephub..")
 
         if upload_qdrant:
             if classification.genome_alias == "hg38":
@@ -724,7 +662,6 @@ class BedAgentBedFile:
                 description=bed_metadata.description,
                 license_id=license_id,
                 indexed=upload_qdrant,
-                pephub=upload_pephub,
                 processed=processed,
             )
             session.add(new_bed)
@@ -796,7 +733,6 @@ class BedAgentBedFile:
         ref_validation: dict[str, BaseModel] | None = None,
         license_id: str = DEFAULT_LICENSE,
         upload_qdrant: bool = False,
-        upload_pephub: bool = False,
         upload_s3: bool = True,
         local_path: str = None,
         overwrite: bool = False,
@@ -809,18 +745,17 @@ class BedAgentBedFile:
         Args:
             identifier: Bed file identifier.
             stats: Bed file results {statistics, plots, files, metadata}.
-            metadata: Bed file metadata (will be saved in pephub).
+            metadata: Bed file metadata.
             plots: Bed file plots.
             files: Bed file files.
             classification: Bed file classification.
             ref_validation: Reference validation data. RefGenValidModel.
             license_id: Bed file license id (default: 'DUO:0000042').
             upload_qdrant: Add bed file to qdrant indexes.
-            upload_pephub: Add bed file to pephub.
             upload_s3: Upload files to s3.
             local_path: Local path to the output files.
             overwrite: Overwrite bed file if it already exists.
-            nofail: Do not raise an error for error in pephub/s3/qdrant or record exists and not overwrite.
+            nofail: Do not raise an error for error in s3/qdrant or record exists and not overwrite.
             processed: True if bedfile was processed and statistics and plots were calculated.
 
         Returns:
@@ -843,19 +778,6 @@ class BedAgentBedFile:
         files = BedFiles(**files if files else {})
         bed_metadata = StandardMeta(**metadata if metadata else {})
         classification = BedClassification(**classification if classification else {})
-
-        if upload_pephub and metadata:
-            metadata = BedPEPHub(**metadata)
-            try:
-                self.update_pephub(identifier, metadata.model_dump(), overwrite)
-            except Exception as e:
-                _LOGGER.warning(
-                    f"Could not upload to pephub. Error: {e}. nofail: {nofail}"
-                )
-                if not nofail:
-                    raise e
-        else:
-            _LOGGER.info("upload_pephub set to false. Skipping pephub..")
 
         if upload_qdrant:
             if classification.genome_alias == "hg38":
@@ -1190,64 +1112,14 @@ class BedAgentBedFile:
             bed_object = session.scalar(statement)
 
             files = [FileModel(**k.__dict__) for k in bed_object.files]
-            delete_pephub = bed_object.pephub
             delete_qdrant = bed_object.indexed
 
             session.delete(bed_object)
             session.commit()
 
-        if delete_pephub:
-            self.delete_pephub_sample(identifier)
         if delete_qdrant:
             self.delete_qdrant_point(identifier)
         self.config.delete_files_s3(files)
-
-    def upload_pephub(self, identifier: str, metadata: dict, overwrite: bool = False):
-        if not metadata:
-            _LOGGER.warning("No metadata provided. Skipping pephub upload..")
-            return False
-        self.config.phc.sample.create(
-            namespace=self.config.config.phc.namespace,
-            name=self.config.config.phc.name,
-            tag=self.config.config.phc.tag,
-            sample_name=identifier,
-            sample_dict=metadata,
-            overwrite=overwrite,
-        )
-
-    def update_pephub(
-        self, identifier: str, metadata: dict, overwrite: bool = False
-    ) -> None:
-        try:
-            if not metadata:
-                _LOGGER.warning("No metadata provided. Skipping pephub upload..")
-                return None
-            self.config.phc.sample.update(
-                namespace=self.config.config.phc.namespace,
-                name=self.config.config.phc.name,
-                tag=self.config.config.phc.tag,
-                sample_name=identifier,
-                sample_dict=metadata,
-            )
-        except ResponseError as e:
-            _LOGGER.warning(f"Could not update pephub. Error: {e}")
-
-    def delete_pephub_sample(self, identifier: str):
-        """
-        Delete sample from pephub.
-
-        Args:
-            identifier: Bed file identifier.
-        """
-        try:
-            self.config.phc.sample.remove(
-                namespace=self.config.config.phc.namespace,
-                name=self.config.config.phc.name,
-                tag=self.config.config.phc.tag,
-                sample_name=identifier,
-            )
-        except ResponseError as e:
-            _LOGGER.warning(f"Could not delete from pephub. Error: {e}")
 
     def upload_file_qdrant(
         self,

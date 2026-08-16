@@ -740,8 +740,14 @@ class BedBaseAgent:
         return BinValues(
             bins=n_region_bin_edges,
             counts=n_region_counts,
-            mean=round(statistics.mean(number_of_regions), 2),
-            median=round(statistics.median(number_of_regions), 2),
+            mean=round(statistics.mean(number_of_regions), 2)
+            if number_of_regions
+            else 0,
+            median=(
+                round(statistics.median(number_of_regions), 2)
+                if number_of_regions
+                else 0
+            ),
         )
 
     def _bin_mean_region_width(self, mean_region_widths: list) -> BinValues:
@@ -771,8 +777,16 @@ class BedBaseAgent:
         return BinValues(
             bins=mean_reg_width_bin_edges,
             counts=mean_reg_width_counts,
-            mean=round(statistics.mean(mean_region_widths), 2),
-            median=round(statistics.median(mean_region_widths), 2),
+            mean=(
+                round(statistics.mean(mean_region_widths), 2)
+                if mean_region_widths
+                else 0
+            ),
+            median=(
+                round(statistics.median(mean_region_widths), 2)
+                if mean_region_widths
+                else 0
+            ),
         )
 
     def _bin_file_size(self, list_file_size: list) -> BinValues:
@@ -803,8 +817,16 @@ class BedBaseAgent:
         return BinValues(
             bins=file_size_bin_edges,
             counts=file_size_counts,
-            mean=round(statistics.mean(filtered_list_file_size), 2),
-            median=round(statistics.median(filtered_list_file_size), 2),
+            mean=(
+                round(statistics.mean(filtered_list_file_size), 2)
+                if filtered_list_file_size
+                else 0
+            ),
+            median=(
+                round(statistics.median(filtered_list_file_size), 2)
+                if filtered_list_file_size
+                else 0
+            ),
         )
 
     def _get_geo_stats(self, sa_session: Session) -> GEOStatistics:
@@ -857,8 +879,8 @@ class BedBaseAgent:
             file_sizes=BinValues(
                 bins=list(file_size_bin_edges),
                 counts=file_size_counts.astype(int).tolist(),
-                mean=round(statistics.mean(file_sizes), 2),
-                median=round(statistics.median(file_sizes), 2),
+                mean=round(statistics.mean(file_sizes), 2) if file_sizes else 0,
+                median=round(statistics.median(file_sizes), 2) if file_sizes else 0,
             ),
         )
 

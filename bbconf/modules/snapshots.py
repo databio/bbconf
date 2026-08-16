@@ -148,9 +148,7 @@ class BedAgentSnapshot:
         count_statement = select(func.count()).select_from(BedSnapshot)
         if file_type is not None:
             statement = statement.where(BedSnapshot.file_type == file_type)
-            count_statement = count_statement.where(
-                BedSnapshot.file_type == file_type
-            )
+            count_statement = count_statement.where(BedSnapshot.file_type == file_type)
         statement = statement.order_by(
             BedSnapshot.creation_date.desc(), BedSnapshot.id.desc()
         )
@@ -188,9 +186,7 @@ class BedAgentSnapshot:
             rows = session.scalars(
                 select(BedSnapshot)
                 .where(BedSnapshot.file_path.like(f"%{filename}"))
-                .order_by(
-                    BedSnapshot.creation_date.desc(), BedSnapshot.id.desc()
-                )
+                .order_by(BedSnapshot.creation_date.desc(), BedSnapshot.id.desc())
             ).all()
             for row in rows:
                 if os.path.basename(row.file_path) == filename:
