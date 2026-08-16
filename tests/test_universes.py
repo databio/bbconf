@@ -65,6 +65,6 @@ class TestUniverses:
             assert zarr_mock.called
             assert f"s3://bedbase/{saved_path}" == zarr_path
 
-    def test_get_tokenized(self, bbagent_obj, mocked_phc):
+    def test_get_tokenized(self, bbagent_obj):
         # how to test it?
         ...

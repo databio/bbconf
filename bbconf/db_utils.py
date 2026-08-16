@@ -111,9 +111,6 @@ class Bed(Base):
         default=False,
         comment="Whether file was tokenized and added to the vector database",
     )
-    pephub: Mapped[bool] = mapped_column(
-        default=False, comment="Whether sample was added to pephub"
-    )
 
     submission_date: Mapped[datetime.datetime] = mapped_column(
         default=deliver_update_date

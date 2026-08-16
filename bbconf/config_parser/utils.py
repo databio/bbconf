@@ -1,7 +1,6 @@
 import logging
 
 import yacman
-from pephubclient.helpers import MessageHandler as m
 from pydantic_core._pydantic_core import ValidationError
 
 from bbconf.config_parser.models import ConfigFile
@@ -56,6 +55,6 @@ def config_analyzer(config_path: str) -> bool:
             )
             return False
 
-    m.print_success("Configuration file is valid! ")
+    _LOGGER.info("Configuration file is valid!")
 
     return True

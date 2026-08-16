@@ -125,11 +125,3 @@ def example_dict():
 @pytest.fixture
 def load_test_data():
     get_bbagent().config.db_engine()
-
-
-@pytest.fixture()
-def mocked_phc(mocker):
-    mocker.patch(
-        "pephubclient.modules.sample.PEPHubSample.get",
-        return_value={"sample_name": BED_TEST_ID, "other_metadata": "other_metadata_1"},
-    )
