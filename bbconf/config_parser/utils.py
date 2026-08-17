@@ -27,7 +27,7 @@ def config_analyzer(config_path: str) -> bool:
 
     _LOGGER.info(f"Analyzing the configuration file {config_path}...")
 
-    _config = yacman.YAMLConfigManager(filepath=config_path).exp
+    _config = yacman.YAMLConfigManager.from_yaml_file(filepath=config_path).exp
 
     config_dict = {}
     for field_name, annotation in ConfigFile.model_fields.items():

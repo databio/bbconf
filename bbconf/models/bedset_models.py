@@ -1,4 +1,5 @@
 import datetime
+from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, model_validator
 
@@ -7,8 +8,32 @@ from .bed_models import BedMetadataBasic, BedStatsModel
 
 
 class BedSetStats(BaseModel):
+    """Bedset statistics: mean/sd of scalar columns.
+
+    Populated from bedset_means and bedset_standard_deviation database columns.
+    """
+
     mean: BedStatsModel = None
     sd: BedStatsModel = None
+
+
+class BedSetDistributions(BaseModel):
+    """Collection-level aggregated distribution statistics for a bedset.
+
+    Stored in the bedset_stats JSONB database column. Populated when
+    member bed files have been processed with the gtars analysis backend.
+    """
+
+    n_files: int = 0
+    composition: Optional[dict] = None
+    scalar_summaries: Optional[dict] = None
+    tss_histogram: Optional[dict] = None
+    widths_histogram: Optional[dict] = None
+    neighbor_distances: Optional[dict] = None
+    gc_content: Optional[dict] = None
+    region_distribution: Optional[dict] = None
+    partitions: Optional[dict] = None
+    chromosome_summaries: Optional[dict] = None
 
 
 class BedSetPlots(BaseModel):
@@ -24,6 +49,7 @@ class BedSetMetadata(BaseModel):
     submission_date: datetime.datetime = None
     last_update_date: datetime.datetime = None
     statistics: BedSetStats | None = None
+    distributions: BedSetDistributions | None = None
     plots: BedSetPlots | None = None
     description: str = None
     summary: str = None
