@@ -1,9 +1,11 @@
 import logging
 import statistics
+import threading
 from functools import cached_property
 from pathlib import Path
 
 import numpy as np
+from cachetools import TTLCache
 from sqlalchemy.engine import ScalarResult
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import and_, distinct, func, or_, select
@@ -33,9 +35,11 @@ from bbconf.models.base_models import (
     UsageModel,
     UsageStats,
 )
+from bbconf.modules.analysis_files import BedAgentAnalysisFile
 from bbconf.modules.bedfiles import BedAgentBedFile
 from bbconf.modules.bedsets import BedAgentBedSet
 from bbconf.modules.objects import BBObjects
+from bbconf.modules.snapshots import BedAgentSnapshot
 
 from .const import PKG_NAME
 
@@ -62,6 +66,16 @@ class BedBaseAgent:
         self._bed = BedAgentBedFile(self.config, self)
         self._bedset = BedAgentBedSet(self.config)
         self._objects = BBObjects(self.config)
+        self._snapshot = BedAgentSnapshot(self.config)
+        self._analysis_files = BedAgentAnalysisFile(self.config)
+
+        # get_stats() runs three uncached COUNT queries on the multi-hundred-
+        # thousand-row bed table and is called on hot paths (the stats endpoint
+        # plus the neighbours/list/search result builders). Cache the result
+        # with a TTL so those paths do not hit the database on every request.
+        # The lock guards the cache dict only, never the DB query itself.
+        self._stats_cache = TTLCache(maxsize=1, ttl=3600)
+        self._stats_lock = threading.Lock()
 
     @property
     def bed(self) -> BedAgentBedFile:
@@ -75,6 +89,14 @@ class BedBaseAgent:
     def objects(self) -> BBObjects:
         return self._objects
 
+    @property
+    def snapshot(self) -> BedAgentSnapshot:
+        return self._snapshot
+
+    @property
+    def analysis_files(self) -> BedAgentAnalysisFile:
+        return self._analysis_files
+
     def __repr__(self) -> str:
         repr = f"BedBaseAgent(config={self.config})"
         repr += f"\n{self.bed}"
@@ -86,9 +108,17 @@ class BedBaseAgent:
         """
         Get statistics for a bed file.
 
+        The result is cached with a TTL because this runs three COUNT queries
+        against the large bed table and is called on hot API paths.
+
         Returns:
             Statistics.
         """
+        with self._stats_lock:
+            cached = self._stats_cache.get("stats")
+        if cached is not None:
+            return cached
+
         with Session(self.config.db_engine.engine) as session:
             number_of_bed = session.execute(select(func.count(Bed.id))).one()[0]
             number_of_bedset = session.execute(select(func.count(BedSets.id))).one()[0]
@@ -97,11 +127,16 @@ class BedBaseAgent:
                 select(func.count(distinct(Bed.genome_alias)))
             ).one()[0]
 
-        return StatsReturn(
+        stats = StatsReturn(
             bedfiles_number=number_of_bed,
             bedsets_number=number_of_bedset,
             genomes_number=number_of_genomes,
         )
+
+        with self._stats_lock:
+            self._stats_cache["stats"] = stats
+
+        return stats
 
     def get_detailed_stats(self, concise: bool = False) -> FileStats:
         """
@@ -116,11 +151,29 @@ class BedBaseAgent:
 
         _LOGGER.info("Getting detailed statistics for all bed files")
 
+        numeric_stats_statement = (
+            select(
+                BedStats.number_of_regions,
+                BedStats.mean_region_width,
+                Files.size,
+            )
+            .select_from(Bed)
+            .join(BedStats, BedStats.id == Bed.id)
+            .join(Files, Files.bedfile_id == Bed.id)
+            .where(
+                Files.name == "bed_file",
+                BedStats.number_of_regions.is_not(None),
+                BedStats.mean_region_width.is_not(None),
+                Files.size.is_not(None),
+            )
+        )
+
         with Session(self.config.db_engine.engine) as session:
             bed_compliance = {
                 f[0]: f[1]
                 for f in session.execute(
                     select(Bed.bed_compliance, func.count(Bed.bed_compliance))
+                    .where(Bed.bed_compliance.is_not(None))
                     .group_by(Bed.bed_compliance)
                     .order_by(func.count(Bed.bed_compliance).desc())
                 ).all()
@@ -129,6 +182,7 @@ class BedBaseAgent:
                 f[0]: f[1]
                 for f in session.execute(
                     select(Bed.data_format, func.count(Bed.data_format))
+                    .where(Bed.data_format.is_not(None))
                     .group_by(Bed.data_format)
                     .order_by(func.count(Bed.data_format).desc())
                 ).all()
@@ -137,6 +191,7 @@ class BedBaseAgent:
                 f[0]: f[1]
                 for f in session.execute(
                     select(Bed.genome_alias, func.count(Bed.genome_alias))
+                    .where(Bed.genome_alias.is_not(None))
                     .group_by(Bed.genome_alias)
                     .order_by(func.count(Bed.genome_alias).desc())
                 ).all()
@@ -147,6 +202,7 @@ class BedBaseAgent:
                     select(
                         BedMetadata.species_name, func.count(BedMetadata.species_name)
                     )
+                    .where(BedMetadata.species_name.is_not(None))
                     .group_by(BedMetadata.species_name)
                     .order_by(func.count(BedMetadata.species_name).desc())
                 ).all()
@@ -155,6 +211,7 @@ class BedBaseAgent:
                 f[0]: f[1]
                 for f in session.execute(
                     select(BedMetadata.assay, func.count(BedMetadata.assay))
+                    .where(BedMetadata.assay.is_not(None))
                     .group_by(BedMetadata.assay)
                     .order_by(func.count(BedMetadata.assay).desc())
                 ).all()
@@ -163,27 +220,28 @@ class BedBaseAgent:
                 f[0]: f[1]
                 for f in session.execute(
                     select(BedMetadata.cell_line, func.count(BedMetadata.cell_line))
+                    .where(BedMetadata.cell_line.is_not(None))
                     .group_by(BedMetadata.cell_line)
                     .order_by(func.count(BedMetadata.cell_line).desc())
                 ).all()
             }
 
+            bed_comments = self._stats_comments(session)
+            geo_status = self._stats_geo_status(session)
+
+            numeric_rows = session.execute(numeric_stats_statement).all()
+
+            geo_stats = self._get_geo_stats(session)
+
         slice_value = 20
 
-        bed_comments = self._stats_comments(session)
-        geo_status = self._stats_geo_status(session)
-
-        bedfiles_info = self.bed_files_info()
-
-        number_of_regions = [bed.number_of_regions for bed in bedfiles_info.files]
-        list_mean_width = [bed.mean_region_width for bed in bedfiles_info.files]
-        list_file_size = [bed.file_size for bed in bedfiles_info.files]
+        number_of_regions = [row[0] for row in numeric_rows]
+        list_mean_width = [row[1] for row in numeric_rows]
+        list_file_size = [row[2] for row in numeric_rows]
 
         number_of_regions_bins = self._bin_number_of_regions(number_of_regions)
         list_mean_width_bins = self._bin_mean_region_width(list_mean_width)
         list_file_size_bins = self._bin_file_size(list_file_size)
-
-        geo_stats = self._get_geo_stats(session)
 
         if concise:
             bed_compliance_concise = dict(list(bed_compliance.items())[0:slice_value])
@@ -688,8 +746,14 @@ class BedBaseAgent:
         return BinValues(
             bins=n_region_bin_edges,
             counts=n_region_counts,
-            mean=round(statistics.mean(number_of_regions), 2),
-            median=round(statistics.median(number_of_regions), 2),
+            mean=round(statistics.mean(number_of_regions), 2)
+            if number_of_regions
+            else 0,
+            median=(
+                round(statistics.median(number_of_regions), 2)
+                if number_of_regions
+                else 0
+            ),
         )
 
     def _bin_mean_region_width(self, mean_region_widths: list) -> BinValues:
@@ -719,8 +783,16 @@ class BedBaseAgent:
         return BinValues(
             bins=mean_reg_width_bin_edges,
             counts=mean_reg_width_counts,
-            mean=round(statistics.mean(mean_region_widths), 2),
-            median=round(statistics.median(mean_region_widths), 2),
+            mean=(
+                round(statistics.mean(mean_region_widths), 2)
+                if mean_region_widths
+                else 0
+            ),
+            median=(
+                round(statistics.median(mean_region_widths), 2)
+                if mean_region_widths
+                else 0
+            ),
         )
 
     def _bin_file_size(self, list_file_size: list) -> BinValues:
@@ -751,8 +823,16 @@ class BedBaseAgent:
         return BinValues(
             bins=file_size_bin_edges,
             counts=file_size_counts,
-            mean=round(statistics.mean(filtered_list_file_size), 2),
-            median=round(statistics.median(filtered_list_file_size), 2),
+            mean=(
+                round(statistics.mean(filtered_list_file_size), 2)
+                if filtered_list_file_size
+                else 0
+            ),
+            median=(
+                round(statistics.median(filtered_list_file_size), 2)
+                if filtered_list_file_size
+                else 0
+            ),
         )
 
     def _get_geo_stats(self, sa_session: Session) -> GEOStatistics:
@@ -805,8 +885,8 @@ class BedBaseAgent:
             file_sizes=BinValues(
                 bins=list(file_size_bin_edges),
                 counts=file_size_counts.astype(int).tolist(),
-                mean=round(statistics.mean(file_sizes), 2),
-                median=round(statistics.median(file_sizes), 2),
+                mean=round(statistics.mean(file_sizes), 2) if file_sizes else 0,
+                median=round(statistics.median(file_sizes), 2) if file_sizes else 0,
             ),
         )
 

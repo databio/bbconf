@@ -21,6 +21,16 @@ def test_get_stats(bbagent_obj):
 
 
 @pytest.mark.skipif(SERVICE_UNAVAILABLE, reason="Database is not available")
+def test_get_detailed_stats(bbagent_obj):
+    with ContextManagerDBTesting(config=bbagent_obj.config, add_data=True, bedset=True):
+        return_result = bbagent_obj.get_detailed_stats()
+
+        assert return_result
+        assert return_result.number_of_regions.mean == 1
+        assert return_result.mean_region_width.mean == 3
+
+
+@pytest.mark.skipif(SERVICE_UNAVAILABLE, reason="Database is not available")
 def test_get_licenses(bbagent_obj):
     return_result = bbagent_obj.list_of_licenses
 

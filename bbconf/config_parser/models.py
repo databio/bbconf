@@ -1,5 +1,6 @@
 import logging
 from pathlib import Path
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, computed_field, field_validator
 from yacman import load_yaml
@@ -9,9 +10,6 @@ from bbconf.config_parser.const import (  # DEFAULT_VEC2VEC_MODEL,
     DEFAULT_DB_DRIVER,
     DEFAULT_DB_NAME,
     DEFAULT_DB_PORT,
-    DEFAULT_PEPHUB_NAME,
-    DEFAULT_PEPHUB_NAMESPACE,
-    DEFAULT_PEPHUB_TAG,
     DEFAULT_QDRANT_BIVEC_COLLECTION_NAME,
     DEFAULT_QDRANT_FILE_COLLECTION_NAME,
     DEFAULT_QDRANT_HYBRID_COLLECTION_NAME,
@@ -35,6 +33,7 @@ class ConfigDB(BaseModel):
     database: str = DEFAULT_DB_NAME
     dialect: str = DEFAULT_DB_DIALECT
     driver: str | None = DEFAULT_DB_DRIVER
+    run_migrations: bool = False
 
     model_config = ConfigDict(extra="forbid")
 
@@ -74,14 +73,14 @@ class ConfigPath(BaseModel):
 
 class AccessMethodsStruct(BaseModel):
     type: str
-    description: str = None
+    description: str | None = None
     prefix: str
 
 
 class AccessMethods(BaseModel):
-    http: AccessMethodsStruct = None
-    s3: AccessMethodsStruct = None
-    local: AccessMethodsStruct = None
+    http: AccessMethodsStruct | None = None
+    s3: AccessMethodsStruct | None = None
+    local: AccessMethodsStruct | None = None
 
 
 class ConfigS3(BaseModel):
@@ -120,20 +119,25 @@ class ConfigS3(BaseModel):
         return False
 
 
-class ConfigPepHubClient(BaseModel):
-    namespace: str | None = DEFAULT_PEPHUB_NAMESPACE
-    name: str | None = DEFAULT_PEPHUB_NAME
-    tag: str | None = DEFAULT_PEPHUB_TAG
+class ConfigAnalysis(BaseModel):
+    """Analysis backend configuration.
+
+    Controls which statistics engine is used for BED file analysis.
+    """
+
+    backend: Literal["r", "gtars"] = "r"
+
+    model_config = ConfigDict(extra="forbid")
 
 
 class ConfigFile(BaseModel):
     database: ConfigDB
-    qdrant: ConfigQdrant = None
+    qdrant: ConfigQdrant | None = None
     server: ConfigServer
     path: ConfigPath
-    access_methods: AccessMethods = None
-    s3: ConfigS3 = None
-    phc: ConfigPepHubClient = None
+    access_methods: AccessMethods | None = None
+    s3: ConfigS3 | None = None
+    analysis: ConfigAnalysis | None = ConfigAnalysis()
 
     model_config = ConfigDict(extra="allow")
 

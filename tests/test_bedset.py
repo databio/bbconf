@@ -53,7 +53,6 @@ class TestBedset:
                 },
                 statistics=True,
                 upload_s3=True,
-                upload_pephub=False,
                 no_fail=True,
             )
             with Session(bbagent_obj.config.db_engine.engine) as session:
@@ -61,6 +60,7 @@ class TestBedset:
                 assert result is not None
                 assert result.name == "test_name"
                 assert len([k for k in result.files]) == 1
+                assert result.bedfile_count == 1
 
     def test_get_metadata_full(self, bbagent_obj):
         with ContextManagerDBTesting(
@@ -73,6 +73,7 @@ class TestBedset:
             assert result.statistics.sd is not None
             assert result.statistics.mean is not None
             assert result.plots is not None
+            assert result.bedfile_count == 1
 
     def test_get_metadata_not_full(self, bbagent_obj):
         with ContextManagerDBTesting(
@@ -84,6 +85,7 @@ class TestBedset:
             assert result.md5sum == "bbad0000000000000000000000000000"
             assert result.statistics is None
             assert result.plots is None
+            assert result.bedfile_count == 1
 
     def test_get_not_found(self, bbagent_obj):
         with ContextManagerDBTesting(
@@ -128,6 +130,10 @@ class TestBedset:
             assert result.offset == 0
             assert len(result.results) == 1
             assert result.results[0].id == BEDSET_TEST_ID
+            # bed_ids is intentionally left unpopulated in list results to
+            # avoid lazy-loading full bedfile membership for every row
+            assert result.results[0].bed_ids is None
+            assert result.results[0].bedfile_count == 1
 
     def test_get_bedset_list_offset(self, bbagent_obj):
         with ContextManagerDBTesting(

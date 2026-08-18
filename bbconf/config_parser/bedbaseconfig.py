@@ -20,7 +20,6 @@ from geniml.search import BED2BEDSearchInterface
 from geniml.search.backends import BiVectorBackend, QdrantBackend
 from geniml.search.interfaces import BiVectorSearchInterface
 from geniml.search.query2vec import BED2Vec
-from pephubclient import PEPHubClient
 from qdrant_client import QdrantClient, models
 from sentence_transformers import SparseEncoder
 from umap import UMAP
@@ -115,7 +114,6 @@ class BedBaseConfig:
             self.umap_encoder: UMAP | None = None
             self.sparse_encoder = None
 
-        self._phc = self._init_pephubclient()
         self._boto3_client = self._init_boto3_client()
 
     @staticmethod
@@ -131,19 +129,7 @@ class BedBaseConfig:
         """
 
         _config = yacman.YAMLConfigManager.from_yaml_file(filepath=config_path).exp
-
-        config_dict = {}
-        for field_name, annotation in ConfigFile.model_fields.items():
-            try:
-                config_dict[field_name] = annotation.annotation(
-                    **_config.get(field_name)
-                )
-            except TypeError:
-                # TODO: this should be more specific
-                config_dict[field_name] = annotation.annotation()
-
-        return ConfigFile(**config_dict)
-        # return ConfigFile.from_yaml(Path(config_path))
+        return ConfigFile(**_config)
 
     @property
     def config(self) -> ConfigFile:
@@ -164,16 +150,6 @@ class BedBaseConfig:
             Database engine.
         """
         return self._db_engine
-
-    @property
-    def phc(self) -> PEPHubClient:
-        """
-        Get PEPHub client.
-
-        Returns:
-            PEPHub client.
-        """
-        return self._phc
 
     @property
     def boto3_client(self) -> boto3.client:
@@ -227,6 +203,7 @@ class BedBaseConfig:
             user=self._config.database.user,
             password=self._config.database.password,
             drivername=f"{self._config.database.dialect}+{self._config.database.driver}",
+            run_migrations=self._config.database.run_migrations,
         )
 
     def _init_qdrant_client(self) -> QdrantClient:
@@ -680,24 +657,6 @@ class BedBaseConfig:
             self.delete_s3(file.path)
             if file.path_thumbnail:
                 self.delete_s3(file.path_thumbnail)
-        return None
-
-    @staticmethod
-    def _init_pephubclient() -> PEPHubClient | None:
-        """
-        Create Pephub client object using credentials provided in config file.
-
-        Returns:
-            PephubClient.
-        """
-
-        # try:
-        #     _LOGGER.info("Initializing PEPHub client...")
-        #     return PEPHubClient()
-        # except Exception as e:
-        #     _LOGGER.error(f"Error in creating PephubClient object: {e}")
-        #     warnings.warn(f"Error in creating PephubClient object: {e}", UserWarning)
-        #     return None
         return None
 
     def get_prefixed_uri(self, postfix: str, access_id: str) -> str:
