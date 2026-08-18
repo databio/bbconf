@@ -77,6 +77,13 @@ class SnapshotNotFoundError(BedBaseConfError):
     pass
 
 
+class AnalysisFileNotFoundError(BedBaseConfError):
+    """
+    Error type for missing analysis file"""
+
+    pass
+
+
 class UniverseNotFoundError(BedBaseConfError):
     """
     Error type for missing universe"""

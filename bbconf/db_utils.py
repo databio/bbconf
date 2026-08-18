@@ -718,6 +718,48 @@ class BedSnapshot(Base):
     )
 
 
+class AnalysisFile(Base):
+    """
+    Registry of standalone analysis files (openSignalMatrix, models, other
+    analysis inputs) stored in S3. Not tied to any bed file or bedset.
+
+    Append-only: one row per uploaded file, so name-based lookups resolve the
+    newest matching row (same model as ``bed_snapshots``). This is a new table,
+    so ``Base.metadata.create_all()`` creates it on the next connection.
+    """
+
+    __tablename__ = "analysis_files"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(
+        nullable=False, index=True, comment="Logical name/key, e.g. openSignalMatrix"
+    )
+    file_path: Mapped[str] = mapped_column(
+        nullable=False, comment="S3 object key, relative to the bucket root"
+    )
+    file_type: Mapped[Optional[str]] = mapped_column(
+        nullable=True,
+        index=True,
+        comment="Category, e.g. openSignalMatrix | reference | model",
+    )
+    genome: Mapped[Optional[str]] = mapped_column(
+        nullable=True, index=True, comment="Genome/assembly, e.g. hg38 (optional)"
+    )
+    description: Mapped[Optional[str]] = mapped_column(nullable=True)
+    tags: Mapped[Optional[list]] = mapped_column(
+        ARRAY(String), nullable=True, comment="Free-form tags"
+    )
+    file_size: Mapped[Optional[int]] = mapped_column(
+        nullable=True, comment="Size of the file in bytes"
+    )
+    checksum: Mapped[Optional[str]] = mapped_column(
+        nullable=True, comment="SHA256 of the file"
+    )
+    creation_date: Mapped[datetime.datetime] = mapped_column(
+        default=deliver_update_date, comment="Upload date"
+    )
+
+
 class BaseEngine:
     """
     A class with base methods, that are used in several classes.
