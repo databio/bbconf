@@ -459,6 +459,7 @@ class BedBaseAgent:
             .order_by(func.sum(model.count).desc())
         )
 
+        statement = statement.where(key_column.isnot(None), key_column != "")
         if search_type is not None:
             statement = statement.where(model.type == search_type)
         if date_from is not None:
@@ -482,7 +483,6 @@ class BedBaseAgent:
                     count=f[1],
                 )
                 for f in session.execute(statement).all()
-                if f[0]
             ]
 
         return UsageResponse(
