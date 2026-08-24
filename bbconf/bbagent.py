@@ -1,3 +1,4 @@
+import datetime
 import logging
 import statistics
 import threading
@@ -32,7 +33,9 @@ from bbconf.models.base_models import (
     FileStats,
     GEOStatistics,
     StatsReturn,
+    UsageItem,
     UsageModel,
+    UsageResponse,
     UsageStats,
 )
 from bbconf.modules.analysis_files import BedAgentAnalysisFile
@@ -399,6 +402,97 @@ class BedBaseAgent:
             bed_search_terms=bed_search_terms,
             bedset_search_terms=bedset_search_terms,
             bed_downloads=bed_downloads,
+        )
+
+    def get_usage(
+        self,
+        event_type: str,
+        date_from: datetime.datetime | None = None,
+        date_to: datetime.datetime | None = None,
+        limit: int | None = None,
+        offset: int = 0,
+    ) -> UsageResponse:
+        """
+        Get per-key usage counts for a single event type, optionally restricted
+        to a date range.
+
+        Unlike get_detailed_usage (which sums across all time and is hardcoded to
+        the top 20 keys), this method groups by key and sums the counts of the
+        time-bucketed rows whose window overlaps the requested date range, and
+        supports pagination. It is read-only and does not modify any usage data.
+
+        Args:
+            event_type: One of "files", "bed_meta", "bedset_meta", "bed_search",
+                "bedset_search".
+            date_from: Include only rows whose window ends on or after this date
+                (date_to >= date_from). None means no lower bound.
+            date_to: Include only rows whose window starts on or before this date
+                (date_from <= date_to). None means no upper bound.
+            limit: Maximum number of keys to return. None means no limit.
+            offset: Number of keys to skip (for pagination).
+
+        Returns:
+            UsageResponse with per-key counts ordered by count descending.
+        """
+        # model, key column, and (for UsageSearch) the `type` filter value.
+        usage_map = {
+            "files": (UsageFiles, UsageFiles.file_path, None),
+            "bed_meta": (UsageBedMeta, UsageBedMeta.bed_id, None),
+            "bedset_meta": (UsageBedSetMeta, UsageBedSetMeta.bedset_id, None),
+            "bed_search": (UsageSearch, UsageSearch.query, "bed"),
+            "bedset_search": (UsageSearch, UsageSearch.query, "bedset"),
+        }
+
+        if event_type not in usage_map:
+            raise ValueError(
+                f"Invalid event_type '{event_type}'. Must be one of: "
+                f"{', '.join(usage_map)}."
+            )
+
+        model, key_column, search_type = usage_map[event_type]
+
+        _LOGGER.info(f"Getting usage statistics for event type '{event_type}'.")
+
+        statement = (
+            select(key_column, func.sum(model.count))
+            .group_by(key_column)
+            .order_by(func.sum(model.count).desc())
+        )
+
+        statement = statement.where(key_column.isnot(None), key_column != "")
+        if search_type is not None:
+            statement = statement.where(model.type == search_type)
+        if date_from is not None:
+            statement = statement.where(model.date_to >= date_from)
+        if date_to is not None:
+            statement = statement.where(model.date_from <= date_to)
+
+        if limit is not None:
+            statement = statement.limit(limit).offset(offset)
+        elif offset:
+            statement = statement.offset(offset)
+
+        # bed downloads are keyed by file path; shorten to the bed id, matching
+        # get_detailed_usage.
+        shorten_key = event_type == "files"
+
+        with Session(self.config.db_engine.engine) as session:
+            results = [
+                UsageItem(
+                    key=(f[0].split("/")[-1].split(".")[0] if shorten_key else f[0]),
+                    count=f[1],
+                )
+                for f in session.execute(statement).all()
+            ]
+
+        return UsageResponse(
+            event_type=event_type,
+            date_from=date_from,
+            date_to=date_to,
+            limit=limit,
+            offset=offset,
+            count=len(results),
+            results=results,
         )
 
     def get_list_genomes(self) -> list[str]:
