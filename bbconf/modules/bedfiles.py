@@ -70,6 +70,10 @@ from bbconf.modules.aggregation import aggregate_collection
 
 _LOGGER = getLogger(PKG_NAME)
 
+# Maximum number of identifiers accepted by get_batch in a single call. Larger
+# requests are rejected rather than served, to protect the DB/server.
+MAX_BATCH_SIZE = 1000
+
 # QDRANT_GENOME = "hg38"
 
 
@@ -259,7 +263,16 @@ class BedAgentBedFile:
 
         Returns:
             BedBatchResult with matching records.
+
+        Raises:
+            ValueError: if more than ``MAX_BATCH_SIZE`` identifiers are requested.
         """
+        if len(identifiers) > MAX_BATCH_SIZE:
+            raise ValueError(
+                f"Too many identifiers requested: {len(identifiers)}. "
+                f"The maximum batch size is {MAX_BATCH_SIZE}."
+            )
+
         statement = (
             select(Bed)
             .where(Bed.id.in_(identifiers))
