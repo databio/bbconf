@@ -275,10 +275,16 @@ class BedAgentBedFile:
                 f"The maximum batch size is {MAX_BATCH_SIZE}."
             )
 
+        stats_load = selectinload(Bed.stats)
+        if not distributions:
+            # Skip fetching the (potentially large) distributions JSONB column
+            # from the database entirely instead of loading and discarding it.
+            stats_load = stats_load.defer(BedStats.distributions)
+
         statement = (
             select(Bed)
             .where(Bed.id.in_(identifiers))
-            .options(selectinload(Bed.annotations), selectinload(Bed.stats))
+            .options(selectinload(Bed.annotations), stats_load)
         )
 
         results = []
@@ -286,8 +292,6 @@ class BedAgentBedFile:
             for bed_object in session.scalars(statement):
                 if full and bed_object.stats:
                     bed_stats = BedStatsModel(**bed_object.stats.__dict__)
-                    if not distributions:
-                        bed_stats.distributions = None
                 else:
                     bed_stats = None
 
