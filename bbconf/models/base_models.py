@@ -131,3 +131,36 @@ class BedSnapshotResult(BaseModel):
 class BedSnapshotListResult(BaseModel):
     count: int
     results: list[BedSnapshotResult]
+
+
+class AnalysisFileArtifact(BaseModel):
+    """A standalone analysis file to publish (upload to S3 + record in the database)."""
+
+    path: str  # local file path to upload
+    name: str
+    file_type: str | None = None
+    genome: str | None = None
+    description: str | None = None
+    tags: list[str] | None = None
+    file_size: int | None = None
+    checksum: str | None = None
+
+
+class AnalysisFileResult(BaseModel):
+    """One registered standalone analysis file."""
+
+    id: int | None = None
+    name: str
+    file_path: str
+    file_type: str | None = None
+    genome: str | None = None
+    description: str | None = None
+    tags: list[str] | None = None
+    file_size: int | None = None
+    checksum: str | None = None
+    creation_date: datetime.datetime
+
+
+class AnalysisFileListResult(BaseModel):
+    count: int
+    results: list[AnalysisFileResult]
