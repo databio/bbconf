@@ -14,7 +14,7 @@ from qdrant_client.models import PointIdsList
 from sqlalchemy import and_, cast, delete, func, or_, select
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session, aliased, selectinload
+from sqlalchemy.orm import Session, aliased, defer, selectinload
 from sqlalchemy.orm.attributes import flag_modified
 from tqdm import tqdm
 
@@ -223,7 +223,7 @@ class BedAgentBedFile:
             ),
         )
 
-    def get_stats(self, identifier: str, distributions: bool = True) -> BedStatsModel:
+    def get_stats(self, identifier: str, distributions: bool = False) -> BedStatsModel:
         """
         Get file statistics by identifier.
 
@@ -234,16 +234,18 @@ class BedAgentBedFile:
         Returns:
             Project statistics as BedStats object.
         """
+
         statement = select(BedStats).where(and_(BedStats.id == identifier))
+        if not distributions:
+            # Skip fetching the (potentially large) distributions JSONB column
+            # from the database entirely instead of loading and discarding it.
+            statement = statement.options(defer(BedStats.distributions))
 
         with Session(self._sa_engine) as session:
             bed_object = session.scalar(statement)
             if not bed_object:
                 raise BEDFileNotFoundError(f"Bed file with id: {identifier} not found.")
             bed_stats = BedStatsModel(**bed_object.__dict__)
-
-        if not distributions:
-            bed_stats.distributions = None
 
         return bed_stats
 
@@ -321,7 +323,7 @@ class BedAgentBedFile:
             results=results,
         )
 
-    def aggregate_collection(self, bed_ids: list) -> BedSetDistributions:
+    def aggregate_distributions(self, bed_ids: list) -> BedSetDistributions:
         """
         Aggregate per-file distributions into collection-level stats.
 
@@ -333,6 +335,7 @@ class BedAgentBedFile:
         Returns:
             BedSetDistributions with aggregated distributions.
         """
+
         return aggregate_collection(self._sa_engine, bed_ids)
 
     def get_plots(self, identifier: str) -> BedPlots:

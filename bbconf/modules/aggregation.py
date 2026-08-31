@@ -2,7 +2,7 @@
 
 All aggregation is pushed to SQL (PostgreSQL) using SQLAlchemy Core/ORM
 constructs -- no raw ``text()`` and no per-row Python loops. Used by both
-``BedAgentBedSet.create()`` and ``BedAgentBedFile.aggregate_collection()``.
+``BedAgentBedSet.create()`` and ``BedAgentBedFile.aggregate_distributions()``.
 """
 
 import logging
