@@ -38,6 +38,11 @@ def _ids_array(bed_ids: List[str]):
 _SCALAR_HIST_BINS = 25
 # Default decimal precision for stored floats
 DEFAULT_PRECISION = 3
+# Above this many files, the region_distribution SQL unnest (files x chromosomes
+# x bins) becomes very heavy and may be slow, exhaust work_mem, or hit a
+# statement timeout. Crossing it emits a warning; it is a heuristic, not a hard
+# limit (actual cost depends on how many bins gtars emits per file).
+LARGE_COLLECTION_WARN_THRESHOLD = 5000
 
 # Scalar columns aggregated into ``scalar_summaries``, as
 # (output key, ORM column) pairs. ``median_neighbor_distance`` is stored in the
@@ -89,6 +94,16 @@ def aggregate_collection(
     All aggregation is done in SQL. Python only reshapes query results
     into the BedSetDistributions model.
 
+    .. warning::
+        This can fail (or become very slow) on a big workload. The dominant
+        cost is the ``region_distribution`` aggregation, which unnests every
+        member file's per-chromosome bin arrays in SQL -- roughly
+        ``files x chromosomes x bins`` intermediate rows. For very large
+        collections (see ``LARGE_COLLECTION_WARN_THRESHOLD``) this may exhaust
+        ``work_mem``, spill to temp disk, or trip a PostgreSQL statement
+        timeout, raising an error. Callers that must tolerate this (e.g.
+        ``BedAgentBedSet.create``) should wrap the call and degrade gracefully.
+
     :param engine: SQLAlchemy engine
     :param bed_ids: list of bed file identifiers
     :param precision: decimal places for stored floats (default 3)
@@ -98,6 +113,14 @@ def aggregate_collection(
         return BedSetDistributions(n_files=0)
 
     n = len(bed_ids)
+
+    if n > LARGE_COLLECTION_WARN_THRESHOLD:
+        _LOGGER.warning(
+            f"Aggregating distributions for {n} files (> "
+            f"{LARGE_COLLECTION_WARN_THRESHOLD}). The region_distribution SQL "
+            f"aggregation is heavy at this scale and may be slow or fail "
+            f"(work_mem/temp disk/statement timeout)."
+        )
 
     with Session(engine) as session:
         composition = _aggregate_composition(session, bed_ids)
