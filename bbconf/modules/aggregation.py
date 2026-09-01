@@ -433,10 +433,8 @@ def _aggregate_partitions(session: Session, bed_ids: List[str]) -> Optional[dict
     """
     agg_columns = []
     for name, column in _PARTITION_COLUMNS:
-        agg_columns.extend(
-            [
-                (func.avg(column) * 100).label(f"{name}_mean"),
-                func.coalesce(func.stddev(column) * 100, 0.0).label(f"{name}_sd"),
+                func.avg(column).label(f"{name}_mean"),
+                func.coalesce(func.stddev(column), 0.0).label(f"{name}_sd"),
                 func.count(column).label(f"{name}_n"),
             ]
         )
