@@ -381,9 +381,9 @@ class BedAgentBedSet:
             # (populated for gtars-processed beds; skipped gracefully otherwise).
             try:
                 dist_stats = aggregate_collection(self._db_engine.engine, bedid_list)
-            except Exception as e:
-                _LOGGER.warning(
-                    f"Distribution aggregation failed (beds may lack distributions): {e}"
+            except Exception:
+                _LOGGER.exception(
+                    "Distribution aggregation failed (beds may lack distributions); continuing without bedset_stats."
                 )
                 dist_stats = None
         else:
