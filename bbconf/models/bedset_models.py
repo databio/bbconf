@@ -25,7 +25,7 @@ class BedSetDistributions(BaseModel):
 
     Only distributions that are meaningful at collection-level are kept:
     - scalar_summaries: mean ± sd + 25-bin histograms of per-file scalar values
-    - tss_histogram: summed per-bin counts across files (fixed ±100 kb axis)
+    - tss_histogram: per-bin mean ± sd across files (fixed ±100 kb axis)
     - region_distribution: per-chrom bin-wise mean ± sd across files
       (requires gtars ≥ PR #248 for reference-aligned bin widths)
     - partitions: mean ± sd of per-file partition fractions (0-1, not percent)

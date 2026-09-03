@@ -211,11 +211,13 @@ class BedAgentBedSet:
             if bedset_object.bedset_stats:
                 return BedSetDistributions(**bedset_object.bedset_stats)
             # Fallback: wrap old scalar columns.
+            n_files = bedset_object.bedfile_count or 0
             return BedSetDistributions(
-                n_files=0,
+                n_files=n_files,
                 scalar_summaries=_old_stats_to_scalar_summaries(
                     bedset_object.bedset_means,
                     bedset_object.bedset_standard_deviation,
+                    n_files,
                 ),
             )
 
@@ -716,12 +718,17 @@ class BedAgentBedSet:
 def _old_stats_to_scalar_summaries(
     bedset_means: dict | None,
     bedset_sd: dict | None,
+    n_files: int = 0,
 ) -> dict | None:
     """Convert old bedset_means/bedset_standard_deviation to scalar_summaries.
 
     Maps the key scalar fields from old-style BedSetStats(mean, sd) to the new
     BedSetDistributions.scalar_summaries format so that bedsets created before
     distribution aggregation still expose scalar summaries.
+
+    ``histogram`` is None: the old columns store only a mean and sd, so there
+    are no per-file values to bin. The key is present so the shape matches the
+    aggregation path and consumers can branch on it rather than on its absence.
     """
     if not bedset_means:
         return None
@@ -740,7 +747,8 @@ def _old_stats_to_scalar_summaries(
             result[key] = {
                 "mean": mean_val,
                 "sd": sd_val or 0.0,
-                "n": 0,
+                "n": n_files,
+                "histogram": None,
             }
 
     return result or None

@@ -256,7 +256,7 @@ class BedAgentBedFile:
         distributions: bool = False,
     ) -> BedBatchResult:
         """
-        Get multiple bed file records by identifiers in a single DB round-trip.
+        Get multiple bed file records by identifiers without a per-record query.
 
         Args:
             identifiers: List of bed file identifiers.
