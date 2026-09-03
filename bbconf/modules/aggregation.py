@@ -57,7 +57,7 @@ _SCALAR_COLUMNS = [
 ]
 
 # Genomic partition columns aggregated into ``partitions``, as
-# (output key, ORM percentage column) pairs.
+# (output key, ORM column) pairs.
 _PARTITION_COLUMNS = [
     ("exon", BedStats.exon_percentage),
     ("intron", BedStats.intron_percentage),
@@ -426,13 +426,16 @@ def _aggregate_tss_histogram(session: Session, bed_ids: List[str]) -> Optional[d
 
 
 def _aggregate_partitions(session: Session, bed_ids: List[str]) -> Optional[dict]:
-    """Aggregate genomic partitions from flat percentage columns.
+    """Aggregate genomic partitions from the flat ``*_percentage`` columns.
 
-    Uses the pre-computed *_percentage columns on bed_stats, which are
-    populated by both R and gtars backends for all beds.
+    Those columns hold a fraction, not a percentage: ``regionstat.R`` stores
+    ``Freq/length(query)`` and the gtars backend stores ``count/total``. Mean
+    and sd come back on the same scale.
     """
     agg_columns = []
     for name, column in _PARTITION_COLUMNS:
+        agg_columns.extend(
+            [
                 func.avg(column).label(f"{name}_mean"),
                 func.coalesce(func.stddev(column), 0.0).label(f"{name}_sd"),
                 func.count(column).label(f"{name}_n"),
@@ -449,8 +452,8 @@ def _aggregate_partitions(session: Session, bed_ids: List[str]) -> Optional[dict
         if not n:
             continue
         result[name] = {
-            "mean_pct": float(getattr(row, f"{name}_mean")),
-            "sd_pct": float(getattr(row, f"{name}_sd")),
+            "mean": float(getattr(row, f"{name}_mean")),
+            "sd": float(getattr(row, f"{name}_sd")),
             "n": int(n),
         }
 

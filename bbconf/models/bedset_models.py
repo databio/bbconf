@@ -28,7 +28,7 @@ class BedSetDistributions(BaseModel):
     - tss_histogram: summed per-bin counts across files (fixed ±100 kb axis)
     - region_distribution: per-chrom bin-wise mean ± sd across files
       (requires gtars ≥ PR #248 for reference-aligned bin widths)
-    - partitions: mean ± sd of per-file partition percentages
+    - partitions: mean ± sd of per-file partition fractions (0-1, not percent)
 
     Dropped (retained in per-file distributions blob, not aggregated):
     - widths_histogram: per-file variable-range bins aren't summable; use
