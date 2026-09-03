@@ -406,7 +406,9 @@ def _aggregate_tss_histogram(session: Session, bed_ids: List[str]) -> Optional[d
     result = {
         "mean": [0.0] * n_bins,
         "sd": [0.0] * n_bins,
-        "n": int(rows[0].n),
+        # Bins can have different contributing-file counts when member files
+        # emit different-length counts arrays; report the fullest bin.
+        "n": max(int(row.n) for row in rows),
     }
 
     x_min, x_max, bins_str = rows[0].x_min, rows[0].x_max, rows[0].bins
