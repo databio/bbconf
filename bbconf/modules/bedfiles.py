@@ -14,7 +14,7 @@ from qdrant_client.models import PointIdsList
 from sqlalchemy import and_, cast, delete, func, or_, select
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session, aliased, selectinload
+from sqlalchemy.orm import Session, aliased, defer, selectinload
 from sqlalchemy.orm.attributes import flag_modified
 from tqdm import tqdm
 
@@ -44,6 +44,7 @@ from bbconf.exceptions import (
     UniverseNotFoundError,
 )
 from bbconf.models.bed_models import (
+    BedBatchResult,
     BedClassification,
     BedEmbeddingResult,
     BedFiles,
@@ -64,8 +65,14 @@ from bbconf.models.bed_models import (
     UniverseMetadata,
     VectorMetadata,
 )
+from bbconf.models.bedset_models import BedSetDistributions
+from bbconf.modules.aggregation import aggregate_collection
 
 _LOGGER = getLogger(PKG_NAME)
+
+# Maximum number of identifiers accepted by get_batch in a single call. Larger
+# requests are rejected rather than served, to protect the DB/server.
+MAX_BATCH_SIZE = 1000
 
 # QDRANT_GENOME = "hg38"
 
@@ -216,17 +223,23 @@ class BedAgentBedFile:
             ),
         )
 
-    def get_stats(self, identifier: str) -> BedStatsModel:
+    def get_stats(self, identifier: str, distributions: bool = False) -> BedStatsModel:
         """
         Get file statistics by identifier.
 
         Args:
             identifier: Bed file identifier.
+            distributions: Include distribution arrays in the result.
 
         Returns:
             Project statistics as BedStats object.
         """
+
         statement = select(BedStats).where(and_(BedStats.id == identifier))
+        if not distributions:
+            # Skip fetching the (potentially large) distributions JSONB column
+            # from the database entirely instead of loading and discarding it.
+            statement = statement.options(defer(BedStats.distributions))
 
         with Session(self._sa_engine) as session:
             bed_object = session.scalar(statement)
@@ -235,6 +248,99 @@ class BedAgentBedFile:
             bed_stats = BedStatsModel(**bed_object.__dict__)
 
         return bed_stats
+
+    def get_batch(
+        self,
+        identifiers: list,
+        full: bool = False,
+        distributions: bool = False,
+    ) -> BedBatchResult:
+        """
+        Get multiple bed file records by identifiers with batched DB queries.
+
+        Args:
+            identifiers: List of bed file identifiers.
+            full: If True, include scalar stats for each record.
+            distributions: If True, include distribution arrays in stats.
+
+        Returns:
+            BedBatchResult with matching records.
+
+        Raises:
+            ValueError: if more than ``MAX_BATCH_SIZE`` identifiers are requested.
+        """
+        if len(identifiers) > MAX_BATCH_SIZE:
+            raise ValueError(
+                f"Too many identifiers requested: {len(identifiers)}. "
+                f"The maximum batch size is {MAX_BATCH_SIZE}."
+            )
+
+        stats_load = selectinload(Bed.stats)
+        if not distributions:
+            # Skip fetching the (potentially large) distributions JSONB column
+            # from the database entirely instead of loading and discarding it.
+            stats_load = stats_load.defer(BedStats.distributions)
+
+        statement = (
+            select(Bed)
+            .where(Bed.id.in_(identifiers))
+            .options(selectinload(Bed.annotations), stats_load)
+        )
+
+        results = []
+        with Session(self._sa_engine) as session:
+            for bed_object in session.scalars(statement):
+                if full and bed_object.stats:
+                    bed_stats = BedStatsModel(**bed_object.stats.__dict__)
+                else:
+                    bed_stats = None
+
+                results.append(
+                    BedMetadataAll(
+                        id=bed_object.id,
+                        name=bed_object.name,
+                        description=bed_object.description,
+                        submission_date=bed_object.submission_date,
+                        last_update_date=bed_object.last_update_date,
+                        genome_alias=bed_object.genome_alias,
+                        genome_digest=bed_object.genome_digest,
+                        bed_compliance=bed_object.bed_compliance,
+                        data_format=bed_object.data_format,
+                        is_universe=bed_object.is_universe,
+                        license_id=bed_object.license_id or DEFAULT_LICENSE,
+                        processed=bed_object.processed,
+                        annotation=StandardMeta(
+                            **bed_object.annotations.__dict__
+                            if bed_object.annotations
+                            else {}
+                        ),
+                        stats=bed_stats,
+                        compliant_columns=bed_object.compliant_columns,
+                        non_compliant_columns=bed_object.non_compliant_columns,
+                    )
+                )
+
+        return BedBatchResult(
+            count=len(results),
+            limit=len(identifiers),
+            offset=0,
+            results=results,
+        )
+
+    def aggregate_distributions(self, bed_ids: list) -> BedSetDistributions:
+        """
+        Aggregate per-file distributions into collection-level stats.
+
+        Thin wrapper around the standalone ``aggregate_collection`` function.
+
+        Args:
+            bed_ids: List of bed file identifiers.
+
+        Returns:
+            BedSetDistributions with aggregated distributions.
+        """
+
+        return aggregate_collection(self._sa_engine, bed_ids)
 
     def get_plots(self, identifier: str) -> BedPlots:
         """
