@@ -89,6 +89,7 @@ def example_dict():
         stats={
             "number_of_regions": 1,
             "median_tss_dist": 2,
+            "median_neighbor_distance": 18,
             "mean_region_width": 3,
             "exon_frequency": 4,
             "exon_percentage": 5,
