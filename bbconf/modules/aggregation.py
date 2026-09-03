@@ -326,10 +326,7 @@ def _aggregate_region_distribution(
 
     result = {}
     for row in rows:
-        entry = result.setdefault(row.chrom, {"mean": [], "sd": [], "n": 0})
-        # Bins can have different contributing-file counts when member files
-        # have ragged arrays for a chromosome; report the fullest bin.
-        entry["n"] = max(entry["n"], int(row.n))
+        entry = result.setdefault(row.chrom, {"mean": [], "sd": [], "n": int(row.n)})
         while len(entry["mean"]) <= row.bin_idx:
             entry["mean"].append(0.0)
             entry["sd"].append(0.0)
@@ -406,9 +403,7 @@ def _aggregate_tss_histogram(session: Session, bed_ids: List[str]) -> Optional[d
     result = {
         "mean": [0.0] * n_bins,
         "sd": [0.0] * n_bins,
-        # Bins can have different contributing-file counts when member files
-        # emit different-length counts arrays; report the fullest bin.
-        "n": max(int(row.n) for row in rows),
+        "n": int(rows[0].n),
     }
 
     x_min, x_max, bins_str = rows[0].x_min, rows[0].x_max, rows[0].bins
