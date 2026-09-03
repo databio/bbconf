@@ -211,7 +211,7 @@ class BedAgentBedSet:
             if bedset_object.bedset_stats:
                 return BedSetDistributions(**bedset_object.bedset_stats)
             # Fallback: wrap old scalar columns.
-            n_files = bedset_object.bedfile_count or 0
+            n_files = bedset_object.bedfile_count
             return BedSetDistributions(
                 n_files=n_files,
                 scalar_summaries=_old_stats_to_scalar_summaries(
