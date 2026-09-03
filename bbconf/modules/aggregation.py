@@ -45,15 +45,12 @@ DEFAULT_PRECISION = 3
 LARGE_COLLECTION_WARN_THRESHOLD = 5000
 
 # Scalar columns aggregated into ``scalar_summaries``, as
-# (output key, ORM column) pairs. ``median_neighbor_distance`` is stored in the
-# legacy ``bed_stats.tssdist`` column; it is surfaced under the descriptive key
-# without renaming the underlying database column.
+# (output key, ORM column) pairs.
 _SCALAR_COLUMNS = [
     ("number_of_regions", BedStats.number_of_regions),
     ("mean_region_width", BedStats.mean_region_width),
     ("median_tss_dist", BedStats.median_tss_dist),
     ("gc_content", BedStats.gc_content),
-    ("median_neighbor_distance", BedStats.tssdist),
 ]
 
 # Genomic partition columns aggregated into ``partitions``, as

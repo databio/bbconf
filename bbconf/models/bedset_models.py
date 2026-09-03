@@ -33,8 +33,9 @@ class BedSetDistributions(BaseModel):
     Dropped (retained in per-file distributions blob, not aggregated):
     - widths_histogram: per-file variable-range bins aren't summable; use
       scalar_summaries.mean_region_width histogram instead
-    - neighbor_distances KDE: per-file within-bedset variance is low; use
-      scalar_summaries.median_neighbor_distance instead
+    - neighbor_distances KDE: each file's KDE is fit over its own log10 range,
+      so bin i means a different bp value per file; no collection-level
+      equivalent yet
     - gc_content KDE: per-file distribution is unimodal; use
       scalar_summaries.gc_content mean instead
     - chromosome_summaries: redundant with region_distribution
