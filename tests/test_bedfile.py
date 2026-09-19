@@ -183,8 +183,50 @@ class Test_BedFile_Agent:
             )
 
         assert len(return_result.results) == 0
-        assert return_result.count == 1
+        # count is only computed on the first page
+        assert return_result.count is None
         assert return_result.offset == 1
+
+    def test_get_list_after_walks_every_id_once(self, bbagent_obj):
+        extra_ids = [f"{i:032x}" for i in range(1, 8)]
+        with ContextManagerDBTesting(config=bbagent_obj.config, add_data=True):
+            with Session(bbagent_obj.config.db_engine.engine) as session:
+                for bed_id in extra_ids:
+                    session.add(Bed(id=bed_id, genome_alias="hg38", processed=False))
+                session.commit()
+
+            expected = sorted(extra_ids + [BED_TEST_ID])
+
+            seen = []
+            after = None
+            while True:
+                page = bbagent_obj.bed.get_ids_list(limit=3, after=after)
+                if after is None:
+                    assert page.count == len(expected)
+                else:
+                    assert page.count is None
+                assert page.offset == 0
+                if not page.results:
+                    break
+                seen.extend(r.id for r in page.results)
+                after = page.results[-1].id
+
+        assert seen == expected
+        assert len(seen) == len(set(seen))
+
+    def test_get_list_after_ignores_offset(self, bbagent_obj):
+        with ContextManagerDBTesting(config=bbagent_obj.config, add_data=True):
+            with Session(bbagent_obj.config.db_engine.engine) as session:
+                session.add(Bed(id="0" * 32, genome_alias="hg38", processed=False))
+                session.commit()
+
+            return_result = bbagent_obj.bed.get_ids_list(
+                limit=100, offset=5, after="0" * 32
+            )
+
+        assert [r.id for r in return_result.results] == [BED_TEST_ID]
+        assert return_result.count is None
+        assert return_result.offset == 0
 
     def test_bed_delete(self, bbagent_obj, mocker):
         mocker.patch("bbconf.config_parser.bedbaseconfig.BedBaseConfig.delete_s3")

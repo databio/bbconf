@@ -438,18 +438,28 @@ class BedAgentBedFile:
         offset: int = 0,
         genome: str = None,
         bed_compliance: str = None,
+        after: str | None = None,
     ) -> BedListResult:
         """
         Get list of bed file identifiers.
 
+        To enumerate everything, page with ``after=<last id>`` (keyset paging).
+        Offset paging costs grow with the offset, since Postgres reads and
+        discards ``offset`` rows per page; keyset paging is constant cost.
+
         Args:
             limit: Number of results to return.
-            offset: Offset to start from.
+            offset: Offset to start from. Ignored when ``after`` is set.
             genome: Filter by genome.
             bed_compliance: Filter by bed type. e.g. 'bed6+4'.
+            after: Return records with id greater than this. Keyset paging;
+                ignores ``offset``.
 
         Returns:
-            List of bed file identifiers.
+            List of bed file identifiers. ``count`` is the total number of
+            matching records on the first page (``offset == 0`` and no
+            ``after``), and ``None`` on every other page, since the count query
+            is skipped there.
         """
         statement = select(Bed)
         count_statement = select(func.count(Bed.id))
@@ -465,12 +475,18 @@ class BedAgentBedFile:
                 and_(Bed.bed_compliance == bed_compliance)
             )
 
+        if after is not None:
+            statement = statement.where(Bed.id > after)
+            offset = 0
+
         statement = statement.order_by(Bed.id).limit(limit).offset(offset)
 
         result_list = []
+        count = None
         with Session(self._sa_engine) as session:
             bed_ids = session.scalars(statement)
-            count = session.execute(count_statement).one()
+            if offset == 0 and after is None:
+                count = session.execute(count_statement).one()[0]
 
             for result in bed_ids:
                 annotation = StandardMeta(
@@ -481,7 +497,7 @@ class BedAgentBedFile:
                 )
 
         return BedListResult(
-            count=count[0],
+            count=count,
             limit=limit,
             offset=offset,
             results=result_list,
