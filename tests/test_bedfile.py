@@ -1,4 +1,9 @@
+import os
+
+import numpy as np
 import pytest
+from gtars.models import RegionSet as GRegionSet
+from qdrant_client.models import PointIdsList
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import select
 
@@ -6,8 +11,9 @@ from bbconf.bbagent import BedBaseAgent
 from bbconf.const import DEFAULT_LICENSE
 from bbconf.db_utils import Bed, Files
 from bbconf.exceptions import BedFIleExistsError, BEDFileNotFoundError
+from bbconf.modules.bedfiles import _bed_id_from_point_id
 
-from .conftest import SERVICE_UNAVAILABLE, get_bbagent
+from .conftest import DATA_PATH, SERVICE_UNAVAILABLE, get_bbagent
 from .utils import BED_TEST_ID, BEDSET_TEST_ID, ContextManagerDBTesting
 
 
@@ -286,29 +292,115 @@ class Test_BedFile_Agent:
             assert return_result[0] == BED_TEST_ID
 
 
-@pytest.mark.skip("Skipped, because ML models and qdrant needed")
+def test_bed_id_from_point_id():
+    dashed = "-".join(
+        [
+            BED_TEST_ID[:8],
+            BED_TEST_ID[8:12],
+            BED_TEST_ID[12:16],
+            BED_TEST_ID[16:20],
+            BED_TEST_ID[20:],
+        ]
+    )
+    assert _bed_id_from_point_id(dashed) == BED_TEST_ID
+    assert _bed_id_from_point_id(BED_TEST_ID) == BED_TEST_ID
+
+
+def _ml_unavailable() -> bool:
+    """True unless ML models loaded and the Qdrant server answers."""
+    if SERVICE_UNAVAILABLE:
+        return True
+    config = get_bbagent().config
+    if getattr(config, "bivec_search_interface", None) is None:
+        return True
+    try:
+        config.qdrant_client.get_collections()
+    except Exception:
+        return True
+    return False
+
+
+ML_UNAVAILABLE = _ml_unavailable()
+QDRANT_TEXT_POINT_ID = "00000000-0000-0000-0000-000000000001"
+
+
+@pytest.fixture()
+def qdrant_bed_point(bbagent_obj):
+    """Load one BED vector and one matching text vector into Qdrant.
+
+    The text vector is the real dense embedding of a metadata phrase, and its
+    payload points at BED_TEST_ID, so a bivec text search can find the BED.
+    """
+    config = bbagent_obj.config
+    qdrant_cfg = config.config.qdrant
+    file_dim = config.qdrant_client.get_collection(
+        qdrant_cfg.file_collection
+    ).config.params.vectors.size
+    config.qdrant_file_backend.load(
+        ids=[BED_TEST_ID],
+        vectors=np.random.default_rng(0).random((1, file_dim)),
+        payloads=[{"description": "test bed"}],
+    )
+    text_vec = next(iter(config.dense_encoder.embed(["CTCF ChIP-seq in K562"])))
+    config._qdrant_text_backend.load(
+        ids=[QDRANT_TEXT_POINT_ID],
+        vectors=np.array([text_vec]),
+        payloads=[{"matched_files": [BED_TEST_ID]}],
+    )
+    yield
+    config.qdrant_client.delete(
+        collection_name=qdrant_cfg.file_collection,
+        points_selector=PointIdsList(points=[BED_TEST_ID]),
+    )
+    config.qdrant_client.delete(
+        collection_name=qdrant_cfg.text_collection,
+        points_selector=PointIdsList(points=[QDRANT_TEXT_POINT_ID]),
+    )
+
+
+def _file_points_count(bbagent_obj) -> int:
+    return bbagent_obj.config.qdrant_client.count(
+        collection_name=bbagent_obj.config.config.qdrant.file_collection,
+        exact=True,
+    ).count
+
+
+@pytest.mark.skipif(ML_UNAVAILABLE, reason="ML models or Qdrant server unavailable")
 class TestVectorSearch:
-    def test_qdrant_search(self, bbagent_obj, mocker):
-        mocker.patch(
-            "geniml.text2bednn.text2bednn.Text2BEDSearchInterface.nl_vec_search",
-            return_value={
-                "id": BED_TEST_ID,
-                "payload": {"bed_id": "39b686ec08206b92b540ed434266ec9b"},
-                "score": 0.2146723,
-            },
+    def test_text_to_bed_search(self, bbagent_obj, qdrant_bed_point):
+        with ContextManagerDBTesting(config=bbagent_obj.config, add_data=True):
+            return_result = bbagent_obj.bed.text_to_bed_search("CTCF ChIP-seq")
+
+            assert return_result.count == 1
+            assert len(return_result.results) == 1
+            # Qdrant returns dashed UUIDs; search results use the plain BED id.
+            assert return_result.results[0].id == BED_TEST_ID
+            assert return_result.results[0].metadata.id == BED_TEST_ID
+
+    def test_bed_to_bed_search(self, bbagent_obj, qdrant_bed_point):
+        if bbagent_obj.config.b2b_search_interface is None:
+            pytest.skip("Region2vec model unavailable")
+        region_set = GRegionSet(
+            os.path.join(DATA_PATH, "files", f"{BED_TEST_ID}.bed.gz")
         )
         with ContextManagerDBTesting(config=bbagent_obj.config, add_data=True):
-            return_result = bbagent_obj.bed.text_to_bed_search("something")
-        assert return_result
+            return_result = bbagent_obj.bed.bed_to_bed_search(region_set, limit=5)
 
-    def test_delete_qdrant_point(self, bbagent_obj):
-        with ContextManagerDBTesting(config=bbagent_obj.config, add_data=True):
-            bbagent_obj.bed.delete_qdrant_point(BED_TEST_ID)
+            assert len(return_result.results) == 1
+            assert return_result.results[0].id == BED_TEST_ID
+            assert return_result.results[0].metadata.id == BED_TEST_ID
 
-    def test_create_qdrant_collection(self):
-        agent = BedBaseAgent(
-            config="/home/bnt4me/virginia/repos/bbuploader/config_db_local.yaml"
-        )
-        ff = agent.bed.create_qdrant_collection()
-        ff
-        assert True
+    def test_delete_qdrant_point(self, bbagent_obj, qdrant_bed_point):
+        assert _file_points_count(bbagent_obj) == 1
+        bbagent_obj.bed.delete_qdrant_point(BED_TEST_ID)
+        assert _file_points_count(bbagent_obj) == 0
+
+    def test_qdrant_collections_created(self, bbagent_obj):
+        """Agent init creates every configured Qdrant collection."""
+        qdrant_cfg = bbagent_obj.config.config.qdrant
+        for collection in (
+            qdrant_cfg.file_collection,
+            qdrant_cfg.text_collection,
+            qdrant_cfg.hybrid_collection,
+        ):
+            assert bbagent_obj.config.qdrant_client.collection_exists(collection)

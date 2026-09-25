@@ -70,6 +70,21 @@ _LOGGER = getLogger(PKG_NAME)
 # QDRANT_GENOME = "hg38"
 
 
+def _bed_id_from_point_id(point_id) -> str:
+    """
+    Convert a Qdrant point id to a plain 32-character BED id.
+
+    Qdrant stores BED ids as UUIDs and returns them with dashes.
+
+    Args:
+        point_id: Qdrant point id (dashed UUID string or UUID).
+
+    Returns:
+        BED id without dashes.
+    """
+    return str(point_id).replace("-", "")
+
+
 class BedAgentBedFile:
     """
     Class that represents a BED file in the Database.
@@ -295,7 +310,7 @@ class BedAgentBedFile:
             # Hydrate all neighbours with a single batched query instead of one
             # SELECT per neighbour (was an N+1). annotations is joined-loaded,
             # but selectinload keeps that explicit for this detached-object path.
-            ids = [result.id.replace("-", "") for result in results.points]
+            ids = [_bed_id_from_point_id(result.id) for result in results.points]
             with Session(self._sa_engine) as session:
                 beds = {
                     bed.id: bed
@@ -307,16 +322,14 @@ class BedAgentBedFile:
                 }
             result_list = [
                 QdrantSearchResult(
-                    id=result.id.replace("-", ""),
+                    id=bed_id,
                     payload=result.payload,
                     score=result.score,
-                    metadata=self._build_metadata(
-                        beds[result.id.replace("-", "")], full=False
-                    ),
+                    metadata=self._build_metadata(beds[bed_id], full=False),
                 )
-                for result in results.points
+                for bed_id, result in zip(ids, results.points)
                 # skip stale Qdrant points that no longer exist in the database
-                if result.id.replace("-", "") in beds
+                if bed_id in beds
             ]
         except UnexpectedResponse as err:
             _LOGGER.error(
@@ -1246,7 +1259,7 @@ class BedAgentBedFile:
         )
         results_list = []
         for result in results:
-            result_id = result["id"].replace("-", "")
+            result_id = _bed_id_from_point_id(result["id"])
             try:
                 if with_metadata:
                     result_meta = self.get(result_id)
@@ -1259,7 +1272,8 @@ class BedAgentBedFile:
                 continue
             results_list.append(
                 QdrantSearchResult(
-                    **result, metadata=result_meta if with_metadata else None
+                    **{**result, "id": result_id},
+                    metadata=result_meta if with_metadata else None,
                 )
             )
 
@@ -1298,7 +1312,7 @@ class BedAgentBedFile:
         )
         results_list = []
         for result in results:
-            result_id = result["id"].replace("-", "")
+            result_id = _bed_id_from_point_id(result["id"])
             try:
                 result_meta = self.get(result_id)
             except BEDFileNotFoundError as e:
@@ -1307,7 +1321,11 @@ class BedAgentBedFile:
                 )
                 continue
             if result_meta:
-                results_list.append(QdrantSearchResult(**result, metadata=result_meta))
+                results_list.append(
+                    QdrantSearchResult(
+                        **{**result, "id": result_id}, metadata=result_meta
+                    )
+                )
 
         # Count of the searchable pool (indexed bed vectors), not the total number
         # of bed files in the database (which overcounts unindexed genomes).
@@ -2267,7 +2285,7 @@ class BedAgentBedFile:
 
         result_list = []
         for result in results.points:
-            result_id = result.id.replace("-", "")
+            result_id = _bed_id_from_point_id(result.id)
 
             if with_metadata:
                 metadata = self.get(result_id, full=False)
