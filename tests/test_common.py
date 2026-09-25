@@ -2,11 +2,40 @@ import datetime
 
 import pytest
 
+from bbconf.config_parser.bedbaseconfig import BedBaseConfig
+from bbconf.config_parser.models import ConfigDB, ConfigFile, ConfigPath, ConfigServer
 from bbconf.const import DEFAULT_LICENSE
+from bbconf.exceptions import BadAccessMethodError
 from bbconf.models.base_models import UsageModel
 
 from .conftest import SERVICE_UNAVAILABLE
 from .utils import BED_TEST_ID, BEDSET_TEST_ID, ContextManagerDBTesting
+
+
+def _bbconfig_without_access_methods() -> BedBaseConfig:
+    """Build a BedBaseConfig with no DB/qdrant/ML setup, just a config file."""
+    bbconfig = object.__new__(BedBaseConfig)
+    bbconfig._config = ConfigFile(
+        database=ConfigDB(host="localhost", user="postgres", password="docker"),
+        server=ConfigServer(),
+        path=ConfigPath(),
+        access_methods=None,
+    )
+    return bbconfig
+
+
+class TestAccessMethodsMissing:
+    """access_methods is optional in the config; these should not raise AttributeError."""
+
+    def test_construct_access_method_list_returns_empty(self):
+        bbconfig = _bbconfig_without_access_methods()
+        assert bbconfig.config.access_methods is None
+        assert bbconfig.construct_access_method_list("some/rel/path") == []
+
+    def test_get_prefixed_uri_raises_bad_access_method_error(self):
+        bbconfig = _bbconfig_without_access_methods()
+        with pytest.raises(BadAccessMethodError):
+            bbconfig.get_prefixed_uri("some/rel/path", "http")
 
 
 @pytest.mark.skipif(SERVICE_UNAVAILABLE, reason="Database is not available")
