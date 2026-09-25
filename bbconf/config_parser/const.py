@@ -15,7 +15,7 @@ DEFAULT_SERVER_HOST = "0.0.0.0"
 
 DEFAULT_TEXT2VEC_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 DEFAULT_SPARSE_MODEL = "prithivida/Splade_PP_en_v2"
-DEFAULT_REGION2_VEC_MODEL = "databio/r2v_encoder-ChIP-atlas-hg38"
+DEFAULT_REGION2_VEC_MODEL = "databio/r2v-encode-hg38"
 
 DEFAULT_S3_BUCKET = "bedbase"
 
