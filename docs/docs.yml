@@ -1,0 +1,6 @@
+site_name: BBConf
+nav:
+  - BBConf: README.md
+  - Overview: overview.md
+  - Guide: bbc_api.md
+  - Changelog: changelog.md
