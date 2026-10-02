@@ -11,6 +11,7 @@ on:
     branches: [master]
     paths:
       - 'docs/**'                            # the spoke's docs tree, docs.yml included
+      - 'bbconf/**'                          # code the hub renders API pages from
       - '.github/workflows/notify-docs.yml'  # so a notifier fix proves itself
   workflow_dispatch:
 
