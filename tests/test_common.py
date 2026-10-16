@@ -84,3 +84,37 @@ class TestAddUsage:
             config=bbagent_obj.config, add_data=True, bedset=True
         ):
             bbagent_obj.add_usage(usage)
+
+    def test_get_usage(self, bbagent_obj):
+        now = datetime.datetime.now()
+        usage = UsageModel(
+            bed_meta={BED_TEST_ID: 3},
+            bedset_meta={},
+            bed_search={"ff": 2, "": 9},
+            bedset_search={"ase": 1},
+            files={"files/a/abc.bed.gz": 5},
+            date_from=now,
+            date_to=now,
+        )
+
+        with ContextManagerDBTesting(
+            config=bbagent_obj.config, add_data=True, bedset=True
+        ):
+            bbagent_obj.add_usage(usage)
+
+            bed = bbagent_obj.get_usage("bed_meta")
+            assert [(r.key, r.count) for r in bed.results] == [(BED_TEST_ID, 3)]
+            # empty search keys are dropped; search type is filtered
+            search = bbagent_obj.get_usage("bed_search")
+            assert [r.key for r in search.results] == ["ff"]
+            # file paths are shortened to the bed id
+            assert bbagent_obj.get_usage("files").results[0].key == "abc"
+            # date range excludes rows outside the window
+            later = now + datetime.timedelta(days=1)
+            assert bbagent_obj.get_usage("bed_meta", date_from=later).count == 0
+            assert bbagent_obj.get_usage("bed_meta", offset=1).count == 0
+
+            with pytest.raises(ValueError):
+                bbagent_obj.get_usage("nope")
+            with pytest.raises(ValueError):
+                bbagent_obj.get_usage("bed_meta", limit=0)

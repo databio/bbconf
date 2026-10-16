@@ -409,7 +409,7 @@ class BedBaseAgent:
         event_type: str,
         date_from: datetime.datetime | None = None,
         date_to: datetime.datetime | None = None,
-        limit: int | None = None,
+        limit: int = 100,
         offset: int = 0,
     ) -> UsageResponse:
         """
@@ -428,7 +428,7 @@ class BedBaseAgent:
                 (date_to >= date_from). None means no lower bound.
             date_to: Include only rows whose window starts on or before this date
                 (date_from <= date_to). None means no upper bound.
-            limit: Maximum number of keys to return. None means no limit.
+            limit: Maximum number of keys to return (>= 1).
             offset: Number of keys to skip (for pagination).
 
         Returns:
@@ -448,6 +448,8 @@ class BedBaseAgent:
                 f"Invalid event_type '{event_type}'. Must be one of: "
                 f"{', '.join(usage_map)}."
             )
+        if limit < 1 or offset < 0:
+            raise ValueError("limit must be >= 1 and offset >= 0.")
 
         model, key_column, search_type = usage_map[event_type]
 
@@ -467,10 +469,7 @@ class BedBaseAgent:
         if date_to is not None:
             statement = statement.where(model.date_from <= date_to)
 
-        if limit is not None:
-            statement = statement.limit(limit).offset(offset)
-        elif offset:
-            statement = statement.offset(offset)
+        statement = statement.limit(limit).offset(offset)
 
         # bed downloads are keyed by file path; shorten to the bed id, matching
         # get_detailed_usage.
