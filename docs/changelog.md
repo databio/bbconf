@@ -3,7 +3,23 @@
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) and [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) format.
 
 
-### [0.14.13] - 2026-07-13
+## [0.16.0] - 2026-10-16
+### Added:
+- `BedBaseAgent.get_usage()`: per-key usage counts for one event type, with an optional date range and paging (default limit 100). Returns the new `UsageResponse` model.
+- Keyset paging for `bed.get_ids_list()` via `after=<last id>`.
+
+### Changed:
+- **Breaking:** `BedListResult.count` is now `None` on every page except the first (offset 0, no `after`), to skip a full COUNT on deep pages. With `after`, the returned `offset` is 0.
+- **Breaking:** vector search results (`QdrantSearchResult.id`) now return plain 32-character BED ids instead of dashed Qdrant UUIDs.
+- **Breaking:** the default region2vec model is now `databio/r2v-encode-hg38`; the old default was removed from Hugging Face. Deployments using another model must set `path.region2vec` in their config.
+- Bedset list is ordered by id, so paging is stable.
+
+### Fixed:
+- Database engine survives host restarts: `pool_pre_ping`, a 30-minute recycle, TCP keepalives, and a 5 s connect timeout.
+- Alembic migrations turn off `statement_timeout`, so long migrations are not killed by the app role's limit.
+- A config with no `access_methods` no longer crashes.
+
+## [0.14.13] - 2026-07-13
 ### Fixed:
 - Cache `get_stats()` with a TTL to avoid running uncached COUNT queries on the bed table on every request to hot API paths (stats, neighbours, list, search)
 - Eliminated an N+1 query in `get_neighbours()` by fetching all neighbour metadata in a single batched query (with annotations eager-loaded) instead of one query per neighbour; stale Qdrant points are now skipped rather than raising
