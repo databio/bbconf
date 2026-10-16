@@ -26,33 +26,38 @@ Where `bbconf_file_path` is the path to the configuration file. How to create a 
 #### Upload a bedfile to the database
 
 ```python
-
-    bbagent.bed.add(
-        identifier=bed_metadata.bed_digest,
-        stats=stats.model_dump(exclude_unset=True),
-        metadata=other_metadata,
-        plots=plots.model_dump(exclude_unset=True),
-        files=files.model_dump(exclude_unset=True),
-        classification=classification.model_dump(exclude_unset=True),
-        upload_qdrant=upload_qdrant,
-        upload_pephub=upload_pephub,
-        upload_s3=upload_s3,
-        local_path=outfolder,
-        overwrite=force_overwrite,
-        nofail=True,
-    )
+bbagent.bed.add(
+    identifier=bed_metadata.bed_digest,
+    stats=stats.model_dump(exclude_unset=True),
+    metadata=other_metadata,
+    plots=plots.model_dump(exclude_unset=True),
+    files=files.model_dump(exclude_unset=True),
+    classification=classification.model_dump(exclude_unset=True),
+    upload_qdrant=upload_qdrant,
+    upload_pephub=upload_pephub,
+    upload_s3=upload_s3,
+    local_path=outfolder,
+    overwrite=force_overwrite,
+    nofail=True,
+)
 ```
 
 #### Get a bedfile from the database
 
 ```python
-bed = bbagent.bed.get(identifier=bed_id, full=True,)
+bed = bbagent.bed.get(
+    identifier=bed_id,
+    full=True,
+)
 ```
 
 #### Get a bedset from the database
 
 ```python
-bedset = bbagent.bedset.get(identifier=bedset_id, full=True,)
+bedset = bbagent.bedset.get(
+    identifier=bedset_id,
+    full=True,
+)
 ```
 
 #### User can access credentials and other configurations from the `BedBaseConfig` class
