@@ -173,7 +173,9 @@ class BedMetadataAll(BedMetadataBasic):
 
 
 class BedListResult(BaseModel):
-    count: int
+    # Total matching records. Only computed on the first page (offset 0, no
+    # `after`); None on every other page so deep pages skip the COUNT(*).
+    count: int | None = None
     limit: int
     offset: int
     results: list[BedMetadataBasic]

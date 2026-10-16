@@ -146,6 +146,38 @@ class TestBedset:
             assert result.offset == 1
             assert len(result.results) == 0
 
+    def test_get_bedset_list_stable_order(self, bbagent_obj):
+        extra_ids = [f"bedset_{i}" for i in range(9, 0, -1)]
+        with ContextManagerDBTesting(
+            config=bbagent_obj.config, add_data=True, bedset=True
+        ):
+            with Session(bbagent_obj.config.db_engine.engine) as session:
+                for bedset_id in extra_ids:
+                    session.add(
+                        BedSets(
+                            id=bedset_id,
+                            name=bedset_id,
+                            description="random desc",
+                            md5sum="bbad0000000000000000000000000000",
+                            processed=False,
+                            bedfile_count=0,
+                        )
+                    )
+                session.commit()
+
+            first = [r.id for r in bbagent_obj.bedset.get_ids_list(limit=100).results]
+            second = [r.id for r in bbagent_obj.bedset.get_ids_list(limit=100).results]
+
+            # paged walk must cover every id exactly once
+            paged = []
+            for offset in range(0, 10, 4):
+                page = bbagent_obj.bedset.get_ids_list(limit=4, offset=offset)
+                paged.extend(r.id for r in page.results)
+
+        assert first == second
+        assert first == sorted(extra_ids + [BEDSET_TEST_ID])
+        assert paged == first
+
     def test_get_idset_list_query_found(self, bbagent_obj):
         with ContextManagerDBTesting(
             config=bbagent_obj.config, add_data=True, bedset=True

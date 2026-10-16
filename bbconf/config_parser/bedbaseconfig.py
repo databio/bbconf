@@ -671,10 +671,13 @@ class BedBaseConfig:
             Full uri path.
         """
 
+        if self.config.access_methods is None:
+            _LOGGER.error("No access methods are defined in the config.")
+            raise BadAccessMethodError("No access methods are defined in the config.")
         try:
             prefix = getattr(self.config.access_methods, access_id).prefix
             return os.path.join(prefix, postfix)
-        except KeyError:
+        except (KeyError, AttributeError):
             _LOGGER.error(f"Access method {access_id} is not defined.")
             raise BadAccessMethodError(f"Access method {access_id} is not defined.")
 
@@ -688,6 +691,8 @@ class BedBaseConfig:
         Returns:
             List of access methods.
         """
+        if self.config.access_methods is None:
+            return []
         access_methods = []
         for access_id in self.config.access_methods.model_dump().keys():
             access_dict = AccessMethod(

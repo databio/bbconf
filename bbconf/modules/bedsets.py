@@ -493,7 +493,9 @@ class BedAgentBedSet:
             )
 
         with Session(self._db_engine.engine) as session:
-            bedset_list = session.scalars(statement.limit(limit).offset(offset))
+            bedset_list = session.scalars(
+                statement.order_by(BedSets.id).limit(limit).offset(offset)
+            )
             bedset_count = session.execute(count_statement).one()
 
             result_list = [
