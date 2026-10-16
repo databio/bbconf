@@ -1,7 +1,7 @@
 from logging.config import fileConfig
 
 from alembic import context
-from sqlalchemy import engine_from_config, pool
+from sqlalchemy import engine_from_config, pool, text
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -65,6 +65,18 @@ def run_migrations_online() -> None:
     )
 
     with connectable.connect() as connection:
+        # The app role carries a server-side statement_timeout (45s) so that
+        # queries abandoned by nginx get cancelled. Migrations can legitimately
+        # run longer than that, so opt this connection out. The engine is
+        # NullPool and disposed after the migration, so it cannot leak into
+        # the app pool.
+        #
+        # Commit right away: execute() autobegins a transaction, and if one is
+        # already open Alembic's begin_transaction() becomes a no-op, so the
+        # migration would be rolled back when the connection closes. A plain
+        # SET is session-scoped and survives the commit.
+        connection.execute(text("SET statement_timeout = 0"))
+        connection.commit()
         context.configure(connection=connection, target_metadata=target_metadata)
 
         with context.begin_transaction():
