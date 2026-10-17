@@ -35,7 +35,6 @@ dependencies = [
     "pybiocfilecache == 0.6.1",
     "umap-learn >= 0.5.8",
     "qdrant_client >= 1.16.1",
-    "setuptools < 70.0.0",
     "cachetools >= 4.2.4",
     "alembic >= 1.19.1",
 ]
