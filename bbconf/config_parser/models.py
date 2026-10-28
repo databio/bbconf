@@ -71,6 +71,28 @@ class ConfigPath(BaseModel):
     umap_model: str | None = None  # Path or link to pre-trained UMAP model
 
 
+class ConfigEmbeddingServer(BaseModel):
+    """
+    HTTP servers to get embeddings from, instead of loading the models in-process.
+    Each URL that is set switches that one model to remote; unset means local.
+    The models are still named in `path`, and are checked against the servers.
+    """
+
+    text_url: str | None = None  # TEI server for path.text2vec
+    sparse_url: str | None = None  # TEI server for path.sparse_model
+    region_url: str | None = None  # region embedding API server for path.region2vec
+    api_key: str | None = None
+
+    model_config = ConfigDict(extra="forbid")
+
+    @field_validator("*")
+    def unset_blank(cls, value):
+        # yacman leaves unset env vars as literal "$VAR"
+        if not value or value.startswith("$"):
+            return None
+        return value
+
+
 class AccessMethodsStruct(BaseModel):
     type: str
     description: str | None = None
@@ -135,6 +157,7 @@ class ConfigFile(BaseModel):
     qdrant: ConfigQdrant | None = None
     server: ConfigServer
     path: ConfigPath
+    embedding_server: ConfigEmbeddingServer | None = None
     access_methods: AccessMethods | None = None
     s3: ConfigS3 | None = None
     analysis: ConfigAnalysis | None = ConfigAnalysis()

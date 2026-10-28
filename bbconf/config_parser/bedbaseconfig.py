@@ -1,9 +1,11 @@
+from __future__ import annotations
+
 import io
 import logging
 import os
 import warnings
 from pathlib import Path
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 import boto3
 import joblib
@@ -14,14 +16,11 @@ import yacman
 import zarr
 from botocore.client import BaseClient
 from botocore.exceptions import BotoCoreError, EndpointConnectionError
-from fastembed import TextEmbedding
-from geniml.region2vec.main import Region2VecExModel
 from geniml.search import BED2BEDSearchInterface
 from geniml.search.backends import BiVectorBackend, QdrantBackend
 from geniml.search.interfaces import BiVectorSearchInterface
 from geniml.search.query2vec import BED2Vec
 from qdrant_client import QdrantClient, models
-from sentence_transformers import SparseEncoder
 from umap import UMAP
 from zarr import Group as Z_GROUP
 
@@ -30,19 +29,27 @@ from bbconf.config_parser.const import (
     S3_FILE_PATH_FOLDER,
     S3_PLOTS_PATH_FOLDER,
 )
-from bbconf.config_parser.models import ConfigFile
+from bbconf.config_parser.models import ConfigEmbeddingServer, ConfigFile
 from bbconf.const import PKG_NAME, ZARR_TOKENIZED_FOLDER
 from bbconf.db_utils import BaseEngine
+from bbconf.embedding_server import RegionEmbeddingServer, TextEmbeddingServer
 from bbconf.exceptions import (
     BadAccessMethodError,
     BedBaseConfError,
     BedbaseS3ConnectionError,
+    EmbeddingServerError,
 )
 from bbconf.helpers import get_absolute_path, get_bedbase_cfg
 from bbconf.models.base_models import FileModel
 from bbconf.models.bed_models import BedFiles, BedPlots
 from bbconf.models.bedset_models import BedSetPlots
 from bbconf.models.drs_models import AccessMethod, AccessURL
+
+if TYPE_CHECKING:
+    # model libraries are imported only when a model is loaded locally
+    from fastembed import TextEmbedding
+    from geniml.region2vec.main import Region2VecExModel
+    from sentence_transformers import SparseEncoder
 
 _LOGGER = logging.getLogger(PKG_NAME)
 
@@ -64,6 +71,7 @@ class BedBaseConfig:
         self.cfg_path = get_bedbase_cfg(config)
         self._config = self._read_config_file(self.cfg_path)
         self._db_engine = self._init_db_engine()
+        self._servers = self._config.embedding_server or ConfigEmbeddingServer()
 
         try:
             self.qdrant_client: QdrantClient = self._init_qdrant_client()
@@ -74,14 +82,22 @@ class BedBaseConfig:
             init_ml = False
 
         if init_ml:
-            self.dense_encoder: TextEmbedding = self._init_dense_encoder()
-            self.sparse_encoder: SparseEncoder | None = self._init_sparce_model()
+            self.dense_encoder: TextEmbedding | TextEmbeddingServer = (
+                self._init_dense_encoder()
+            )
+            self.sparse_encoder: SparseEncoder | TextEmbeddingServer | None = (
+                self._init_sparce_model()
+            )
             self.umap_encoder: UMAP | None = self._init_umap_model()
-            self.r2v_encoder: Region2VecExModel | None = self._init_r2v_encoder()
+            self.r2v_encoder: Region2VecExModel | RegionEmbeddingServer | None = (
+                self._init_r2v_encoder()
+            )
+            self._check_server_dims()
+            text_dim = self._text_dim()
 
             self._init_qdrant_hybrid(
                 qdrant_cl=self.qdrant_client,
-                dense_encoder=self.dense_encoder,
+                dimensions=text_dim,
             )
 
             self.qdrant_file_backend: QdrantBackend | None = (
@@ -90,7 +106,7 @@ class BedBaseConfig:
             self._qdrant_text_backend: QdrantBackend | None = (
                 self._init_qdrant_text_backend(
                     qdrant_cl=self.qdrant_client,
-                    dense_encoder=self.dense_encoder,
+                    dimensions=text_dim,
                 )
             )  # used for bivec search
 
@@ -258,14 +274,14 @@ class BedBaseConfig:
             return None
 
     def _init_qdrant_text_backend(
-        self, qdrant_cl: QdrantClient, dense_encoder: TextEmbedding
+        self, qdrant_cl: QdrantClient, dimensions: int | None
     ) -> QdrantBackend | None:
         """
         Create qdrant client text embedding object using credentials provided in config file.
 
         Args:
             qdrant_cl: QdrantClient object.
-            dense_encoder: TextEmbedding model for encoding text queries.
+            dimensions: Size of the text embedding vectors.
 
         Returns:
             QdrantClient or None
@@ -278,13 +294,7 @@ class BedBaseConfig:
                 "Unable to create Qdrant bivec text collection, qdrant client is None."
             )
             return None
-        if not isinstance(dense_encoder, TextEmbedding):
-            _LOGGER.error(
-                "Unable to create Qdrant bivec text collection, dense encoder is None."
-            )
-            return None
 
-        dimensions = int(dense_encoder.get_embedding_size(self._config.path.text2vec))
         try:
             return QdrantBackend(
                 qdrant_client=qdrant_cl,
@@ -296,14 +306,14 @@ class BedBaseConfig:
             return None
 
     def _init_qdrant_hybrid(
-        self, qdrant_cl: QdrantClient, dense_encoder: TextEmbedding
+        self, qdrant_cl: QdrantClient, dimensions: int | None
     ) -> None:
         """
         Create qdrant client with sparse and text embedding object using credentials provided in config file.
 
         Args:
             qdrant_cl: QdrantClient object.
-            dense_encoder: TextEmbedding model for encoding text queries.
+            dimensions: Size of the dense text embedding vectors.
 
         Returns:
             None, Initializes or creates the hybrid collection on the provided QdrantClient.
@@ -316,13 +326,7 @@ class BedBaseConfig:
                 "Unable to create Qdrant hybrid collection, qdrant client is None."
             )
             return None
-        if not isinstance(dense_encoder, TextEmbedding):
-            _LOGGER.error(
-                "Unable to create Qdrant hybrid collection, dense encoder is None."
-            )
-            return None
 
-        dimensions = int(dense_encoder.get_embedding_size(self._config.path.text2vec))
         collection_name = self.config.qdrant.hybrid_collection
 
         try:
@@ -379,7 +383,7 @@ class BedBaseConfig:
         self,
         qdrant_file_backend: QdrantBackend,
         qdrant_text_backend: QdrantBackend,
-        text_encoder: TextEmbedding,
+        text_encoder: TextEmbedding | TextEmbeddingServer,
     ) -> BiVectorSearchInterface | None:
         """
         Create BiVectorSearchInterface object using credentials provided in config file.
@@ -387,7 +391,7 @@ class BedBaseConfig:
         Args:
             qdrant_file_backend: QdrantBackend for file vectors.
             qdrant_text_backend: QdrantBackend for text vectors.
-            text_encoder: TextEmbedding model for encoding text queries.
+            text_encoder: Text model or server for encoding text queries.
 
         Returns:
             BiVectorSearchInterface.
@@ -407,7 +411,7 @@ class BedBaseConfig:
     def _init_b2b_search_interface(
         self,
         qdrant_file_backend: QdrantBackend,
-        region_encoder: Region2VecExModel | str,
+        region_encoder: Region2VecExModel | RegionEmbeddingServer | str,
     ) -> BED2BEDSearchInterface | None:
         """
         Create Bed 2 BED search interface and return this object.
@@ -419,7 +423,11 @@ class BedBaseConfig:
             _LOGGER.info("Initializing search bed 2 bed search interfaces...")
             return BED2BEDSearchInterface(
                 backend=qdrant_file_backend,
-                query2vec=BED2Vec(model=region_encoder),
+                query2vec=(
+                    region_encoder
+                    if isinstance(region_encoder, RegionEmbeddingServer)
+                    else BED2Vec(model=region_encoder)
+                ),
             )
         except Exception as e:
             _LOGGER.error("Error in creating BED2BEDSearchInterface object: " + str(e))
@@ -429,11 +437,20 @@ class BedBaseConfig:
             )
             return None
 
-    def _init_r2v_encoder(self) -> Region2VecExModel | None:
+    def _init_r2v_encoder(self) -> Region2VecExModel | RegionEmbeddingServer | None:
         """
-        Create Region2VecExModel object using credentials provided in config file
+        Create Region2VecExModel object using credentials provided in config file,
+        or a client for the region embedding server, if one is configured
         """
+        if self._servers.region_url:
+            server = RegionEmbeddingServer(
+                self._servers.region_url, self._servers.api_key
+            )
+            server.check(self.config.path.region2vec)
+            return server
         try:
+            from geniml.region2vec.main import Region2VecExModel
+
             _LOGGER.info(
                 f"Initializing region2vec encoder... Model used: {self.config.path.region2vec}"
             )
@@ -445,10 +462,16 @@ class BedBaseConfig:
             )
             return None
 
-    def _init_dense_encoder(self) -> TextEmbedding | None:
+    def _init_dense_encoder(self) -> TextEmbedding | TextEmbeddingServer:
         """
-        Initialize dense model from the specified path or huggingface model hub
+        Initialize dense model from the specified path or huggingface model hub,
+        or a client for the text embedding server, if one is configured
         """
+        if self._servers.text_url:
+            server = TextEmbeddingServer(self._servers.text_url, self._servers.api_key)
+            server.check(self.config.path.text2vec)
+            return server
+        from fastembed import TextEmbedding
 
         _LOGGER.info(
             f"Initializing dense encoder... Model used: {self.config.path.text2vec}"
@@ -456,11 +479,20 @@ class BedBaseConfig:
         dense_encoder = TextEmbedding(self.config.path.text2vec)
         return dense_encoder
 
-    def _init_sparce_model(self) -> SparseEncoder | None:
+    def _init_sparce_model(self) -> SparseEncoder | TextEmbeddingServer | None:
         """
-        Initialize SparseEncoder model from the specified path or huggingface model hub
+        Initialize SparseEncoder model from the specified path or huggingface model hub,
+        or a client for the sparse embedding server, if one is configured
         """
+        if self._servers.sparse_url:
+            server = TextEmbeddingServer(
+                self._servers.sparse_url, self._servers.api_key
+            )
+            server.check(self.config.path.sparse_model)
+            return server
         try:
+            from sentence_transformers import SparseEncoder
+
             _LOGGER.info(
                 f"Initializing sparse encoder... Model used: {self.config.path.sparse_model}"
             )
@@ -470,6 +502,48 @@ class BedBaseConfig:
             warnings.warn(f"Error in creating SparseEncoder object: {e}", UserWarning)
             return None
         return sparse_encoder
+
+    def _text_dim(self) -> int | None:
+        """
+        Size of the dense text vectors, used when creating Qdrant collections
+        """
+        if isinstance(self.dense_encoder, TextEmbeddingServer):
+            # None only if the server was down at startup and there is no collection
+            return self.dense_encoder.dim or self._collection_dim(
+                self.config.qdrant.hybrid_collection, "dense"
+            )
+        return int(self.dense_encoder.get_embedding_size(self._config.path.text2vec))
+
+    def _collection_dim(self, collection: str | None, vector: str | None = None):
+        """
+        Vector size of an existing Qdrant collection, or None
+        """
+        try:
+            info = self.qdrant_client.get_collection(collection_name=collection)
+            vectors = info.config.params.vectors
+            return (vectors[vector] if isinstance(vectors, dict) else vectors).size
+        except Exception:
+            return None
+
+    def _check_server_dims(self) -> None:
+        """
+        Stop startup if an embedding server returns vectors of another size
+        than the Qdrant collection they are searched in
+        """
+        qdrant = self.config.qdrant
+        for server, collection, vector in (
+            (self.dense_encoder, qdrant.hybrid_collection, "dense"),
+            (self.dense_encoder, qdrant.text_collection, None),
+            (self.r2v_encoder, qdrant.file_collection, None),
+        ):
+            if not isinstance(server, (TextEmbeddingServer, RegionEmbeddingServer)):
+                continue
+            size = self._collection_dim(collection, vector)
+            if server.dim and size and server.dim != size:
+                raise EmbeddingServerError(
+                    f"{server.kind} server at {server.url} returns {server.dim}-d "
+                    f"vectors, but Qdrant collection '{collection}' holds {size}-d"
+                )
 
     def _init_umap_model(self) -> UMAP | None:
         """

@@ -34,6 +34,7 @@ from bbconf.db_utils import (
     TokenizedBed,
     Universes,
 )
+from bbconf.embedding_server import RegionEmbeddingServer, TextEmbeddingServer
 from bbconf.exceptions import (
     BedBaseConfError,
     BedFIleExistsError,
@@ -1201,6 +1202,9 @@ class BedAgentBedFile:
                 "Could not add region to qdrant. Invalid type, or path. "
             )
 
+        if isinstance(self.config.r2v_encoder, RegionEmbeddingServer):
+            return self.config.r2v_encoder.forward(bed_file).reshape(1, -1)
+
         if isinstance(bed_file, str):
             # Use try if file is corrupted. In Python RegionSet we have functionality to tackle this problem
             try:
@@ -1216,6 +1220,18 @@ class BedAgentBedFile:
         bed_embedding = np.mean(self.config.r2v_encoder.encode(bed_region_set), axis=0)
         vec_dim = bed_embedding.shape[0]
         return bed_embedding.reshape(1, vec_dim)
+
+    def _embed_sparse(self, text: str) -> models.SparseVector:
+        """
+        Create sparse embedding for text, with the local model or the server.
+        """
+        encoder = self.config.sparse_encoder
+        if isinstance(encoder, TextEmbeddingServer):
+            indices, values = encoder.embed_sparse(text)
+        else:
+            result = encoder.encode(text).coalesce()
+            indices, values = result.indices().tolist()[0], result.values().tolist()
+        return models.SparseVector(indices=indices, values=values)
 
     def _get_umap_file(self, bed_file: str | GRegionSet) -> np.ndarray:
         """
@@ -2122,14 +2138,7 @@ class BedAgentBedFile:
                     embeddings_list = list(self.config.dense_encoder.embed(text))
 
                     if self.config.sparse_encoder:
-                        sparse_result = self.config.sparse_encoder.encode(
-                            text
-                        ).coalesce()
-
-                        sparse_embeddings = models.SparseVector(
-                            indices=sparse_result.indices().tolist()[0],
-                            values=sparse_result.values().tolist(),
-                        )
+                        sparse_embeddings = self._embed_sparse(text)
 
                         point_vectors = {
                             "dense": list(embeddings_list[0]),
@@ -2243,11 +2252,7 @@ class BedAgentBedFile:
 
         dense_query = list(list(self.config.dense_encoder.embed(query))[0])
         if self.config.sparse_encoder:
-            sparse_result = self.config.sparse_encoder.encode(query).coalesce()
-            sparse_embeddings = models.SparseVector(
-                indices=sparse_result.indices().tolist()[0],
-                values=sparse_result.values().tolist(),
-            )
+            sparse_embeddings = self._embed_sparse(query)
 
             hybrid_query = [
                 # Dense retrieval: semantic understanding

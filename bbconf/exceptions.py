@@ -117,3 +117,10 @@ class BedSetTrackHubLimitError(BedBaseConfError):
     Limit for visualizing trackhub exceeded"""
 
     pass
+
+
+class EmbeddingServerError(BedBaseConfError):
+    """
+    Error type for embedding server problems (unreachable, error response, wrong model)"""
+
+    pass
