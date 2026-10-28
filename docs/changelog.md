@@ -3,6 +3,13 @@
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) and [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) format.
 
 
+## [0.17.0] - unreleased
+### Added:
+- Optional `embedding_server` config block: get text (dense and sparse) embeddings from TEI servers and region embeddings from a region embedding server, instead of loading the models in-process. Startup checks each server's model against `path`.
+
+### Changed:
+- torch, fastembed, and sentence-transformers are imported only when a model is loaded locally. They moved to the new `local` extra (`pip install "bbconf[local]"`); bbconf now needs `geniml >= 0.8.5`.
+
 ## [0.16.0] - 2026-10-16
 ### Added:
 - `BedBaseAgent.get_usage()`: per-key usage counts for one event type, with an optional date range and paging (default limit 100). Returns the new `UsageResponse` model.
