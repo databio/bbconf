@@ -1,6 +1,6 @@
 [project]
 name = "bbconf"
-version = "0.16.0"
+version = "0.16.1"
 description = "Configuration and data management tool for BEDbase"
 readme = "README.md"
 license = "BSD-2-Clause"
@@ -34,6 +34,11 @@ dependencies = [
     "pandas>2.0.0, < 3.0.0",
     "pybiocfilecache == 0.6.1",
     "umap-learn >= 0.5.8",
+    # Pin to the 0.6.x line the saved UMAP/NNDescent indexes were built with.
+    # pynndescent 0.7+ renamed an internal search-tree attribute
+    # (search_tree_leaf_size -> search_tree_leaf_budget), which breaks loading
+    # of previously pickled indexes (AttributeError on NNDescent).
+    "pynndescent >= 0.6.0, < 0.7.0",
     "qdrant_client >= 1.16.1",
     "cachetools >= 4.2.4",
     "alembic >= 1.19.1",
