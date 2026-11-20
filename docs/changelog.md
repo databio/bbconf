@@ -8,7 +8,11 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Optional `embedding_server` config block: get text (dense and sparse) embeddings from TEI servers and region embeddings from a region embedding server, instead of loading the models in-process. Startup checks each server's model against `path`.
 
 ### Changed:
-- torch, fastembed, and sentence-transformers are imported only when a model is loaded locally. They moved to the new `local` extra (`pip install "bbconf[local]"`); bbconf now needs `geniml >= 0.8.5`.
+- torch, fastembed, and sentence-transformers are imported only when a model is loaded locally. They moved to the new `local` extra (`pip install "bbconf[local]"`); bbconf now needs `geniml >= 0.9.0`.
+
+### Fixed:
+- Pinned `pynndescent < 0.7`, so saved UMAP models load again (0.7 renamed an internal attribute they use).
+- Installing bbconf now brings psycopg's binary build (`psycopg[binary] >= 3.3.9`), so it no longer needs a system libpq.
 
 ## [0.16.0] - 2026-10-16
 ### Added:
