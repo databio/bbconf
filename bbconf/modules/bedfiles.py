@@ -1757,7 +1757,7 @@ class BedAgentBedFile:
                 name=bed_id,
                 data=np.array(tokenized_vector, dtype="int64"),
             )
-            path = array.name
+            path = array.path
         elif overwrite:
             _LOGGER.info("Overwriting tokenized vector in s3")
             del univers_group[bed_id]
@@ -1765,7 +1765,7 @@ class BedAgentBedFile:
                 name=bed_id,
                 data=np.array(tokenized_vector, dtype="int64"),
             )
-            path = array.name
+            path = array.path
         else:
             raise TokenizeFileExistsError(
                 "Tokenized file already exists in the database. "
@@ -1793,7 +1793,7 @@ class BedAgentBedFile:
 
         try:
             univers_group = root[universe_id]
-            data = list(univers_group[bed_id][:])  # Explicit slice for full read
+            data = univers_group[bed_id][:].tolist()
         except KeyError:
             raise TokenizeFileNotExistError("Tokenized file not found in the database.")
 
