@@ -1699,12 +1699,14 @@ class BedAgentBedFile:
                 )
 
             if self.exist_tokenized(bed_id, universe_id):
+                _LOGGER.info("Tokenized file already exists in the database.")
                 if not overwrite:
                     raise TokenizeFileExistsError(
                         "Tokenized file already exists in the database. "
                         "Set overwrite to True to overwrite it."
                     )
                 else:
+                    _LOGGER.info("Overwriting existing tokenized file in the database.")
                     self.delete_tokenized(bed_id, universe_id)
 
             path = self._add_zarr_s3(
@@ -1738,16 +1740,32 @@ class BedAgentBedFile:
         Returns:
             Zarr path.
         """
-        univers_group = self.config.zarr_root.require_group(universe_id)
+        root = self.config.zarr_root
 
-        if not univers_group.get(bed_id):
+        # Handle group creation (require_group is deprecated in zarr 3.x)
+        try:
+            univers_group = root[universe_id]
+        except KeyError:
+            univers_group = root.create_group(universe_id)
+
+        # Check existence
+        bed_exists = bed_id in univers_group
+
+        if not bed_exists:
             _LOGGER.info("Saving tokenized vector to s3")
-            path = univers_group.create_dataset(bed_id, data=tokenized_vector).path
+            array = univers_group.create_array(
+                name=bed_id,
+                data=np.array(tokenized_vector, dtype="int64"),
+            )
+            path = array.path
         elif overwrite:
             _LOGGER.info("Overwriting tokenized vector in s3")
-            path = univers_group.create_dataset(
-                bed_id, data=tokenized_vector, overwrite=True
-            ).path
+            del univers_group[bed_id]
+            array = univers_group.create_array(
+                name=bed_id,
+                data=np.array(tokenized_vector, dtype="int64"),
+            )
+            path = array.path
         else:
             raise TokenizeFileExistsError(
                 "Tokenized file already exists in the database. "
@@ -1770,12 +1788,19 @@ class BedAgentBedFile:
 
         if not self.exist_tokenized(bed_id, universe_id):
             raise TokenizeFileNotExistError("Tokenized file not found in the database.")
-        univers_group = self.config.zarr_root.require_group(universe_id)
+
+        root = self.config.zarr_root
+
+        try:
+            univers_group = root[universe_id]
+            data = univers_group[bed_id][:].tolist()
+        except KeyError:
+            raise TokenizeFileNotExistError("Tokenized file not found in the database.")
 
         return TokenizedBedResponse(
             universe_id=universe_id,
             bed_id=bed_id,
-            tokenized_bed=list(univers_group[bed_id]),
+            tokenized_bed=data,
         )
 
     def delete_tokenized(self, bed_id: str, universe_id: str) -> None:
@@ -1791,9 +1816,14 @@ class BedAgentBedFile:
         """
         if not self.exist_tokenized(bed_id, universe_id):
             raise TokenizeFileNotExistError("Tokenized file not found in the database.")
-        univers_group = self.config.zarr_root.require_group(universe_id)
 
-        del univers_group[bed_id]
+        root = self.config.zarr_root
+
+        try:
+            univers_group = root[universe_id]
+            del univers_group[bed_id]  # Delete syntax unchanged
+        except KeyError:
+            raise TokenizeFileNotExistError("Tokenized file not found in the database.")
 
         with Session(self._sa_engine) as session:
             statement = delete(TokenizedBed).where(

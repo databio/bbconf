@@ -23,6 +23,7 @@ from geniml.search.query2vec import BED2Vec
 from qdrant_client import QdrantClient, models
 from umap import UMAP
 from zarr import Group as Z_GROUP
+from zarr.storage import FsspecStore
 
 from bbconf.config_parser.const import (
     S3_BEDSET_PATH_FOLDER,
@@ -191,20 +192,30 @@ class BedBaseConfig:
                 endpoint_url=self._config.s3.endpoint_url,
                 key=self._config.s3.aws_access_key_id,
                 secret=self._config.s3.aws_secret_access_key,
+                asynchronous=True,
             )
         except BotoCoreError as e:
             _LOGGER.error(f"Error in creating s3fs object: {e}")
             warnings.warn(f"Error in creating s3fs object: {e}", UserWarning)
             return None
 
-        s3_path = f"s3://{self._config.s3.bucket}/{ZARR_TOKENIZED_FOLDER}"
+        s3_path = f"{self._config.s3.bucket}/{ZARR_TOKENIZED_FOLDER}"
 
-        zarr_store = s3fs.S3Map(
-            root=s3_path, s3=s3fc_obj, check=False, create=self._config.s3.modify_access
+        store = FsspecStore(
+            fs=s3fc_obj,
+            path=s3_path,
         )
-        cache = zarr.LRUStoreCache(zarr_store, max_size=2**28)
 
-        return zarr.group(store=cache, overwrite=False)
+        try:
+            root = zarr.open_group(
+                store=store,
+                mode="a" if self._config.s3.modify_access else "r",
+            )
+            return root
+        except Exception as e:
+            _LOGGER.error(f"Error opening zarr group: {e}")
+            warnings.warn(f"Error opening zarr group: {e}", UserWarning)
+            return None
 
     def _init_db_engine(self) -> BaseEngine:
         """
@@ -568,6 +579,11 @@ class BedBaseConfig:
             except requests.RequestException as e:
                 _LOGGER.error(f"Error downloading UMAP model from URL: {e}")
                 return None
+            except TypeError as e:
+                _LOGGER.error(
+                    f"Error loading UMAP model from URL. Unable open pickle file. Error: {e}"
+                )
+                return None
         else:
             try:
                 with open(model_path, "rb") as file:
@@ -575,6 +591,11 @@ class BedBaseConfig:
                 _LOGGER.info(f"UMAP model loaded from local path: {model_path}")
             except FileNotFoundError as e:
                 _LOGGER.error(f"Error loading UMAP model from local path: {e}")
+                return None
+            except TypeError as e:
+                _LOGGER.error(
+                    f"Error loading UMAP model from URL. Unable open pickle file. Error: {e}"
+                )
                 return None
 
         if not isinstance(umap_model, UMAP):

@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import s3fs
 import zarr
+from zarr.storage import FsspecStore
 
 # from dotenv import load_dotenv
 from geniml.io import RegionSet
@@ -38,23 +39,33 @@ def zarr_local():
     tokenized_name = "0dcdf8986a72a3d85805bbc9493a13026l"
     overwrite = True
 
-    root = zarr.group(
-        store="/home/bnt4me/virginia/repos/bbconf/zarr_test", overwrite=False
+    # Use zarr.open_group instead of zarr.group
+    root = zarr.open_group(
+        store="/home/bnt4me/virginia/repos/bbconf/zarr_test", mode="a"
     )
 
-    univers_group = root.require_group("7126993b14054a32de2da4a0b9173be5")
-    if not univers_group.get(tokenized_name):
+    # Handle group creation (require_group is deprecated)
+    universe_id = "7126993b14054a32de2da4a0b9173be5"
+    try:
+        univers_group = root[universe_id]
+    except KeyError:
+        univers_group = root.create_group(universe_id)
+
+    # Check existence and handle overwrite
+    if tokenized_name not in univers_group:
         print("not overwriting")
-        ua = univers_group.create_dataset(tokenized_name, data=tok_regions)
+        ua = univers_group.create_array(
+            name=tokenized_name, data=np.array(tok_regions, dtype="int64")
+        )
     elif overwrite:
         print("overwriting")
-        ua = univers_group.create_dataset(
-            tokenized_name, data=tok_regions, overwrite=True
+        del univers_group[tokenized_name]
+        ua = univers_group.create_array(
+            name=tokenized_name, data=np.array(tok_regions, dtype="int64")
         )
     else:
         raise ValueError("fff")
     ua = univers_group
-    univers_group._delitem_nosync()
 
 
 def zarr_s3():
@@ -87,16 +98,34 @@ def zarr_s3():
         endpoint_url=os.getenv("AWS_ENDPOINT_URL"),
         key=os.getenv("AWS_ACCESS_KEY_ID"),
         secret=os.getenv("AWS_SECRET_ACCESS_KEY"),
+        asynchronous=False,
+        skip_instance_cache=True,
     )
     print(os.getenv("AWS_SECRET_ACCESS_KEY"))
-    s3_path = "s3://bedbase/new/"
+    s3_path = "bedbase/new/"  # Remove s3:// prefix for FsspecStore
 
-    zarr_store = s3fs.S3Map(root=s3_path, s3=s3fc_obj, check=False, create=True)
-    cache = zarr.LRUStoreCache(zarr_store, max_size=2**28)
+    # Use FsspecStore instead of S3Map + LRUStoreCache
+    store = FsspecStore(fs=s3fc_obj, path=s3_path)
 
-    root = zarr.group(store=cache, overwrite=False)
-    univers_group = root.require_group("7126993b14054a32de2da4a0b9173be5")
-    univers_group.create_dataset(tokenized_name, data=tok_regions, overwrite=True)
+    # Use zarr.open_group instead of zarr.group
+    root = zarr.open_group(store=store, mode="a")
+
+    # Handle group creation (require_group is deprecated)
+    universe_id = "7126993b14054a32de2da4a0b9173be5"
+    try:
+        univers_group = root[universe_id]
+    except KeyError:
+        univers_group = root.create_group(universe_id)
+
+    # Handle overwrite
+    if tokenized_name in univers_group:
+        if overwrite:
+            del univers_group[tokenized_name]
+
+    # Use create_array instead of create_dataset
+    univers_group.create_array(
+        name=tokenized_name, data=np.array(tok_regions, dtype="int64")
+    )
 
     f = univers_group[tokenized_name]
 
@@ -109,16 +138,24 @@ def get_from_s3():
         # endpoint_url="https://s3.us-west-002.backblazeb2.com/",
         # key=os.getenv("AWS_ACCESS_KEY_ID"),
         # secret=os.getenv("AWS_SECRET_ACCESS_KEY"),
+        asynchronous=False,
+        skip_instance_cache=True,
     )
 
     import s3fs
 
-    s3fc_obj = s3fs.S3FileSystem(endpoint_url="https://s3.us-west-002.backblazeb2.com/")
-    s3_path = "s3://bedbase/tokenized.zarr/"
-    zarr_store = s3fs.S3Map(root=s3_path, s3=s3fc_obj, check=False, create=True)
-    cache = zarr.LRUStoreCache(zarr_store, max_size=2**28)
+    s3fc_obj = s3fs.S3FileSystem(
+        endpoint_url="https://s3.us-west-002.backblazeb2.com/",
+        asynchronous=False,
+        skip_instance_cache=True,
+    )
+    s3_path = "bedbase/tokenized.zarr/"  # Remove s3:// prefix for FsspecStore
 
-    root = zarr.group(store=cache, overwrite=False)
+    # Use FsspecStore instead of S3Map + LRUStoreCache
+    store = FsspecStore(fs=s3fc_obj, path=s3_path)
+
+    # Use zarr.open_group instead of zarr.group
+    root = zarr.open_group(store=store, mode="r")
     # print(str(root.tree))
 
 
