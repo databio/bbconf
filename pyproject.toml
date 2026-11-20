@@ -51,6 +51,7 @@ build-backend = "hatchling.build"
 # models loaded in-process; not needed when every model is on an embedding server
 local = [
     "geniml[ml] >= 0.8.5",
+    "fastembed >= 0.2.5",
     "sentence-transformers >= 5.0",
 ]
 test = [
