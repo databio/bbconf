@@ -1,9 +1,11 @@
+from __future__ import annotations
+
 import io
 import logging
 import os
 import warnings
 from pathlib import Path
-from typing import List, Literal, Union
+from typing import TYPE_CHECKING, Literal
 
 import boto3
 import joblib
@@ -12,16 +14,13 @@ import requests
 import s3fs
 import yacman
 import zarr
+from botocore.client import BaseClient
 from botocore.exceptions import BotoCoreError, EndpointConnectionError
-from fastembed import TextEmbedding
-from geniml.region2vec.main import Region2VecExModel
 from geniml.search import BED2BEDSearchInterface
 from geniml.search.backends import BiVectorBackend, QdrantBackend
 from geniml.search.interfaces import BiVectorSearchInterface
 from geniml.search.query2vec import BED2Vec
-from pephubclient import PEPHubClient
 from qdrant_client import QdrantClient, models
-from sentence_transformers import SparseEncoder
 from umap import UMAP
 from zarr import Group as Z_GROUP
 from zarr.storage import FsspecStore
@@ -31,13 +30,15 @@ from bbconf.config_parser.const import (
     S3_FILE_PATH_FOLDER,
     S3_PLOTS_PATH_FOLDER,
 )
-from bbconf.config_parser.models import ConfigFile
+from bbconf.config_parser.models import ConfigEmbeddingServer, ConfigFile
 from bbconf.const import PKG_NAME, ZARR_TOKENIZED_FOLDER
 from bbconf.db_utils import BaseEngine
+from bbconf.embedding_server import RegionEmbeddingServer, TextEmbeddingServer
 from bbconf.exceptions import (
     BadAccessMethodError,
     BedBaseConfError,
     BedbaseS3ConnectionError,
+    EmbeddingServerError,
 )
 from bbconf.helpers import get_absolute_path, get_bedbase_cfg
 from bbconf.models.base_models import FileModel
@@ -45,25 +46,33 @@ from bbconf.models.bed_models import BedFiles, BedPlots
 from bbconf.models.bedset_models import BedSetPlots
 from bbconf.models.drs_models import AccessMethod, AccessURL
 
+if TYPE_CHECKING:
+    # model libraries are imported only when a model is loaded locally
+    from fastembed import TextEmbedding
+    from geniml.region2vec.main import Region2VecExModel
+    from sentence_transformers import SparseEncoder
+
 _LOGGER = logging.getLogger(PKG_NAME)
 
 
-class BedBaseConfig(object):
+class BedBaseConfig:
     """
     Class to handle BEDbase configuration file and create objects for different modules.
     """
 
-    def __init__(self, config: Union[Path, str], init_ml: bool = True):
+    def __init__(self, config: Path | str, init_ml: bool = True):
         """
-        Initialize BedBaseConfig object
+        Initialize BedBaseConfig object.
 
-        :param config: path to the configuration file
-        :param init_ml: initialize machine learning models used for search
+        Args:
+            config: Path to the configuration file.
+            init_ml: Initialize machine learning models used for search.
         """
 
         self.cfg_path = get_bedbase_cfg(config)
         self._config = self._read_config_file(self.cfg_path)
         self._db_engine = self._init_db_engine()
+        self._servers = self._config.embedding_server or ConfigEmbeddingServer()
 
         try:
             self.qdrant_client: QdrantClient = self._init_qdrant_client()
@@ -74,24 +83,31 @@ class BedBaseConfig(object):
             init_ml = False
 
         if init_ml:
-
-            self.dense_encoder: TextEmbedding = self._init_dense_encoder()
-            self.sparce_encoder: Union[SparseEncoder, None] = self._init_sparce_model()
-            self._umap_encoder: Union[UMAP, None] = self._init_umap_model()
-            self.r2v_encoder: Union[Region2VecExModel, None] = self._init_r2v_encoder()
+            self.dense_encoder: TextEmbedding | TextEmbeddingServer = (
+                self._init_dense_encoder()
+            )
+            self.sparse_encoder: SparseEncoder | TextEmbeddingServer | None = (
+                self._init_sparce_model()
+            )
+            self.umap_encoder: UMAP | None = self._init_umap_model()
+            self.r2v_encoder: Region2VecExModel | RegionEmbeddingServer | None = (
+                self._init_r2v_encoder()
+            )
+            self._check_server_dims()
+            text_dim = self._text_dim()
 
             self._init_qdrant_hybrid(
                 qdrant_cl=self.qdrant_client,
-                dense_encoder=self.dense_encoder,
+                dimensions=text_dim,
             )
 
-            self.qdrant_file_backend: Union[QdrantBackend, None] = (
+            self.qdrant_file_backend: QdrantBackend | None = (
                 self._init_qdrant_file_backend(qdrant_cl=self.qdrant_client)
             )  # used for bivec search
-            self._qdrant_text_backend: Union[QdrantBackend, None] = (
+            self._qdrant_text_backend: QdrantBackend | None = (
                 self._init_qdrant_text_backend(
                     qdrant_cl=self.qdrant_client,
-                    dense_encoder=self.dense_encoder,
+                    dimensions=text_dim,
                 )
             )  # used for bivec search
 
@@ -112,78 +128,63 @@ class BedBaseConfig(object):
             self.r2v_encoder = None
             self.b2b_search_interface = None
             self.bivec_search_interface = None
-            self._umap_encoder: Union[UMAP, None] = None
-            self.sparce_encoder = None
+            self.umap_encoder: UMAP | None = None
+            self.sparse_encoder = None
 
-        self._phc = self._init_pephubclient()
         self._boto3_client = self._init_boto3_client()
 
     @staticmethod
     def _read_config_file(config_path: str) -> ConfigFile:
         """
-        Read configuration file and insert default values if not set
+        Read configuration file and insert default values if not set.
 
-        :param config_path: configuration file path
-        :return: None
-        :raises: raise_missing_key (if config key is missing)
+        Args:
+            config_path: Configuration file path.
+
+        Returns:
+            Parsed ConfigFile object.
         """
-        _config = yacman.YAMLConfigManager(filepath=config_path).exp
 
-        config_dict = {}
-        for field_name, annotation in ConfigFile.model_fields.items():
-            try:
-                config_dict[field_name] = annotation.annotation(
-                    **_config.get(field_name)
-                )
-            except TypeError:
-                # TODO: this should be more specific
-                config_dict[field_name] = annotation.annotation()
-
-        return ConfigFile(**config_dict)
-        # return ConfigFile.from_yaml(Path(config_path))
+        _config = yacman.YAMLConfigManager.from_yaml_file(filepath=config_path).exp
+        return ConfigFile(**_config)
 
     @property
     def config(self) -> ConfigFile:
         """
-        Get configuration
+        Get configuration.
 
-        :return: configuration object
+        Returns:
+            Configuration object.
         """
         return self._config
 
     @property
     def db_engine(self) -> BaseEngine:
         """
-        Get database engine
+        Get database engine.
 
-        :return: database engine
+        Returns:
+            Database engine.
         """
         return self._db_engine
 
     @property
-    def phc(self) -> PEPHubClient:
-        """
-        Get PEPHub client
-
-        :return: PEPHub client
-        """
-        return self._phc
-
-    @property
     def boto3_client(self) -> boto3.client:
         """
-        Get boto3 client
+        Get boto3 client.
 
-        :return: boto3 client
+        Returns:
+            Boto3 client.
         """
         return self._boto3_client
 
     @property
-    def zarr_root(self) -> Union[Z_GROUP, None]:
+    def zarr_root(self) -> Z_GROUP | None:
         """
-        Get zarr root object (Group)
+        Get zarr root object (Group).
 
-        :return: zarr root group object
+        Returns:
+            Zarr root group object.
         """
 
         try:
@@ -229,6 +230,7 @@ class BedBaseConfig(object):
             user=self._config.database.user,
             password=self._config.database.password,
             drivername=f"{self._config.database.dialect}+{self._config.database.driver}",
+            run_migrations=self._config.database.run_migrations,
         )
 
     def _init_qdrant_client(self) -> QdrantClient:
@@ -254,19 +256,22 @@ class BedBaseConfig(object):
 
     def _init_qdrant_file_backend(
         self, qdrant_cl: QdrantClient
-    ) -> Union[QdrantBackend, None]:
+    ) -> QdrantBackend | None:
         """
-        Create qdrant client object using credentials provided in config file
+        Create qdrant client object using credentials provided in config file.
 
-        :param: qdrant_cl: QdrantClient object
-        :return: QdrantClient
+        Args:
+            qdrant_cl: QdrantClient object.
+
+        Returns:
+            QdrantClient or None
         """
 
         _LOGGER.info("Initializing qdrant bivec file backend...")
 
         if not isinstance(qdrant_cl, QdrantClient):
             _LOGGER.error(
-                f"Unable to create Qdrant bivec file collection, qdrant client is None."
+                "Unable to create Qdrant bivec file collection, qdrant client is None."
             )
             return None
 
@@ -280,30 +285,27 @@ class BedBaseConfig(object):
             return None
 
     def _init_qdrant_text_backend(
-        self, qdrant_cl: QdrantClient, dense_encoder: TextEmbedding
-    ) -> Union[QdrantBackend, None]:
+        self, qdrant_cl: QdrantClient, dimensions: int | None
+    ) -> QdrantBackend | None:
         """
-        Create qdrant client text embedding object using credentials provided in config file
+        Create qdrant client text embedding object using credentials provided in config file.
 
-        :param: qdrant_cl: QdrantClient object
-        :param: dense_encoder: TextEmbedding model for encoding text queries
-        :return: QdrantClient
+        Args:
+            qdrant_cl: QdrantClient object.
+            dimensions: Size of the text embedding vectors.
+
+        Returns:
+            QdrantClient or None
         """
 
         _LOGGER.info("Initializing qdrant bivec text backend...")
 
         if not isinstance(qdrant_cl, QdrantClient):
             _LOGGER.error(
-                f"Unable to create Qdrant bivec text collection, qdrant client is None."
-            )
-            return None
-        if not isinstance(dense_encoder, TextEmbedding):
-            _LOGGER.error(
-                f"Unable to create Qdrant bivec text collection,, dense encoder is None."
+                "Unable to create Qdrant bivec text collection, qdrant client is None."
             )
             return None
 
-        dimensions = int(dense_encoder.get_embedding_size(self._config.path.text2vec))
         try:
             return QdrantBackend(
                 qdrant_client=qdrant_cl,
@@ -315,31 +317,28 @@ class BedBaseConfig(object):
             return None
 
     def _init_qdrant_hybrid(
-        self, qdrant_cl: QdrantClient, dense_encoder: TextEmbedding
+        self, qdrant_cl: QdrantClient, dimensions: int | None
     ) -> None:
         """
-        Create qdrant client with sparse and text embedding object using credentials provided in config file
+        Create qdrant client with sparse and text embedding object using credentials provided in config file.
 
-        :param: qdrant_cl: QdrantClient object
-        :param: dense_encoder: TextEmbedding model for encoding text queries
-        :return: QdrantClient
+        Args:
+            qdrant_cl: QdrantClient object.
+            dimensions: Size of the dense text embedding vectors.
+
+        Returns:
+            None, Initializes or creates the hybrid collection on the provided QdrantClient.
         """
 
         _LOGGER.info("Initializing qdrant sparse collection...")
 
         if not isinstance(qdrant_cl, QdrantClient):
             _LOGGER.error(
-                f"Unable to create Qdrant hybrid collection, qdrant client is None."
-            )
-            return None
-        if not isinstance(dense_encoder, TextEmbedding):
-            _LOGGER.error(
-                f"Unable to create Qdrant hybrid collection, dense encoder is None."
+                "Unable to create Qdrant hybrid collection, qdrant client is None."
             )
             return None
 
-        dimensions = int(dense_encoder.get_embedding_size(self._config.path.text2vec))
-        collection_name = self.config.qdrant.search_collection
+        collection_name = self.config.qdrant.hybrid_collection
 
         try:
             if not qdrant_cl.collection_exists(collection_name):
@@ -395,15 +394,18 @@ class BedBaseConfig(object):
         self,
         qdrant_file_backend: QdrantBackend,
         qdrant_text_backend: QdrantBackend,
-        text_encoder: TextEmbedding,
-    ) -> Union[BiVectorSearchInterface, None]:
+        text_encoder: TextEmbedding | TextEmbeddingServer,
+    ) -> BiVectorSearchInterface | None:
         """
-        Create BiVectorSearchInterface object using credentials provided in config file
+        Create BiVectorSearchInterface object using credentials provided in config file.
 
-        :param: qdrant_file_backend: QdrantBackend for file vectors
-        :param: qdrant_text_backend: QdrantBackend for text vectors
-        :param: text_encoder: TextEmbedding model for encoding text queries
-        :return: BiVectorSearchInterface
+        Args:
+            qdrant_file_backend: QdrantBackend for file vectors.
+            qdrant_text_backend: QdrantBackend for text vectors.
+            text_encoder: Text model or server for encoding text queries.
+
+        Returns:
+            BiVectorSearchInterface.
         """
 
         _LOGGER.info("Initializing BiVectorBackend...")
@@ -420,18 +422,23 @@ class BedBaseConfig(object):
     def _init_b2b_search_interface(
         self,
         qdrant_file_backend: QdrantBackend,
-        region_encoder: Union[Region2VecExModel, str],
-    ) -> Union[BED2BEDSearchInterface, None]:
+        region_encoder: Region2VecExModel | RegionEmbeddingServer | str,
+    ) -> BED2BEDSearchInterface | None:
         """
-        Create Bed 2 BED search interface and return this object
+        Create Bed 2 BED search interface and return this object.
 
-        :return: Bed2BEDSearchInterface object
+        Returns:
+            Bed2BEDSearchInterface object.
         """
         try:
             _LOGGER.info("Initializing search bed 2 bed search interfaces...")
             return BED2BEDSearchInterface(
                 backend=qdrant_file_backend,
-                query2vec=BED2Vec(model=region_encoder),
+                query2vec=(
+                    region_encoder
+                    if isinstance(region_encoder, RegionEmbeddingServer)
+                    else BED2Vec(model=region_encoder)
+                ),
             )
         except Exception as e:
             _LOGGER.error("Error in creating BED2BEDSearchInterface object: " + str(e))
@@ -441,11 +448,20 @@ class BedBaseConfig(object):
             )
             return None
 
-    def _init_r2v_encoder(self) -> Union[Region2VecExModel, None]:
+    def _init_r2v_encoder(self) -> Region2VecExModel | RegionEmbeddingServer | None:
         """
-        Create Region2VecExModel object using credentials provided in config file
+        Create Region2VecExModel object using credentials provided in config file,
+        or a client for the region embedding server, if one is configured
         """
+        if self._servers.region_url:
+            server = RegionEmbeddingServer(
+                self._servers.region_url, self._servers.api_key
+            )
+            server.check(self.config.path.region2vec)
+            return server
         try:
+            from geniml.region2vec.main import Region2VecExModel
+
             _LOGGER.info(
                 f"Initializing region2vec encoder... Model used: {self.config.path.region2vec}"
             )
@@ -457,10 +473,16 @@ class BedBaseConfig(object):
             )
             return None
 
-    def _init_dense_encoder(self) -> Union[None, TextEmbedding]:
+    def _init_dense_encoder(self) -> TextEmbedding | TextEmbeddingServer:
         """
-        Initialize dense model from the specified path or huggingface model hub
+        Initialize dense model from the specified path or huggingface model hub,
+        or a client for the text embedding server, if one is configured
         """
+        if self._servers.text_url:
+            server = TextEmbeddingServer(self._servers.text_url, self._servers.api_key)
+            server.check(self.config.path.text2vec)
+            return server
+        from fastembed import TextEmbedding
 
         _LOGGER.info(
             f"Initializing dense encoder... Model used: {self.config.path.text2vec}"
@@ -468,11 +490,20 @@ class BedBaseConfig(object):
         dense_encoder = TextEmbedding(self.config.path.text2vec)
         return dense_encoder
 
-    def _init_sparce_model(self) -> Union[None, SparseEncoder]:
+    def _init_sparce_model(self) -> SparseEncoder | TextEmbeddingServer | None:
         """
-        Initialize SparseEncoder model from the specified path or huggingface model hub
+        Initialize SparseEncoder model from the specified path or huggingface model hub,
+        or a client for the sparse embedding server, if one is configured
         """
+        if self._servers.sparse_url:
+            server = TextEmbeddingServer(
+                self._servers.sparse_url, self._servers.api_key
+            )
+            server.check(self.config.path.sparse_model)
+            return server
         try:
+            from sentence_transformers import SparseEncoder
+
             _LOGGER.info(
                 f"Initializing sparse encoder... Model used: {self.config.path.sparse_model}"
             )
@@ -483,7 +514,49 @@ class BedBaseConfig(object):
             return None
         return sparse_encoder
 
-    def _init_umap_model(self) -> Union[UMAP, None]:
+    def _text_dim(self) -> int | None:
+        """
+        Size of the dense text vectors, used when creating Qdrant collections
+        """
+        if isinstance(self.dense_encoder, TextEmbeddingServer):
+            # None only if the server was down at startup and there is no collection
+            return self.dense_encoder.dim or self._collection_dim(
+                self.config.qdrant.hybrid_collection, "dense"
+            )
+        return int(self.dense_encoder.get_embedding_size(self._config.path.text2vec))
+
+    def _collection_dim(self, collection: str | None, vector: str | None = None):
+        """
+        Vector size of an existing Qdrant collection, or None
+        """
+        try:
+            info = self.qdrant_client.get_collection(collection_name=collection)
+            vectors = info.config.params.vectors
+            return (vectors[vector] if isinstance(vectors, dict) else vectors).size
+        except Exception:
+            return None
+
+    def _check_server_dims(self) -> None:
+        """
+        Stop startup if an embedding server returns vectors of another size
+        than the Qdrant collection they are searched in
+        """
+        qdrant = self.config.qdrant
+        for server, collection, vector in (
+            (self.dense_encoder, qdrant.hybrid_collection, "dense"),
+            (self.dense_encoder, qdrant.text_collection, None),
+            (self.r2v_encoder, qdrant.file_collection, None),
+        ):
+            if not isinstance(server, (TextEmbeddingServer, RegionEmbeddingServer)):
+                continue
+            size = self._collection_dim(collection, vector)
+            if server.dim and size and server.dim != size:
+                raise EmbeddingServerError(
+                    f"{server.kind} server at {server.url} returns {server.dim}-d "
+                    f"vectors, but Qdrant collection '{collection}' holds {size}-d"
+                )
+
+    def _init_umap_model(self) -> UMAP | None:
         """
         Load UMAP model from the specified path, or url
         """
@@ -497,13 +570,12 @@ class BedBaseConfig(object):
         model_path = self.config.path.umap_model
         umap_model = None
         if model_path.startswith(("http://", "https://")):
-
             try:
                 response = requests.get(model_path)
                 response.raise_for_status()
                 buffer = io.BytesIO(response.content)
                 umap_model = joblib.load(buffer)
-                print(f"UMAP model loaded from URL: {model_path}")
+                _LOGGER.info(f"UMAP model loaded from URL: {model_path}")
             except requests.RequestException as e:
                 _LOGGER.error(f"Error downloading UMAP model from URL: {e}")
                 return None
@@ -516,7 +588,7 @@ class BedBaseConfig(object):
             try:
                 with open(model_path, "rb") as file:
                     umap_model = joblib.load(file)
-                print(f"UMAP model loaded from local path: {model_path}")
+                _LOGGER.info(f"UMAP model loaded from local path: {model_path}")
             except FileNotFoundError as e:
                 _LOGGER.error(f"Error loading UMAP model from local path: {e}")
                 return None
@@ -535,11 +607,12 @@ class BedBaseConfig(object):
 
     def _init_boto3_client(
         self,
-    ) -> Union[boto3.client, None]:
+    ) -> BaseClient | None:
         """
-        Create Pephub client object using credentials provided in config file
+        Create boto3 client object using credentials provided in config file.
 
-        :return: PephubClient
+        Returns:
+            Boto3 client.
         """
         try:
             return boto3.client(
@@ -553,13 +626,16 @@ class BedBaseConfig(object):
             warnings.warn(f"Error in creating boto3 client object: {e}", UserWarning)
             return None
 
-    def upload_s3(self, file_path: str, s3_path: Union[Path, str]) -> None:
+    def upload_s3(self, file_path: str, s3_path: Path | str) -> None:
         """
         Upload file to s3.
 
-        :param file_path: local path to the file
-        :param s3_path: path to the file in s3 with file name
-        :return: None
+        Args:
+            file_path: Local path to the file.
+            s3_path: Path to the file in s3 with file name.
+
+        Returns:
+            None.
         """
         if not self._boto3_client:
             _LOGGER.warning(
@@ -576,18 +652,21 @@ class BedBaseConfig(object):
     def upload_files_s3(
         self,
         identifier: str,
-        files: Union[BedFiles, BedPlots, BedSetPlots],
+        files: BedFiles | BedPlots | BedSetPlots,
         base_path: str,
         type: Literal["files", "plots", "bedsets"] = "files",
-    ) -> Union[BedFiles, BedPlots, BedSetPlots]:
+    ) -> BedFiles | BedPlots | BedSetPlots:
         """
         Upload files to s3.
 
-        :param identifier: bed file identifier
-        :param files: dictionary with files to upload
-        :param base_path: local path to the output files
-        :param type: type of files to upload [files, plots, bedsets]
-        :return: None
+        Args:
+            identifier: Bed file identifier.
+            files: Dictionary with files to upload.
+            base_path: Local path to the output files.
+            type: Type of files to upload [files, plots, bedsets].
+
+        Returns:
+            None.
         """
 
         if type == "files":
@@ -636,8 +715,11 @@ class BedBaseConfig(object):
         """
         Delete file from s3.
 
-        :param s3_path: path to the file in s3
-        :return: None
+        Args:
+            s3_path: Path to the file in s3.
+
+        Returns:
+            None.
         """
         if not self._boto3_client:
             _LOGGER.warning(
@@ -656,12 +738,15 @@ class BedBaseConfig(object):
                 "Could not delete file from s3. Connection error."
             )
 
-    def delete_files_s3(self, files: List[FileModel]) -> None:
+    def delete_files_s3(self, files: list[FileModel]) -> None:
         """
         Delete files from s3.
 
-        :param files: list of file objects
-        :return: None
+        Args:
+            files: List of file objects.
+
+        Returns:
+            None.
         """
         for file in files:
             self.delete_s3(file.path)
@@ -669,46 +754,40 @@ class BedBaseConfig(object):
                 self.delete_s3(file.path_thumbnail)
         return None
 
-    @staticmethod
-    def _init_pephubclient() -> Union[PEPHubClient, None]:
-        """
-        Create Pephub client object using credentials provided in config file
-
-        :return: PephubClient
-        """
-
-        # try:
-        #     _LOGGER.info("Initializing PEPHub client...")
-        #     return PEPHubClient()
-        # except Exception as e:
-        #     _LOGGER.error(f"Error in creating PephubClient object: {e}")
-        #     warnings.warn(f"Error in creating PephubClient object: {e}", UserWarning)
-        #     return None
-        return None
-
     def get_prefixed_uri(self, postfix: str, access_id: str) -> str:
         """
-        Return uri with correct prefix (schema)
+        Return uri with correct prefix (schema).
 
-        :param postfix: postfix of the uri (or everything after uri schema)
-        :param access_id: access method name, e.g. http, s3, etc.
-        :return: full uri path
+        Args:
+            postfix: Postfix of the uri (or everything after uri schema).
+            access_id: Access method name, e.g. http, s3, etc.
+
+        Returns:
+            Full uri path.
         """
 
+        if self.config.access_methods is None:
+            _LOGGER.error("No access methods are defined in the config.")
+            raise BadAccessMethodError("No access methods are defined in the config.")
         try:
             prefix = getattr(self.config.access_methods, access_id).prefix
             return os.path.join(prefix, postfix)
-        except KeyError:
+        except (KeyError, AttributeError):
             _LOGGER.error(f"Access method {access_id} is not defined.")
             raise BadAccessMethodError(f"Access method {access_id} is not defined.")
 
-    def construct_access_method_list(self, rel_path: str) -> List[AccessMethod]:
+    def construct_access_method_list(self, rel_path: str) -> list[AccessMethod]:
         """
-        Construct access method list for a given record
+        Construct access method list for a given record.
 
-        :param rel_path: relative path to the record
-        :return: list of access methods
+        Args:
+            rel_path: Relative path to the record.
+
+        Returns:
+            List of access methods.
         """
+        if self.config.access_methods is None:
+            return []
         access_methods = []
         for access_id in self.config.access_methods.model_dump().keys():
             access_dict = AccessMethod(

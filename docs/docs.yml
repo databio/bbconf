@@ -1,0 +1,13 @@
+site_name: BBConf
+nav:
+  - BBConf: README.md
+  - Overview: overview.md
+  - API reference: bbc_api.md
+  - Changelog: changelog.md
+
+renderers:
+  - hub-python-api:
+      package_root: ..
+      packages: [bbconf]
+      include: [bbc_api.md]
+      docstring_style: google

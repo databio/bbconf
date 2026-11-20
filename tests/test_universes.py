@@ -8,7 +8,6 @@ from .utils import BED_TEST_ID, ContextManagerDBTesting
 
 @pytest.mark.skipif(SERVICE_UNAVAILABLE, reason="Database is not available")
 class TestUniverses:
-
     def test_add(self, bbagent_obj):
         with ContextManagerDBTesting(config=bbagent_obj.config, add_data=True):
             bbagent_obj.bed.add_universe(
@@ -66,6 +65,6 @@ class TestUniverses:
             assert zarr_mock.called
             assert f"s3://bedbase/{saved_path}" == zarr_path
 
-    def test_get_tokenized(self, bbagent_obj, mocked_phc):
+    def test_get_tokenized(self, bbagent_obj):
         # how to test it?
         ...

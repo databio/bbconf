@@ -1,5 +1,4 @@
 import logging
-from typing import Dict, List
 
 from geniml.io.utils import compute_md5sum_bedset
 from sqlalchemy import Float, Numeric, func, or_, select
@@ -40,7 +39,10 @@ class BedAgentBedSet:
 
     def __init__(self, config: BedBaseConfig):
         """
-        :param config: config object
+        Initialize BedAgentBedSet.
+
+        Args:
+            config: Config object.
         """
         self.config = config
         self._db_engine = self.config.db_engine
@@ -49,9 +51,12 @@ class BedAgentBedSet:
         """
         Get file metadata by identifier.
 
-        :param identifier: bed file identifier
-        :param full: return full record with stats, plots, files and metadata
-        :return: project metadata
+        Args:
+            identifier: Bed file identifier.
+            full: Return full record with stats, plots, files and metadata.
+
+        Returns:
+            BED file metadata.
         """
 
         statement = select(BedSets).where(BedSets.id == identifier)
@@ -84,6 +89,7 @@ class BedAgentBedSet:
                 statistics=stats,
                 plots=plots,
                 bed_ids=list_of_bedfiles,
+                bedfile_count=bedset_obj.bedfile_count,
                 submission_date=bedset_obj.submission_date,
                 last_update_date=bedset_obj.last_update_date,
                 author=bedset_obj.author,
@@ -96,8 +102,11 @@ class BedAgentBedSet:
         """
         Get plots for bedset by identifier.
 
-        :param identifier: bedset identifier
-        :return: bedset plots
+        Args:
+            identifier: Bedset identifier.
+
+        Returns:
+            Bedset plots.
         """
         statement = select(BedSets).where(BedSets.id == identifier)
 
@@ -107,7 +116,7 @@ class BedAgentBedSet:
                 raise BedSetNotFoundError(f"Bed file with id: {identifier} not found.")
             bedset_files = BedSetPlots()
             for result in bedset_object.files:
-                if result.name in bedset_files.model_fields:
+                if result.name in BedSetPlots.model_fields:
                     setattr(
                         bedset_files,
                         result.name,
@@ -121,12 +130,15 @@ class BedAgentBedSet:
                     )
         return bedset_files
 
-    def get_objects(self, identifier: str) -> Dict[str, FileModel]:
+    def get_objects(self, identifier: str) -> dict[str, FileModel]:
         """
         Get objects for bedset by identifier.
 
-        :param identifier: bedset identifier
-        :return: bedset objects
+        Args:
+            identifier: Bedset identifier.
+
+        Returns:
+            Bedset objects.
         """
         statement = select(BedSets).where(BedSets.id == identifier)
         return_dict = {}
@@ -150,8 +162,11 @@ class BedAgentBedSet:
         """
         Get statistics for bedset by identifier.
 
-        :param identifier: bedset identifier
-        :return: bedset statistics
+        Args:
+            identifier: Bedset identifier.
+
+        Returns:
+            Bedset statistics.
         """
         statement = select(BedSets).where(BedSets.id == identifier)
         with Session(self._db_engine.engine) as session:
@@ -167,8 +182,11 @@ class BedAgentBedSet:
         """
         Create pep file for a bedset.
 
-        :param identifier: bedset identifier
-        :return: pep dict
+        Args:
+            identifier: Bedset identifier.
+
+        Returns:
+            Pep dict.
         """
 
         statement = select(BedFileBedSetRelation).where(
@@ -185,7 +203,6 @@ class BedAgentBedSet:
                 bedfile_meta_list = []
 
                 for bedfile in bedfiles:
-
                     try:
                         annotation = bedfile.annotations.__dict__
                     except AttributeError:
@@ -225,8 +242,11 @@ class BedAgentBedSet:
         """
         Get track hub file for bedset.
 
-        :param identifier: bedset identifier
-        :return: track hub file
+        Args:
+            identifier: Bedset identifier.
+
+        Returns:
+            Track hub file.
         """
         statement = select(BedFileBedSetRelation).where(
             BedFileBedSetRelation.bedset_id == identifier
@@ -281,12 +301,11 @@ class BedAgentBedSet:
         self,
         identifier: str,
         name: str,
-        bedid_list: List[str],
-        description: str = None,
+        bedid_list: list[str],
+        description: str | None = None,
         statistics: bool = False,
-        annotation: dict = None,
-        plots: dict = None,
-        upload_pephub: bool = False,
+        annotation: dict | None = None,
+        plots: dict | None = None,
         upload_s3: bool = False,
         local_path: str = "",
         no_fail: bool = False,
@@ -296,20 +315,22 @@ class BedAgentBedSet:
         """
         Create bedset in the database.
 
-        :param identifier: bedset identifier
-        :param name: bedset name
-        :param description: bedset description
-        :param bedid_list: list of bed file identifiers
-        :param statistics: calculate statistics for bedset
-        :param annotation: bedset annotation (author, source)
-        :param plots: dictionary with plots
-        :param upload_pephub: upload bedset to pephub (create view in pephub)
-        :param upload_s3: upload bedset to s3
-        :param local_path: local path to the output files
-        :param no_fail: do not raise an error if bedset already exists
-        :param overwrite: overwrite the record in the database
-        :param processed: flag to indicate that bedset is processed. [Default: True]
-        :return: None
+        Args:
+            identifier: Bedset identifier.
+            name: Bedset name.
+            description: Bedset description.
+            bedid_list: List of bed file identifiers.
+            statistics: Calculate statistics for bedset.
+            annotation: Bedset annotation (author, source).
+            plots: Dictionary with plots.
+            upload_s3: Upload bedset to s3.
+            local_path: Local path to the output files.
+            no_fail: Do not raise an error if bedset already exists.
+            overwrite: Overwrite the record in the database.
+            processed: Flag to indicate that bedset is processed. [Default: True].
+
+        Returns:
+            None.
         """
         _LOGGER.info(f"Creating bedset '{identifier}'")
 
@@ -334,13 +355,8 @@ class BedAgentBedSet:
         if not isinstance(annotation, dict):
             annotation = {}
 
-        if upload_pephub:
-            try:
-                self._create_pephub_view(identifier, description, bedid_list, no_fail)
-            except Exception as e:
-                _LOGGER.error(f"Failed to create view in pephub: {e}")
-                if not no_fail:
-                    raise e
+        if no_fail:
+            bedid_list = list(set(bedid_list))
 
         new_bedset = BedSets(
             id=identifier,
@@ -353,6 +369,7 @@ class BedAgentBedSet:
             author=annotation.get("author"),
             source=annotation.get("source"),
             processed=processed,
+            bedfile_count=len(bedid_list),
         )
 
         if upload_s3:
@@ -365,8 +382,6 @@ class BedAgentBedSet:
             with Session(self._db_engine.engine) as session:
                 session.add(new_bedset)
 
-                if no_fail:
-                    bedid_list = list(set(bedid_list))
                 for bedfile in bedid_list:
                     session.add(
                         BedFileBedSetRelation(bedset_id=identifier, bedfile_id=bedfile)
@@ -393,16 +408,23 @@ class BedAgentBedSet:
         _LOGGER.info(f"Bedset '{identifier}' was created successfully")
         return None
 
-    def _calculate_statistics(self, bed_ids: List[str]) -> BedSetStats:
+    def _calculate_statistics(self, bed_ids: list[str]) -> BedSetStats:
         """
         Calculate statistics for bedset.
 
-        :param bed_ids: list of bed file identifiers
-        :return: statistics
+        Args:
+            bed_ids: List of bed file identifiers.
+
+        Returns:
+            Statistics.
         """
 
         _LOGGER.info("Calculating bedset statistics")
-        numeric_columns = BedStatsModel.model_fields
+        numeric_columns = [
+            name
+            for name, field in BedStatsModel.model_fields.items()
+            if field.annotation in (float, float | None)
+        ]
 
         bedset_sd = {}
         bedset_mean = {}
@@ -434,52 +456,25 @@ class BedAgentBedSet:
         _LOGGER.info("Bedset statistics were calculated successfully")
         return bedset_stats
 
-    def _create_pephub_view(
-        self,
-        bedset_id: str,
-        description: str = None,
-        bed_ids: list = None,
-        nofail: bool = False,
-    ) -> None:
-        """
-        Create view in pephub for bedset.
-
-        :param bedset_id: bedset identifier
-        :param description: bedset description
-        :param bed_ids: list of bed file identifiers
-        :param nofail: do not raise an error if sample not found
-
-        :return: None
-        """
-
-        _LOGGER.info(f"Creating view in pephub for bedset '{bedset_id}'")
-        try:
-            self.config.phc.view.create(
-                namespace=self.config.config.phc.namespace,
-                name=self.config.config.phc.name,
-                tag=self.config.config.phc.tag,
-                view_name=bedset_id,
-                # description=description,
-                sample_list=bed_ids,
-            )
-        except Exception as e:
-            _LOGGER.error(f"Failed to create view in pephub: {e}")
-            if not nofail:
-                raise e
-        return None
-
     def get_ids_list(
-        self, query: str = None, limit: int = 10, offset: int = 0
+        self, query: str | None = None, limit: int = 10, offset: int = 0
     ) -> BedSetListResult:
         """
-        Get list of bedsets from the database.
+        Find (search) bedsets from the database.
 
-        :param query: search query
-        :param limit: limit of results
-        :param offset: offset of results
-        :return: list of bedsets
+        Use `get(identifier)` to
+            fetch a single bedset's member ids. `bedfile_count` is populated
+            directly from the denormalized column, so it's free.
+
+        Args:
+            query: Search query.
+            limit: Limit of results.
+            offset: Offset of results.
+
+        Returns:
+            List of bedsets.
         """
-        statement = select(BedSets.id)
+        statement = select(BedSets)
         count_statement = select(func.count(BedSets.id))
         if query:
             query = query.strip()
@@ -498,12 +493,26 @@ class BedAgentBedSet:
             )
 
         with Session(self._db_engine.engine) as session:
-            bedset_list = session.execute(statement.limit(limit).offset(offset))
+            bedset_list = session.scalars(
+                statement.order_by(BedSets.id).limit(limit).offset(offset)
+            )
             bedset_count = session.execute(count_statement).one()
 
-        result_list = []
-        for bedset_id in bedset_list:
-            result_list.append(self.get(bedset_id[0]))
+            result_list = [
+                BedSetMetadata(
+                    id=bedset_obj.id,
+                    name=bedset_obj.name,
+                    description=bedset_obj.description,
+                    md5sum=bedset_obj.md5sum,
+                    bedfile_count=bedset_obj.bedfile_count,
+                    submission_date=bedset_obj.submission_date,
+                    last_update_date=bedset_obj.last_update_date,
+                    author=bedset_obj.author,
+                    source=bedset_obj.source,
+                )
+                for bedset_obj in bedset_list
+            ]
+
         return BedSetListResult(
             count=bedset_count[0],
             limit=limit,
@@ -515,9 +524,11 @@ class BedAgentBedSet:
         """
         Get list of bedfiles in bedset.
 
-        :param identifier: bedset identifier
+        Args:
+            identifier: Bedset identifier.
 
-        :return: list of bedfiles
+        Returns:
+            List of bedfiles.
         """
         sub_statement = select(BedFileBedSetRelation.bedfile_id).where(
             BedFileBedSetRelation.bedset_id == identifier
@@ -549,8 +560,11 @@ class BedAgentBedSet:
         """
         Delete bed file from the database.
 
-        :param identifier: bedset identifier
-        :return: None
+        Args:
+            identifier: Bedset identifier.
+
+        Returns:
+            None.
         """
         if not self.exists(identifier):
             raise BedSetNotFoundError(identifier)
@@ -566,38 +580,18 @@ class BedAgentBedSet:
             session.delete(bedset_obj)
             session.commit()
 
-        self.delete_phc_view(identifier, nofail=True)
         if files:
             self.config.delete_files_s3(files)
-
-    def delete_phc_view(self, identifier: str, nofail: bool = False) -> None:
-        """
-        Delete view in pephub.
-
-        :param identifier: bedset identifier
-        :param nofail: do not raise an error if view not found
-        :return: None
-        """
-        _LOGGER.info(f"Deleting view in pephub for bedset '{identifier}'")
-        try:
-            self.config.phc.view.delete(
-                namespace=self.config.config.phc.namespace,
-                name=self.config.config.phc.name,
-                tag=self.config.config.phc.tag,
-                view_name=identifier,
-            )
-        except Exception as e:
-            _LOGGER.error(f"Failed to delete view in pephub: {e}")
-            if not nofail:
-                raise e
-        return None
 
     def exists(self, identifier: str) -> bool:
         """
         Check if bedset exists in the database.
 
-        :param identifier: bedset identifier
-        :return: True if bedset exists, False otherwise
+        Args:
+            identifier: Bedset identifier.
+
+        Returns:
+            True if bedset exists, False otherwise.
         """
         statement = select(BedSets).where(BedSets.id == identifier)
         with Session(self._db_engine.engine) as session:
@@ -610,14 +604,15 @@ class BedAgentBedSet:
         """
         Get unprocessed bedset from the database.
 
-        :param limit: limit of results
-        :param offset: offset of results
+        Args:
+            limit: Limit of results.
+            offset: Offset of results.
 
-        :return: bedset metadata
+        Returns:
+            Bedset metadata.
         """
 
         with Session(self._db_engine.engine) as session:
-
             statement = (
                 select(BedSets)
                 .where(BedSets.processed.is_(False))
@@ -646,6 +641,7 @@ class BedAgentBedSet:
                         statistics=None,
                         plots=None,
                         bed_ids=list_of_bedfiles,
+                        bedfile_count=bedset_obj.bedfile_count,
                         submission_date=bedset_obj.submission_date,
                         last_update_date=bedset_obj.last_update_date,
                         author=bedset_obj.author,

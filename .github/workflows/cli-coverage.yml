@@ -9,7 +9,7 @@ jobs:
     strategy:
       matrix:
         python-version: ["3.12"]
-        os: [ ubuntu-latest ] # can't use macOS when using service containers or container jobs
+        os: [ubuntu-latest] # can't use macOS when using service containers or container jobs
     runs-on: ${{ matrix.os }}
     services:
       postgres:
@@ -24,23 +24,17 @@ jobs:
         options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
 
       - name: Install uv
         run: pip install uv
 
-      - name: Install dev dependencies
-        run: if [ -f requirements/requirements-dev.txt ]; then uv pip install -r requirements/requirements-dev.txt --system; fi
-
-      - name: Install test dependencies
-        run: if [ -f requirements/requirements-test.txt ]; then uv pip install -r requirements/requirements-test.txt --system; fi
-
-      - name: Install package
-        run: uv pip install . --system
+      - name: Install package with test dependencies
+        run: uv pip install ".[test]" --system
 
       - name: Run tests
         run: coverage run -m pytest

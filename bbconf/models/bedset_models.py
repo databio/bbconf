@@ -1,5 +1,5 @@
 import datetime
-from typing import List, Union
+from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, model_validator
 
@@ -8,8 +8,32 @@ from .bed_models import BedMetadataBasic, BedStatsModel
 
 
 class BedSetStats(BaseModel):
+    """Bedset statistics: mean/sd of scalar columns.
+
+    Populated from bedset_means and bedset_standard_deviation database columns.
+    """
+
     mean: BedStatsModel = None
     sd: BedStatsModel = None
+
+
+class BedSetDistributions(BaseModel):
+    """Collection-level aggregated distribution statistics for a bedset.
+
+    Stored in the bedset_stats JSONB database column. Populated when
+    member bed files have been processed with the gtars analysis backend.
+    """
+
+    n_files: int = 0
+    composition: Optional[dict] = None
+    scalar_summaries: Optional[dict] = None
+    tss_histogram: Optional[dict] = None
+    widths_histogram: Optional[dict] = None
+    neighbor_distances: Optional[dict] = None
+    gc_content: Optional[dict] = None
+    region_distribution: Optional[dict] = None
+    partitions: Optional[dict] = None
+    chromosome_summaries: Optional[dict] = None
 
 
 class BedSetPlots(BaseModel):
@@ -24,36 +48,38 @@ class BedSetMetadata(BaseModel):
     md5sum: str
     submission_date: datetime.datetime = None
     last_update_date: datetime.datetime = None
-    statistics: Union[BedSetStats, None] = None
-    plots: Union[BedSetPlots, None] = None
+    statistics: BedSetStats | None = None
+    distributions: BedSetDistributions | None = None
+    plots: BedSetPlots | None = None
     description: str = None
     summary: str = None
-    bed_ids: List[str] = None
-    author: Union[str, None] = None
-    source: Union[str, None] = None
+    bed_ids: list[str] = None
+    bedfile_count: int = 0
+    author: str | None = None
+    source: str | None = None
 
 
 class BedSetListResult(BaseModel):
     count: int
     limit: int
     offset: int
-    results: List[BedSetMetadata]
+    results: list[BedSetMetadata]
 
 
 class BedSetBedFiles(BaseModel):
     count: int
-    results: List[BedMetadataBasic]
+    results: list[BedMetadataBasic]
 
 
 class BedSetPEP(BaseModel):
     sample_name: str
     original_name: str
-    genome_alias: Union[str, None] = ""
-    genome_digest: Union[str, None] = ""
-    bed_compliance: Union[str, None] = ""
-    data_format: Union[str, None] = ""
-    description: Union[str, None] = ""
-    url: Union[str, None] = ""
+    genome_alias: str | None = ""
+    genome_digest: str | None = ""
+    bed_compliance: str | None = ""
+    data_format: str | None = ""
+    description: str | None = ""
+    url: str | None = ""
 
     @model_validator(mode="before")
     def remove_underscore_keys(cls, values):

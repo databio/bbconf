@@ -1,20 +1,26 @@
 import datetime
 import logging
-from typing import List, Optional
+import os
+from typing import Optional
 
 import pandas as pd
+from alembic import command
+from alembic.config import Config
 from sqlalchemy import (
+    DDL,
     TIMESTAMP,
     BigInteger,
     ForeignKey,
+    Index,
     Result,
     Select,
     String,
     UniqueConstraint,
     event,
     select,
+    text,
 )
-from sqlalchemy.dialects.postgresql import ARRAY, JSON
+from sqlalchemy.dialects.postgresql import ARRAY, JSON, JSONB
 from sqlalchemy.engine import URL, Engine, create_engine
 from sqlalchemy.event import listens_for
 from sqlalchemy.exc import IntegrityError, ProgrammingError
@@ -29,6 +35,22 @@ _LOGGER = logging.getLogger(PKG_NAME)
 
 POSTGRES_DIALECT = "postgresql+psycopg"
 
+# Connection-pool hardening. Without these, a database host that reboots
+# without sending a FIN or RST leaves every pooled socket blocked in recv()
+# until the Linux default TCP keepalive fires (~2 hours), so every request
+# waits out pool_timeout and returns 500. See the 2026-09-18 outage.
+POOL_RECYCLE_SECONDS = 1800  # drop connections older than 30 minutes
+
+# libpq connection keywords; psycopg 3 passes these straight through.
+CONNECT_ARGS = {
+    "connect_timeout": 5,
+    "keepalives": 1,
+    "keepalives_idle": 30,
+    "keepalives_interval": 10,
+    "keepalives_count": 3,  # idle dead peer detected in ~60 s, not ~2 h
+    "tcp_user_timeout": 30000,  # unacked data gives up after 30 s, not ~15 min
+}
+
 # tables, that were created in this execution
 tables_initialized: list = []
 
@@ -36,7 +58,8 @@ tables_initialized: list = []
 class SchemaError(Exception):
     def __init__(self):
         super().__init__(
-            """The database schema is incorrect, can't connect to the database!"""
+            """
+            The database schema is incorrect, can't connect to the database!"""
         )
 
 
@@ -104,9 +127,6 @@ class Bed(Base):
         default=False,
         comment="Whether file was tokenized and added to the vector database",
     )
-    pephub: Mapped[bool] = mapped_column(
-        default=False, comment="Whether sample was added to pephub"
-    )
 
     submission_date: Mapped[datetime.datetime] = mapped_column(
         default=deliver_update_date
@@ -117,11 +137,11 @@ class Bed(Base):
     )
     is_universe: Mapped[Optional[bool]] = mapped_column(default=False)
 
-    files: Mapped[List["Files"]] = relationship(
+    files: Mapped[list["Files"]] = relationship(
         "Files", back_populates="bedfile", cascade="all, delete-orphan"
     )
 
-    bedsets: Mapped[List["BedFileBedSetRelation"]] = relationship(
+    bedsets: Mapped[list["BedFileBedSetRelation"]] = relationship(
         "BedFileBedSetRelation", back_populates="bedfile", cascade="all, delete-orphan"
     )
 
@@ -144,11 +164,35 @@ class Bed(Base):
     )
     license_mapping: Mapped["License"] = relationship("License", back_populates="bed")
 
-    ref_classifier: Mapped[List["GenomeRefStats"]] = relationship(
+    ref_classifier: Mapped[list["GenomeRefStats"]] = relationship(
         "GenomeRefStats", back_populates="bed", cascade="all, delete-orphan"
     )
     processed: Mapped[bool] = mapped_column(
         default=False, comment="Whether the bed file was processed"
+    )
+
+    __table_args__ = (
+        # Backs the genome filter (Bed.genome_alias == genome) and the
+        # GROUP BY genome_alias aggregations. Historically created by hand in the
+        # live DB; declared here so a fresh create_all() reproduces it exactly
+        # (name and btree deduplication included).
+        Index(
+            "genome_alias_index",
+            "genome_alias",
+            postgresql_with={"deduplicate_items": "true"},
+        ),
+        # Backs get_recent_beds / list_beds(order_by="submission_date"):
+        # ORDER BY submission_date DESC, id ASC LIMIT n.
+        Index("ix_bed_submission_date", text("submission_date DESC"), text("id")),
+        # Partial indexes for the background-worker backlog scans. They stay
+        # small and get faster as each queue drains toward empty.
+        Index("ix_bed_unprocessed", "id", postgresql_where=text("processed = false")),
+        Index("ix_bed_not_indexed", "id", postgresql_where=text("indexed = false")),
+        Index(
+            "ix_bed_not_file_indexed",
+            "id",
+            postgresql_where=text("file_indexed = false"),
+        ),
     )
 
 
@@ -254,7 +298,22 @@ class BedStats(Base):
     promotercore_percentage: Mapped[Optional[float]]
     tssdist: Mapped[Optional[float]]
 
+    distributions: Mapped[Optional[dict]] = mapped_column(
+        JSONB,
+        nullable=True,
+        comment="Full distribution arrays from gtars genomicdist (JSONB)",
+    )
+
     bed: Mapped["Bed"] = relationship("Bed", back_populates="stats")
+
+    __table_args__ = (
+        # Backs the "beds missing computed stats" worker scan.
+        Index(
+            "ix_bed_stats_missing_regions",
+            "id",
+            postgresql_where=text("number_of_regions IS NULL"),
+        ),
+    )
 
 
 class Files(Base):
@@ -303,7 +362,7 @@ class BedFileBedSetRelation(Base):
         ForeignKey("bedsets.id", ondelete="CASCADE"), primary_key=True
     )
     bedfile_id: Mapped[str] = mapped_column(
-        ForeignKey("bed.id", ondelete="CASCADE"), primary_key=True
+        ForeignKey("bed.id", ondelete="CASCADE"), primary_key=True, index=True
     )
 
     bedset: Mapped["BedSets"] = relationship("BedSets", back_populates="bedfiles")
@@ -336,11 +395,20 @@ class BedSets(Base):
     bedset_standard_deviation: Mapped[Optional[dict]] = mapped_column(
         JSON, comment="Median values of the bedset"
     )
+    bedset_stats: Mapped[Optional[dict]] = mapped_column(
+        JSONB,
+        nullable=True,
+        comment="Pre-aggregated distribution statistics from gtars (JSONB)",
+    )
 
-    bedfiles: Mapped[List["BedFileBedSetRelation"]] = relationship(
+    bedfile_count: Mapped[int] = mapped_column(
+        default=0, comment="Number of bedfiles in the bedset (denormalized count)"
+    )
+
+    bedfiles: Mapped[list["BedFileBedSetRelation"]] = relationship(
         "BedFileBedSetRelation", back_populates="bedset", cascade="all, delete-orphan"
     )
-    files: Mapped[List["Files"]] = relationship("Files", back_populates="bedset")
+    files: Mapped[list["Files"]] = relationship("Files", back_populates="bedset")
     universe: Mapped["Universes"] = relationship("Universes", back_populates="bedset")
 
     author: Mapped[str] = mapped_column(nullable=True, comment="Author of the bedset")
@@ -349,6 +417,40 @@ class BedSets(Base):
     processed: Mapped[bool] = mapped_column(
         default=False, comment="Whether the bedset was processed"
     )
+
+    __table_args__ = (
+        # Backs the "unprocessed bedsets" worker scan.
+        Index(
+            "ix_bedsets_unprocessed", "id", postgresql_where=text("processed = false")
+        ),
+        # Trigram GIN indexes for the bedset search (get_ids_list), which filters
+        # on name/description with ILIKE '%query%'. A leading-wildcard ILIKE
+        # cannot use a btree index at all, so pg_trgm is the only thing that
+        # avoids a full table scan here. Needs the pg_trgm extension, which the
+        # before_create listener below creates on first creation of this table.
+        Index(
+            "ix_bedsets_name_trgm",
+            "name",
+            postgresql_using="gin",
+            postgresql_ops={"name": "gin_trgm_ops"},
+        ),
+        Index(
+            "ix_bedsets_description_trgm",
+            "description",
+            postgresql_using="gin",
+            postgresql_ops={"description": "gin_trgm_ops"},
+        ),
+    )
+
+
+# Make the pg_trgm extension available before the bedsets trigram GIN indexes are
+# built. Scoped to this table's creation so it runs only on first-time schema
+# creation (not on every startup) and only on PostgreSQL.
+event.listen(
+    BedSets.__table__,
+    "before_create",
+    DDL("CREATE EXTENSION IF NOT EXISTS pg_trgm").execute_if(dialect="postgresql"),
+)
 
 
 class Universes(Base):
@@ -413,7 +515,7 @@ class License(Base):
         nullable=False, comment="License description"
     )
 
-    bed: Mapped[List["Bed"]] = relationship("Bed", back_populates="license_mapping")
+    bed: Mapped[list["Bed"]] = relationship("Bed", back_populates="license_mapping")
 
 
 class ReferenceGenome(Base):
@@ -424,7 +526,7 @@ class ReferenceGenome(Base):
         nullable=False, comment="Name of the reference genome"
     )
 
-    bed_reference: Mapped[List["GenomeRefStats"]] = relationship(
+    bed_reference: Mapped[list["GenomeRefStats"]] = relationship(
         "GenomeRefStats",
         back_populates="genome_object",
         cascade="all, delete-orphan",
@@ -501,7 +603,7 @@ class GeoGseStatus(Base):
     number_of_skips: Mapped[int] = mapped_column(default=0, comment="Number of skips")
     number_of_fails: Mapped[int] = mapped_column(default=0, comment="Number of fails")
 
-    gsm_status_mapper: Mapped[List["GeoGsmStatus"]] = relationship(
+    gsm_status_mapper: Mapped[list["GeoGsmStatus"]] = relationship(
         "GeoGsmStatus", back_populates="gse_status_mapper"
     )
     error: Mapped[str] = mapped_column(nullable=True, comment="Error message")
@@ -532,7 +634,9 @@ class GeoGsmStatus(Base):
         nullable=True, index=True, comment="Bed identifier"
     )
 
-    file_size: Mapped[int] = mapped_column(default=0, comment="Size of the file")
+    file_size: Mapped[int] = mapped_column(
+        BigInteger, default=0, comment="Size of the file"
+    )
     genome: Mapped[str] = mapped_column(nullable=True, comment="Genome")
 
     gse_status_mapper: Mapped["GeoGseStatus"] = relationship(
@@ -594,6 +698,84 @@ class UsageSearch(Base):
     date_to: Mapped[datetime.datetime] = mapped_column(comment="Date to")
 
 
+class BedSnapshot(Base):
+    """
+    Index of bulk metadata exports published to S3.
+
+    One row per published artifact (metadata / bedsets / membership / manifest).
+    The exporter writes a row after a successful upload; the /v1/bed/exports
+    endpoint reads them newest-first. This is a new table, so
+    Base.metadata.create_all() creates it on the next connection.
+    """
+
+    __tablename__ = "bed_snapshots"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True, autoincrement=True)
+    file_path: Mapped[str] = mapped_column(
+        nullable=False, comment="S3 object key, relative to the bucket root"
+    )
+    file_type: Mapped[str] = mapped_column(
+        nullable=False, comment="metadata | bedsets | bedset_membership | manifest"
+    )
+    creation_date: Mapped[datetime.datetime] = mapped_column(
+        default=deliver_update_date, comment="Build date of the export"
+    )
+    record_count: Mapped[Optional[int]] = mapped_column(
+        nullable=True, comment="Rows actually written to the file"
+    )
+    file_size: Mapped[Optional[int]] = mapped_column(
+        nullable=True, comment="Size of the file in bytes"
+    )
+    checksum: Mapped[Optional[str]] = mapped_column(
+        nullable=True, comment="SHA256 of the file"
+    )
+    schema_version: Mapped[Optional[int]] = mapped_column(
+        nullable=True, comment="Export schema version"
+    )
+
+
+class AnalysisFile(Base):
+    """
+    Registry of standalone analysis files (openSignalMatrix, models, other
+    analysis inputs) stored in S3. Not tied to any bed file or bedset.
+
+    Append-only: one row per uploaded file, so name-based lookups resolve the
+    newest matching row (same model as ``bed_snapshots``). This is a new table,
+    so ``Base.metadata.create_all()`` creates it on the next connection.
+    """
+
+    __tablename__ = "analysis_files"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(
+        nullable=False, index=True, comment="Logical name/key, e.g. openSignalMatrix"
+    )
+    file_path: Mapped[str] = mapped_column(
+        nullable=False, comment="S3 object key, relative to the bucket root"
+    )
+    file_type: Mapped[Optional[str]] = mapped_column(
+        nullable=True,
+        index=True,
+        comment="Category, e.g. openSignalMatrix | reference | model",
+    )
+    genome: Mapped[Optional[str]] = mapped_column(
+        nullable=True, index=True, comment="Genome/assembly, e.g. hg38 (optional)"
+    )
+    description: Mapped[Optional[str]] = mapped_column(nullable=True)
+    tags: Mapped[Optional[list]] = mapped_column(
+        ARRAY(String), nullable=True, comment="Free-form tags"
+    )
+    file_size: Mapped[Optional[int]] = mapped_column(
+        nullable=True, comment="Size of the file in bytes"
+    )
+    checksum: Mapped[Optional[str]] = mapped_column(
+        nullable=True, comment="SHA256 of the file"
+    )
+    creation_date: Mapped[datetime.datetime] = mapped_column(
+        default=deliver_update_date, comment="Upload date"
+    )
+
+
 class BaseEngine:
     """
     A class with base methods, that are used in several classes.
@@ -605,24 +787,29 @@ class BaseEngine:
         host: str = "localhost",
         port: int = 5432,
         database: str = "bedbase",
-        user: str = None,
-        password: str = None,
+        user: str | None = None,
+        password: str | None = None,
         drivername: str = POSTGRES_DIALECT,
-        dsn: str = None,
+        dsn: str | None = None,
         echo: bool = False,
+        run_migrations: bool = False,
     ):
         """
-        Initialize connection to the bedbase database. You can use The basic connection parameters
+        Initialize connection to the bedbase database. You can use the basic connection parameters
         or libpq connection string.
 
-        :param host: database server address e.g., localhost or an IP address.
-        :param port: the port number that defaults to 5432 if it is not provided.
-        :param database: the name of the database that you want to connect.
-        :param user: the username used to authenticate.
-        :param password: password used to authenticate.
-        :param drivername: driver used in
-        :param dsn: libpq connection string using the dsn parameter
-        (e.g. 'postgresql://user_name:password@host_name:port/db_name')
+        Args:
+            host: Database server address e.g., localhost or an IP address.
+            port: The port number that defaults to 5432 if it is not provided.
+            database: The name of the database that you want to connect.
+            user: The username used to authenticate.
+            password: Password used to authenticate.
+            drivername: Driver used in connection.
+            dsn: Libpq connection string using the dsn parameter
+                (e.g. 'postgresql://user_name:password@host_name:port/db_name').
+            run_migrations: Upgrade the database to the latest Alembic revision
+                (``head``) before connecting. Safe on an already-migrated or
+                pre-existing database (the initial revision is idempotent).
         """
         if not dsn:
             dsn = URL.create(
@@ -634,7 +821,20 @@ class BaseEngine:
                 drivername=drivername,
             )
 
-        self._engine = create_engine(dsn, echo=echo)
+        if run_migrations:
+            if isinstance(dsn, str):
+                migration_url = dsn
+            else:
+                migration_url = dsn.render_as_string(hide_password=False)
+            self.run_db_migration(migration_url)
+
+        self._engine = create_engine(
+            dsn,
+            echo=echo,
+            pool_pre_ping=True,  # test idle-in-pool connections before reuse
+            pool_recycle=POOL_RECYCLE_SECONDS,
+            connect_args=dict(CONNECT_ARGS),
+        )
         self.create_schema(self._engine)
         self.check_db_connection()
 
@@ -642,8 +842,11 @@ class BaseEngine:
         """
         Create sql schema in the database.
 
-        :param engine: sqlalchemy engine [Default: None]
-        :return: None
+        Args:
+            engine: Sqlalchemy engine [Default: None].
+
+        Returns:
+            None.
         """
         if not engine:
             engine = self._engine
@@ -661,21 +864,46 @@ class BaseEngine:
         """
         Delete sql schema in the database.
 
-        :param engine: sqlalchemy engine [Default: None]
-        :return: None
+        Args:
+            engine: Sqlalchemy engine [Default: None].
+
+        Returns:
+            None.
         """
         if not engine:
             engine = self._engine
         Base.metadata.drop_all(engine)
         return None
 
+    def run_db_migration(self, database_url: str) -> None:
+        """
+        Upgrade the database to the latest Alembic revision (``head``).
+
+        The Alembic config is built programmatically so the package does not
+        depend on the repo-root ``alembic.ini`` at runtime.
+
+        Args:
+            database_url: SQLAlchemy connection URL (with password) to migrate.
+        """
+        script_location = os.path.join(os.path.dirname(__file__), "alembic")
+
+        alembic_cfg = Config()
+        alembic_cfg.set_main_option("script_location", script_location)
+        alembic_cfg.set_main_option("sqlalchemy.url", database_url)
+
+        _LOGGER.info("Running database migrations to the latest revision...")
+        command.upgrade(alembic_cfg, "head")
+
     def session_execute(self, statement: Select) -> Result:
         """
-        Execute statement using sqlalchemy statement
+        Execute statement using sqlalchemy statement.
 
-        :param statement: SQL query or a SQL expression that is constructed using
-            SQLAlchemy's SQL expression language
-        :return: query result represented with declarative base
+        Args:
+            statement: SQL query or a SQL expression that is constructed using
+                SQLAlchemy's SQL expression language.
+
+        Returns:
+            Query result represented with declarative base.
         """
         _LOGGER.debug(f"Executing statement: {statement}")
         with Session(self._engine) as session:
@@ -686,14 +914,20 @@ class BaseEngine:
     @property
     def session(self):
         """
-        :return: started sqlalchemy session
+        Get a started sqlalchemy session.
+
+        Returns:
+            Started sqlalchemy session.
         """
         return self._start_session()
 
     @property
     def engine(self) -> Engine:
         """
-        :return: sqlalchemy engine
+        Get sqlalchemy engine.
+
+        Returns:
+            Sqlalchemy engine.
         """
         return self._engine
 
@@ -716,8 +950,11 @@ class BaseEngine:
         """
         Create schema graph of the database.
 
-        :param output_file: path to the output file
-        :return: None
+        Args:
+            output_file: Path to the output file.
+
+        Returns:
+            None.
         """
         graph = create_schema_graph(engine=self.engine, metadata=Base.metadata)
         graph.write(output_file, format="svg", prog="dot")
@@ -727,14 +964,16 @@ class BaseEngine:
         """
         Upload licenses to the database.
         """
+        # Check if licenses already exist to avoid duplicate key errors
+        with Session(self.engine) as session:
+            existing = session.scalar(select(License).limit(1))
+            if existing:
+                _LOGGER.info("Licenses already exist in the database, skipping upload.")
+                return
 
         _LOGGER.info("Uploading licenses to the database...")
         df = pd.read_csv(LICENSES_CSV_URL)
 
-        with Session(self.engine) as session:
-            df.to_sql(
-                License.__tablename__, self.engine, if_exists="append", index=False
-            )
-            session.commit()
+        df.to_sql(License.__tablename__, self.engine, if_exists="append", index=False)
 
         _LOGGER.info("Licenses uploaded successfully!")

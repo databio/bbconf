@@ -1,5 +1,4 @@
 import datetime
-from typing import List, Optional, Union
 
 from pydantic import BaseModel
 
@@ -7,23 +6,23 @@ from pydantic import BaseModel
 # DRS Models
 class AccessURL(BaseModel):
     url: str
-    headers: Optional[dict] = None
+    headers: dict | None = None
 
 
 class AccessMethod(BaseModel):
     type: str
-    access_url: Optional[AccessURL] = None
-    access_id: Optional[str] = None
-    region: Optional[str] = None
+    access_url: AccessURL | None = None
+    access_id: str | None = None
+    region: str | None = None
 
 
 class DRSModel(BaseModel):
     id: str
-    name: Optional[str] = None
+    name: str | None = None
     self_uri: str
-    size: Union[int, None] = None
-    created_time: Optional[datetime.datetime] = None
-    updated_time: Optional[datetime.datetime] = None
+    size: int | None = None
+    created_time: datetime.datetime | None = None
+    updated_time: datetime.datetime | None = None
     checksums: str
-    access_methods: List[AccessMethod]
-    description: Optional[str] = None
+    access_methods: list[AccessMethod]
+    description: str | None = None

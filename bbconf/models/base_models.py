@@ -1,5 +1,4 @@
 import datetime
-from typing import Dict, List, Optional, Union
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -8,14 +7,14 @@ from .drs_models import AccessMethod
 
 class FileModel(BaseModel):
     name: str
-    title: Optional[str] = None
+    title: str | None = None
     path: str
-    file_digest: Optional[str] = None
-    path_thumbnail: Optional[Union[str, None]] = Field(None, alias="thumbnail_path")
-    description: Optional[str] = None
-    size: Optional[int] = None
-    object_id: Optional[str] = None
-    access_methods: List[AccessMethod] = None
+    file_digest: str | None = None
+    path_thumbnail: str | None = Field(None, alias="thumbnail_path")
+    description: str | None = None
+    size: int | None = None
+    object_id: str | None = None
+    access_methods: list[AccessMethod] | None = None
 
     model_config = ConfigDict(populate_by_name=True, extra="ignore")
 
@@ -28,11 +27,11 @@ class StatsReturn(BaseModel):
 
 class UsageStats(BaseModel):
     # file_downloads: Dict[str, int]   # Placeholder for tracking file download statistics in the future.
-    bed_metadata: Dict[str, int]
-    bedset_metadata: Dict[str, int]
-    bed_search_terms: Dict[str, int]
-    bedset_search_terms: Dict[str, int]
-    bed_downloads: Dict[str, int]
+    bed_metadata: dict[str, int]
+    bedset_metadata: dict[str, int]
+    bed_search_terms: dict[str, int]
+    bedset_search_terms: dict[str, int]
+    bed_downloads: dict[str, int]
 
 
 class UsageModel(BaseModel):
@@ -40,15 +39,39 @@ class UsageModel(BaseModel):
     Usage model. Used to track usage of the bedbase.
     """
 
-    bed_meta: Union[dict, None] = Dict[str, int]
-    bedset_meta: Union[dict, None] = Dict[str, int]
+    bed_meta: dict[str, int] | None = None
+    bedset_meta: dict[str, int] | None = None
 
-    bed_search: Union[dict, None] = Dict[str, int]
-    bedset_search: Union[dict, None] = Dict[str, int]
-    files: Union[dict, None] = Dict[str, int]
+    bed_search: dict[str, int] | None = None
+    bedset_search: dict[str, int] | None = None
+    files: dict[str, int] | None = None
 
     date_from: datetime.datetime
-    date_to: Union[datetime.datetime, None] = None
+    date_to: datetime.datetime | None = None
+
+
+class UsageItem(BaseModel):
+    """
+    A single per-key usage count.
+    """
+
+    key: str
+    count: int
+
+
+class UsageResponse(BaseModel):
+    """
+    Per-key usage counts for a single event type, optionally restricted to a
+    date range. Returned by BedBaseAgent.get_usage.
+    """
+
+    event_type: str
+    date_from: datetime.datetime | None = None
+    date_to: datetime.datetime | None = None
+    limit: int | None = None
+    offset: int = 0
+    count: int
+    results: list[UsageItem]
 
 
 class FileInfo(BaseModel):
@@ -71,12 +94,12 @@ class AllFilesInfo(BaseModel):
     """
 
     total: int
-    files: List[FileInfo]
+    files: list[FileInfo]
 
 
 class BinValues(BaseModel):
-    bins: List[Union[int, float, str]]
-    counts: List[int]
+    bins: list[int | float | str]
+    counts: list[int]
     mean: float
     median: float
 
@@ -86,20 +109,82 @@ class GEOStatistics(BaseModel):
     GEO statistics for files.
     """
 
-    number_of_files: Dict[str, int]
-    cumulative_number_of_files: Dict[str, int]
+    number_of_files: dict[str, int]
+    cumulative_number_of_files: dict[str, int]
     file_sizes: BinValues
 
 
 class FileStats(BaseModel):
-    bed_compliance: Dict[str, int]
-    data_format: Dict[str, int]
-    file_genome: Dict[str, int]
-    file_organism: Dict[str, int]
-    file_assay: Dict[str, int]
-    geo_status: Dict[str, int]
-    bed_comments: Dict[str, int]
+    bed_compliance: dict[str, int]
+    data_format: dict[str, int]
+    file_genome: dict[str, int]
+    file_organism: dict[str, int]
+    file_assay: dict[str, int]
+    cell_line: dict[str, int]
+    geo_status: dict[str, int]
+    bed_comments: dict[str, int]
     mean_region_width: BinValues
     file_size: BinValues
     number_of_regions: BinValues
     geo: GEOStatistics
+
+
+class BedSnapshotArtifact(BaseModel):
+    """A built snapshot file to publish (upload to S3 + record in the database)."""
+
+    path: str  # local file path to upload
+    file_type: str
+    record_count: int | None = None
+    file_size: int | None = None
+    checksum: str | None = None
+    schema_version: int | None = None
+
+
+class BedSnapshotResult(BaseModel):
+    """One published bulk-export artifact."""
+
+    file_path: str
+    file_type: str
+    creation_date: datetime.datetime
+    record_count: int | None = None
+    file_size: int | None = None
+    checksum: str | None = None
+    schema_version: int | None = None
+
+
+class BedSnapshotListResult(BaseModel):
+    count: int
+    results: list[BedSnapshotResult]
+
+
+class AnalysisFileArtifact(BaseModel):
+    """A standalone analysis file to publish (upload to S3 + record in the database)."""
+
+    path: str  # local file path to upload
+    name: str
+    file_type: str | None = None
+    genome: str | None = None
+    description: str | None = None
+    tags: list[str] | None = None
+    file_size: int | None = None
+    checksum: str | None = None
+
+
+class AnalysisFileResult(BaseModel):
+    """One registered standalone analysis file."""
+
+    id: int | None = None
+    name: str
+    file_path: str
+    file_type: str | None = None
+    genome: str | None = None
+    description: str | None = None
+    tags: list[str] | None = None
+    file_size: int | None = None
+    checksum: str | None = None
+    creation_date: datetime.datetime
+
+
+class AnalysisFileListResult(BaseModel):
+    count: int
+    results: list[AnalysisFileResult]

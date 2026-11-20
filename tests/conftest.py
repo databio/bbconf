@@ -1,6 +1,4 @@
 import os
-import subprocess
-from atexit import register
 
 import pytest
 
@@ -107,12 +105,15 @@ def example_dict():
             "promoterprox_frequency": 16,
             "promoterprox_percentage": 17,
         },
-        metadata={"sample_name": "sample_name_1"},
+        metadata={
+            "sample_name": "sample_name_1",
+            "species_name": "species_name",
+            "species_id": "123",
+        },
         plots=plots,
         files=files,
         classification=classification,
         upload_qdrant=False,
-        upload_pephub=False,
         upload_s3=True,
         local_path=DATA_PATH,
         overwrite=False,
@@ -123,11 +124,3 @@ def example_dict():
 @pytest.fixture
 def load_test_data():
     get_bbagent().config.db_engine()
-
-
-@pytest.fixture()
-def mocked_phc(mocker):
-    mocker.patch(
-        "pephubclient.modules.sample.PEPHubSample.get",
-        return_value={"sample_name": BED_TEST_ID, "other_metadata": "other_metadata_1"},
-    )

@@ -53,7 +53,6 @@ class TestBedset:
                 },
                 statistics=True,
                 upload_s3=True,
-                upload_pephub=False,
                 no_fail=True,
             )
             with Session(bbagent_obj.config.db_engine.engine) as session:
@@ -61,6 +60,7 @@ class TestBedset:
                 assert result is not None
                 assert result.name == "test_name"
                 assert len([k for k in result.files]) == 1
+                assert result.bedfile_count == 1
 
     def test_get_metadata_full(self, bbagent_obj):
         with ContextManagerDBTesting(
@@ -73,6 +73,7 @@ class TestBedset:
             assert result.statistics.sd is not None
             assert result.statistics.mean is not None
             assert result.plots is not None
+            assert result.bedfile_count == 1
 
     def test_get_metadata_not_full(self, bbagent_obj):
         with ContextManagerDBTesting(
@@ -84,6 +85,7 @@ class TestBedset:
             assert result.md5sum == "bbad0000000000000000000000000000"
             assert result.statistics is None
             assert result.plots is None
+            assert result.bedfile_count == 1
 
     def test_get_not_found(self, bbagent_obj):
         with ContextManagerDBTesting(
@@ -128,6 +130,10 @@ class TestBedset:
             assert result.offset == 0
             assert len(result.results) == 1
             assert result.results[0].id == BEDSET_TEST_ID
+            # bed_ids is intentionally left unpopulated in list results to
+            # avoid lazy-loading full bedfile membership for every row
+            assert result.results[0].bed_ids is None
+            assert result.results[0].bedfile_count == 1
 
     def test_get_bedset_list_offset(self, bbagent_obj):
         with ContextManagerDBTesting(
@@ -139,6 +145,38 @@ class TestBedset:
             assert result.limit == 100
             assert result.offset == 1
             assert len(result.results) == 0
+
+    def test_get_bedset_list_stable_order(self, bbagent_obj):
+        extra_ids = [f"bedset_{i}" for i in range(9, 0, -1)]
+        with ContextManagerDBTesting(
+            config=bbagent_obj.config, add_data=True, bedset=True
+        ):
+            with Session(bbagent_obj.config.db_engine.engine) as session:
+                for bedset_id in extra_ids:
+                    session.add(
+                        BedSets(
+                            id=bedset_id,
+                            name=bedset_id,
+                            description="random desc",
+                            md5sum="bbad0000000000000000000000000000",
+                            processed=False,
+                            bedfile_count=0,
+                        )
+                    )
+                session.commit()
+
+            first = [r.id for r in bbagent_obj.bedset.get_ids_list(limit=100).results]
+            second = [r.id for r in bbagent_obj.bedset.get_ids_list(limit=100).results]
+
+            # paged walk must cover every id exactly once
+            paged = []
+            for offset in range(0, 10, 4):
+                page = bbagent_obj.bedset.get_ids_list(limit=4, offset=offset)
+                paged.extend(r.id for r in page.results)
+
+        assert first == second
+        assert first == sorted(extra_ids + [BEDSET_TEST_ID])
+        assert paged == first
 
     def test_get_idset_list_query_found(self, bbagent_obj):
         with ContextManagerDBTesting(
