@@ -6,8 +6,12 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 ## [0.17.0] - unreleased
 ### Added:
 - Optional `embedding_server` config block: get text (dense and sparse) embeddings from TEI servers and region embeddings from a region embedding server, instead of loading the models in-process. Startup checks each server's model against `path`.
+- Bedset distribution stats: `bedset.create(statistics=True)` now also aggregates member files' gtars distributions (composition, scalar summaries with histograms, TSS histogram, partitions, per-chromosome region distribution) into the `bedset_stats` column. Read them with `bedset.get_distributions()` or `bedset.get(full=True).distributions`. A failed aggregation is logged and the bedset is still created.
+- `bed.aggregate_distributions(ids)` computes the same stats for any list of bed ids, and `bed.get_batch(ids)` fetches up to 1000 bed records at once.
 
 ### Changed:
+- `bed.get_stats()` now leaves out the per-file distributions blob unless called with `distributions=True`.
+- `BedSetDistributions` dropped its unused `widths_histogram`, `neighbor_distances`, `gc_content`, and `chromosome_summaries` fields.
 - torch, fastembed, and sentence-transformers are imported only when a model is loaded locally. They moved to the new `local` extra (`pip install "bbconf[local]"`); bbconf now needs `geniml >= 0.9.0`.
 
 ### Fixed:
