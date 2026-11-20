@@ -39,6 +39,8 @@ or install the latest version from the GitHub repository:
 pip install git+https://github.com/databio/bbconf.git
 ```
 
+`pip install bbconf` does not include the search models. Add the `local` extra to load them in-process (`pip install "bbconf[local]"`), or use embedding servers (below).
+
 
 ## Quick start
 
@@ -56,6 +58,26 @@ agent.objects  # Generic object/file operations
 stats = agent.get_stats()
 print(stats.bedfiles_number, stats.bedsets_number)
 ```
+
+## Embedding servers
+
+By default bbconf loads the text, sparse, and region2vec models named in `path` into memory. To get embeddings from HTTP servers instead, add an `embedding_server` block. Each URL that is set moves that one model to a server; the others stay local. A blank value or an unset `$VAR` counts as unset.
+
+```yaml
+embedding_server:
+  text_url: http://localhost:8080     # dense text model (path.text2vec)
+  sparse_url: http://localhost:8081   # sparse model (path.sparse_model)
+  region_url: http://localhost:8082   # region model (path.region2vec)
+  api_key: $EMBEDDING_API_KEY         # sent as a Bearer token
+```
+
+The text servers speak the [Hugging Face Text Embeddings Inference (TEI)](https://huggingface.co/docs/text-embeddings-inference) API (`POST /embed`, `POST /embed_sparse`, `GET /info`). The region server speaks this API:
+
+- `GET /info` returns JSON with `api_version` (`"1"`), `model_id`, and `embedding_dim`.
+- `POST /embed_bed?pooling=mean` takes a raw BED file as the body (plain, or gzipped with `Content-Type: application/gzip`) and returns `{"embeddings": [[...]]}`: one vector, the float32 mean of the region vectors, the same as `np.mean(Region2VecExModel.encode(regions), axis=0)`.
+- Errors return a non-2xx status with `{"error": "...", "error_type": "..."}`.
+
+At startup bbconf calls each server's `/info` and stops if the server's model is not the one named in `path`, or if its vector size differs from the Qdrant collection's. If a server can't be reached, bbconf logs a warning and starts anyway.
 
 ## Database migrations
 

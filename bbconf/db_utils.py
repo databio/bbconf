@@ -35,6 +35,22 @@ _LOGGER = logging.getLogger(PKG_NAME)
 
 POSTGRES_DIALECT = "postgresql+psycopg"
 
+# Connection-pool hardening. Without these, a database host that reboots
+# without sending a FIN or RST leaves every pooled socket blocked in recv()
+# until the Linux default TCP keepalive fires (~2 hours), so every request
+# waits out pool_timeout and returns 500. See the 2026-09-18 outage.
+POOL_RECYCLE_SECONDS = 1800  # drop connections older than 30 minutes
+
+# libpq connection keywords; psycopg 3 passes these straight through.
+CONNECT_ARGS = {
+    "connect_timeout": 5,
+    "keepalives": 1,
+    "keepalives_idle": 30,
+    "keepalives_interval": 10,
+    "keepalives_count": 3,  # idle dead peer detected in ~60 s, not ~2 h
+    "tcp_user_timeout": 30000,  # unacked data gives up after 30 s, not ~15 min
+}
+
 # tables, that were created in this execution
 tables_initialized: list = []
 
@@ -812,7 +828,13 @@ class BaseEngine:
                 migration_url = dsn.render_as_string(hide_password=False)
             self.run_db_migration(migration_url)
 
-        self._engine = create_engine(dsn, echo=echo)
+        self._engine = create_engine(
+            dsn,
+            echo=echo,
+            pool_pre_ping=True,  # test idle-in-pool connections before reuse
+            pool_recycle=POOL_RECYCLE_SECONDS,
+            connect_args=dict(CONNECT_ARGS),
+        )
         self.create_schema(self._engine)
         self.check_db_connection()
 

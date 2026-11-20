@@ -34,6 +34,7 @@ from bbconf.db_utils import (
     TokenizedBed,
     Universes,
 )
+from bbconf.embedding_server import RegionEmbeddingServer, TextEmbeddingServer
 from bbconf.exceptions import (
     BedBaseConfError,
     BedFIleExistsError,
@@ -75,6 +76,21 @@ _LOGGER = getLogger(PKG_NAME)
 MAX_BATCH_SIZE = 1000
 
 # QDRANT_GENOME = "hg38"
+
+
+def _bed_id_from_point_id(point_id) -> str:
+    """
+    Convert a Qdrant point id to a plain 32-character BED id.
+
+    Qdrant stores BED ids as UUIDs and returns them with dashes.
+
+    Args:
+        point_id: Qdrant point id (dashed UUID string or UUID).
+
+    Returns:
+        BED id without dashes.
+    """
+    return str(point_id).replace("-", "")
 
 
 class BedAgentBedFile:
@@ -401,7 +417,7 @@ class BedAgentBedFile:
             # Hydrate all neighbours with a single batched query instead of one
             # SELECT per neighbour (was an N+1). annotations is joined-loaded,
             # but selectinload keeps that explicit for this detached-object path.
-            ids = [result.id.replace("-", "") for result in results.points]
+            ids = [_bed_id_from_point_id(result.id) for result in results.points]
             with Session(self._sa_engine) as session:
                 beds = {
                     bed.id: bed
@@ -413,16 +429,14 @@ class BedAgentBedFile:
                 }
             result_list = [
                 QdrantSearchResult(
-                    id=result.id.replace("-", ""),
+                    id=bed_id,
                     payload=result.payload,
                     score=result.score,
-                    metadata=self._build_metadata(
-                        beds[result.id.replace("-", "")], full=False
-                    ),
+                    metadata=self._build_metadata(beds[bed_id], full=False),
                 )
-                for result in results.points
+                for bed_id, result in zip(ids, results.points)
                 # skip stale Qdrant points that no longer exist in the database
-                if result.id.replace("-", "") in beds
+                if bed_id in beds
             ]
         except UnexpectedResponse as err:
             _LOGGER.error(
@@ -544,18 +558,28 @@ class BedAgentBedFile:
         offset: int = 0,
         genome: str = None,
         bed_compliance: str = None,
+        after: str | None = None,
     ) -> BedListResult:
         """
         Get list of bed file identifiers.
 
+        To enumerate everything, page with ``after=<last id>`` (keyset paging).
+        Offset paging costs grow with the offset, since Postgres reads and
+        discards ``offset`` rows per page; keyset paging is constant cost.
+
         Args:
             limit: Number of results to return.
-            offset: Offset to start from.
+            offset: Offset to start from. Ignored when ``after`` is set.
             genome: Filter by genome.
             bed_compliance: Filter by bed type. e.g. 'bed6+4'.
+            after: Return records with id greater than this. Keyset paging;
+                ignores ``offset``.
 
         Returns:
-            List of bed file identifiers.
+            List of bed file identifiers. ``count`` is the total number of
+            matching records on the first page (``offset == 0`` and no
+            ``after``), and ``None`` on every other page, since the count query
+            is skipped there.
         """
         statement = select(Bed)
         count_statement = select(func.count(Bed.id))
@@ -571,12 +595,18 @@ class BedAgentBedFile:
                 and_(Bed.bed_compliance == bed_compliance)
             )
 
+        if after is not None:
+            statement = statement.where(Bed.id > after)
+            offset = 0
+
         statement = statement.order_by(Bed.id).limit(limit).offset(offset)
 
         result_list = []
+        count = None
         with Session(self._sa_engine) as session:
             bed_ids = session.scalars(statement)
-            count = session.execute(count_statement).one()
+            if offset == 0 and after is None:
+                count = session.execute(count_statement).one()[0]
 
             for result in bed_ids:
                 annotation = StandardMeta(
@@ -587,7 +617,7 @@ class BedAgentBedFile:
                 )
 
         return BedListResult(
-            count=count[0],
+            count=count,
             limit=limit,
             offset=offset,
             results=result_list,
@@ -1278,6 +1308,9 @@ class BedAgentBedFile:
                 "Could not add region to qdrant. Invalid type, or path. "
             )
 
+        if isinstance(self.config.r2v_encoder, RegionEmbeddingServer):
+            return self.config.r2v_encoder.forward(bed_file).reshape(1, -1)
+
         if isinstance(bed_file, str):
             # Use try if file is corrupted. In Python RegionSet we have functionality to tackle this problem
             try:
@@ -1293,6 +1326,18 @@ class BedAgentBedFile:
         bed_embedding = np.mean(self.config.r2v_encoder.encode(bed_region_set), axis=0)
         vec_dim = bed_embedding.shape[0]
         return bed_embedding.reshape(1, vec_dim)
+
+    def _embed_sparse(self, text: str) -> models.SparseVector:
+        """
+        Create sparse embedding for text, with the local model or the server.
+        """
+        encoder = self.config.sparse_encoder
+        if isinstance(encoder, TextEmbeddingServer):
+            indices, values = encoder.embed_sparse(text)
+        else:
+            result = encoder.encode(text).coalesce()
+            indices, values = result.indices().tolist()[0], result.values().tolist()
+        return models.SparseVector(indices=indices, values=values)
 
     def _get_umap_file(self, bed_file: str | GRegionSet) -> np.ndarray:
         """
@@ -1336,7 +1381,7 @@ class BedAgentBedFile:
         )
         results_list = []
         for result in results:
-            result_id = result["id"].replace("-", "")
+            result_id = _bed_id_from_point_id(result["id"])
             try:
                 if with_metadata:
                     result_meta = self.get(result_id)
@@ -1349,7 +1394,8 @@ class BedAgentBedFile:
                 continue
             results_list.append(
                 QdrantSearchResult(
-                    **result, metadata=result_meta if with_metadata else None
+                    **{**result, "id": result_id},
+                    metadata=result_meta if with_metadata else None,
                 )
             )
 
@@ -1388,7 +1434,7 @@ class BedAgentBedFile:
         )
         results_list = []
         for result in results:
-            result_id = result["id"].replace("-", "")
+            result_id = _bed_id_from_point_id(result["id"])
             try:
                 result_meta = self.get(result_id)
             except BEDFileNotFoundError as e:
@@ -1397,7 +1443,11 @@ class BedAgentBedFile:
                 )
                 continue
             if result_meta:
-                results_list.append(QdrantSearchResult(**result, metadata=result_meta))
+                results_list.append(
+                    QdrantSearchResult(
+                        **{**result, "id": result_id}, metadata=result_meta
+                    )
+                )
 
         # Count of the searchable pool (indexed bed vectors), not the total number
         # of bed files in the database (which overcounts unindexed genomes).
@@ -2194,14 +2244,7 @@ class BedAgentBedFile:
                     embeddings_list = list(self.config.dense_encoder.embed(text))
 
                     if self.config.sparse_encoder:
-                        sparse_result = self.config.sparse_encoder.encode(
-                            text
-                        ).coalesce()
-
-                        sparse_embeddings = models.SparseVector(
-                            indices=sparse_result.indices().tolist()[0],
-                            values=sparse_result.values().tolist(),
-                        )
+                        sparse_embeddings = self._embed_sparse(text)
 
                         point_vectors = {
                             "dense": list(embeddings_list[0]),
@@ -2315,11 +2358,7 @@ class BedAgentBedFile:
 
         dense_query = list(list(self.config.dense_encoder.embed(query))[0])
         if self.config.sparse_encoder:
-            sparse_result = self.config.sparse_encoder.encode(query).coalesce()
-            sparse_embeddings = models.SparseVector(
-                indices=sparse_result.indices().tolist()[0],
-                values=sparse_result.values().tolist(),
-            )
+            sparse_embeddings = self._embed_sparse(query)
 
             hybrid_query = [
                 # Dense retrieval: semantic understanding
@@ -2357,7 +2396,7 @@ class BedAgentBedFile:
 
         result_list = []
         for result in results.points:
-            result_id = result.id.replace("-", "")
+            result_id = _bed_id_from_point_id(result.id)
 
             if with_metadata:
                 metadata = self.get(result_id, full=False)

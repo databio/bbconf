@@ -50,6 +50,30 @@ class UsageModel(BaseModel):
     date_to: datetime.datetime | None = None
 
 
+class UsageItem(BaseModel):
+    """
+    A single per-key usage count.
+    """
+
+    key: str
+    count: int
+
+
+class UsageResponse(BaseModel):
+    """
+    Per-key usage counts for a single event type, optionally restricted to a
+    date range. Returned by BedBaseAgent.get_usage.
+    """
+
+    event_type: str
+    date_from: datetime.datetime | None = None
+    date_to: datetime.datetime | None = None
+    limit: int | None = None
+    offset: int = 0
+    count: int
+    results: list[UsageItem]
+
+
 class FileInfo(BaseModel):
     """
     Main information about a file used for BEDbase verse statistics.
