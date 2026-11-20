@@ -4,7 +4,7 @@ import pytest
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import select
 
-from bbconf.db_utils import BedSets
+from bbconf.db_utils import Bed, BedSets, BedStats
 from bbconf.exceptions import BedbaseS3ConnectionError, BedSetNotFoundError
 
 from .conftest import DATA_PATH, SERVICE_UNAVAILABLE
@@ -249,3 +249,76 @@ class TestBedset:
         ):
             result = bbagent_obj.bedset.get_unprocessed()
             assert result.count == 1
+
+    def test_create_aggregates_distributions(self, bbagent_obj):
+        # Three beds: two with distributions, one with a JSON-null
+        # region_distribution (what bedboss stores for an empty file).
+        beds = {
+            "aggtest_a": dict(
+                number_of_regions=10,
+                mean_region_width=100,
+                exon_percentage=0.2,
+                distributions={
+                    "region_distribution": {"chr1": [1, 2, 3], "chr2": [4]},
+                    "tss_distances": {
+                        "counts": [1, 3],
+                        "x_min": -100000,
+                        "x_max": 100000,
+                        "bins": 2,
+                    },
+                },
+            ),
+            "aggtest_b": dict(
+                number_of_regions=30,
+                mean_region_width=300,
+                exon_percentage=0.4,
+                distributions={
+                    "region_distribution": {"chr1": [3, 2, 1]},
+                    "tss_distances": {
+                        "counts": [3, 1],
+                        "x_min": -100000,
+                        "x_max": 100000,
+                        "bins": 2,
+                    },
+                },
+            ),
+            "aggtest_c": dict(
+                number_of_regions=20,
+                distributions={"region_distribution": None, "tss_distances": None},
+            ),
+        }
+        with ContextManagerDBTesting(config=bbagent_obj.config):
+            with Session(bbagent_obj.config.db_engine.engine) as session:
+                for bed_id, values in beds.items():
+                    dists = values.pop("distributions")
+                    session.add(Bed(id=bed_id, name=bed_id, genome_alias="hg38"))
+                    session.add(
+                        BedStats(
+                            id=bed_id, distributions={"distributions": dists}, **values
+                        )
+                    )
+                session.commit()
+
+            bbagent_obj.bedset.create(
+                "aggtest_set", "aggtest_set", bedid_list=list(beds), statistics=True
+            )
+            dist = bbagent_obj.bedset.get_distributions("aggtest_set")
+
+            assert dist.n_files == 3
+            assert dist.composition["genome_alias"] == {"hg38": 3}
+
+            regions = dist.scalar_summaries["number_of_regions"]
+            assert (regions["mean"], regions["sd"], regions["n"]) == (20.0, 10.0, 3)
+            assert sum(regions["histogram"]["counts"]) == 3
+            assert dist.scalar_summaries["mean_region_width"]["n"] == 2
+
+            assert dist.partitions["exon"]["mean"] == 0.3
+            assert dist.partitions["exon"]["sd"] == 0.141
+
+            chr1 = dist.region_distribution["chr1"]
+            assert chr1 == {"mean": [2.0, 2.0, 2.0], "sd": [1.414, 0.0, 1.414], "n": 2}
+            assert dist.region_distribution["chr2"]["n"] == 1
+
+            assert dist.tss_histogram["mean"] == [2.0, 2.0]
+            assert dist.tss_histogram["n"] == 2
+            assert dist.tss_histogram["bins"] == 2
