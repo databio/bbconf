@@ -3,7 +3,7 @@
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) and [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) format.
 
 
-## [0.17.0] - unreleased
+## [0.17.0] - 2026-11-20
 ### Added:
 - Optional `embedding_server` config block: get text (dense and sparse) embeddings from TEI servers and region embeddings from a region embedding server, instead of loading the models in-process. Startup checks each server's model against `path`.
 - Bedset distribution stats: `bedset.create(statistics=True)` now also aggregates member files' gtars distributions (composition, scalar summaries with histograms, TSS histogram, partitions, per-chromosome region distribution) into the `bedset_stats` column. Read them with `bedset.get_distributions()` or `bedset.get(full=True).distributions`. A failed aggregation is logged and the bedset is still created.
