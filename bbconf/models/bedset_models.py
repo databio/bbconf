@@ -22,18 +22,32 @@ class BedSetDistributions(BaseModel):
 
     Stored in the bedset_stats JSONB database column. Populated when
     member bed files have been processed with the gtars analysis backend.
+
+    Only distributions that are meaningful at collection-level are kept:
+    - scalar_summaries: mean ± sd + 25-bin histograms of per-file scalar values
+    - tss_histogram: per-bin mean ± sd across files (fixed ±100 kb axis)
+    - region_distribution: per-chrom bin-wise mean ± sd across files
+      (requires gtars ≥ PR #248 for reference-aligned bin widths)
+    - partitions: mean ± sd of per-file partition fractions (0-1, not percent)
+
+    Dropped (retained in per-file distributions blob, not aggregated):
+    - widths_histogram: per-file variable-range bins aren't summable; use
+      scalar_summaries.mean_region_width histogram instead
+    - neighbor_distances KDE: each file's KDE is fit over its own log10 range,
+      so bin i means a different bp value per file; no collection-level
+      equivalent yet
+    - gc_content KDE: per-file distribution is unimodal; use
+      scalar_summaries.gc_content mean instead
+    - chromosome_summaries: redundant with region_distribution
+    - expected_partitions: per-file null hypothesis, not collection property
     """
 
     n_files: int = 0
     composition: Optional[dict] = None
     scalar_summaries: Optional[dict] = None
     tss_histogram: Optional[dict] = None
-    widths_histogram: Optional[dict] = None
-    neighbor_distances: Optional[dict] = None
-    gc_content: Optional[dict] = None
     region_distribution: Optional[dict] = None
     partitions: Optional[dict] = None
-    chromosome_summaries: Optional[dict] = None
 
 
 class BedSetPlots(BaseModel):
