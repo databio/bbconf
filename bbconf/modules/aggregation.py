@@ -280,7 +280,8 @@ def _aggregate_region_distribution(
         .where(
             BedStats.id == _ids_array(bed_ids),
             BedStats.distributions.isnot(None),
-            region_distribution.isnot(None),
+            # Skip JSON null (stored for empty files): jsonb_each would error.
+            func.jsonb_typeof(region_distribution) == "object",
         )
         .cte("per_file")
     )
