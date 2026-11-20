@@ -4,14 +4,13 @@ version = "0.17.0"
 description = "Configuration and data management tool for BEDbase"
 readme = "README.md"
 license = "BSD-2-Clause"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 authors = [
     { name = "Oleksandr Khoroshevskyi", email = "bnt4me@virginia.edu" },
 ]
 keywords = ["bioinformatics", "genomics", "BED", "configuration"]
 classifiers = [
     "Development Status :: 4 - Beta",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -29,7 +28,7 @@ dependencies = [
     "botocore >= 1.34.0, < 1.36.0",
     "boto3 >= 1.34.54, < 1.36.0",
     "sqlalchemy_schemadisplay",
-    "zarr < 3.0.0",
+    "zarr >= 3.1.0",
     "pyyaml >= 6.0.1",
     "s3fs >= 2024.3.1",
     "pandas>2.0.0, < 3.0.0",
